@@ -160,6 +160,21 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 .imp-n{background:#f3f4f6;color:var(--text2);padding:2px 8px;border-radius:50px;font-size:11px;font-weight:700}
 
 #omanMap{height:440px;border-radius:0 0 var(--radius) var(--radius)}
+/* Leaflet tooltip styling */
+.leaflet-tooltip{
+  background:rgba(12,30,53,0.92) !important;
+  border:none !important;
+  border-radius:8px !important;
+  color:#fff !important;
+  font-family:'Inter',sans-serif !important;
+  font-size:13px !important;
+  padding:8px 12px !important;
+  box-shadow:0 4px 16px rgba(0,0,0,0.3) !important;
+  pointer-events:none !important;
+}
+.leaflet-tooltip strong{color:#fff !important;font-weight:700 !important}
+.leaflet-tooltip em{color:rgba(255,255,255,0.6) !important;font-style:normal !important;font-size:11px !important}
+.leaflet-tooltip-left::before,.leaflet-tooltip-right::before{border-right-color:rgba(12,30,53,0.92) !important;border-left-color:rgba(12,30,53,0.92) !important}
 
 /* heatmap */
 .hm-wrap{overflow-x:auto}
@@ -193,6 +208,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 .pw-cancel{padding:9px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif}
 .pw-confirm{padding:9px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
 
+@keyframes spin{to{transform:rotate(360deg)}}
 @media print{#sidebar,#topbar .admin-btn{display:none}#main{margin-left:0}}
 /* Force leaflet below admin overlay */
 #admin-panel ~ * .leaflet-pane,
@@ -897,12 +913,6 @@ document.getElementById('enter-btn').addEventListener('click',function(){
   document.getElementById('app').style.display='block';
   setPeriod();
   goView('summary');
-  // Try live data in background
-  setTimeout(function(){
-    loadLive().then(function(ok){
-      if(ok){setPeriod();goView(curView);toast('Live data loaded — '+D.period);}
-    }).catch(function(){});
-  },800);
 });
 
 document.getElementById('admin-welcome-btn').addEventListener('click',showAdmin);
@@ -963,27 +973,79 @@ function showMsg(type,txt){
 }
 
 function processFile(f){
-  showMsg('info','Reading file…');
+  showMsg('info','Reading '+f.name+'…');
   var reader=new FileReader();
   reader.onload=function(e){
     try{
       var wb=XLSX.read(e.target.result,{type:'array'});
       var parsed=parseWorkbook(wb,f.name);
       if(parsed){
-        D=parsed;
-        var nm=(D.saidi.y2026_ytd||[]).filter(function(v){return v!==null;}).length;
-        var gm=D.govData.filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).length;
-        showMsg('ok','Parsed: '+nm+' months, '+gm+' governorates. Period: '+D.period);
-        publishData();
+        // Show preview — don't publish yet
+        showPreview(parsed);
       }else{
-        showMsg('err','Could not parse file. Check sheet names match the expected format.');
+        showMsg('err','Could not parse file. Check sheet names match the expected NEDC format.');
       }
     }catch(err){
-      showMsg('err','Error: '+err.message);
+      showMsg('err','Error reading file: '+err.message);
     }
   };
   reader.readAsArrayBuffer(f);
 }
+
+function showPreview(parsed){
+  var MOS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // Period & counts
+  var nm=(parsed.saidi.y2026_ytd||[]).filter(function(v){return v!==null;}).length;
+  var gm=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).length;
+  var dm=(parsed.drivers||[]).length;
+
+  document.getElementById('preview-title').textContent='Data Preview — '+(parsed.fileName||'Uploaded file');
+  document.getElementById('preview-period-badge').textContent=parsed.period||'YTD';
+
+  // Summary cards
+  document.getElementById('preview-cards').innerHTML=[
+    {lbl:'Period Detected',val:parsed.period,color:'#1d4ed8',bg:'#eff6ff'},
+    {lbl:'Months of 2026 Data',val:nm+' / 12',color:'#166534',bg:'#f0fdf4'},
+    {lbl:'Governorates',val:gm,color:'#92400e',bg:'#fef3c7'}
+  ].map(function(c){
+    return '<div style="background:'+c.bg+';border-radius:8px;padding:12px 14px;border:1px solid '+c.color+'30"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:'+c.color+';margin-bottom:4px">'+c.lbl+'</div><div style="font-size:18px;font-weight:800;color:'+c.color+'">'+c.val+'</div></div>';
+  }).join('');
+
+  // Month pills for each dataset
+  function monthPills(arr){
+    return MOS.map(function(m,i){
+      var v=arr[i];
+      var hasVal=v!==null&&v!==undefined;
+      return '<span style="padding:4px 10px;border-radius:50px;font-size:11px;font-weight:700;background:'+(hasVal?'#dcfce7':'#f3f4f6')+';color:'+(hasVal?'#166534':'#9ca3af')+'">'+m+(hasVal?': '+parseFloat(v).toFixed(2):'')+'</span>';
+    }).join('');
+  }
+  document.getElementById('preview-saidi').innerHTML=monthPills(parsed.saidi.y2026_ytd||[]);
+  document.getElementById('preview-saifi').innerHTML=monthPills(parsed.saifi.y2026_ytd||[]);
+  document.getElementById('preview-outages').innerHTML=monthPills(parsed.outages.y2026_ytd||[]);
+
+  // Gov pills
+  document.getElementById('preview-govs').innerHTML=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).map(function(g){
+    return '<span style="padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600;background:#f3f4f6;color:#374151">'+g.gov+'</span>';
+  }).join('');
+
+  // Warnings
+  var warns=[];
+  if(nm===0)warns.push('⚠️ No 2026 YTD data found in SAIDI sheet.');
+  if(gm<8)warns.push('⚠️ Only '+gm+' governorates parsed — expected 10+.');
+  if(!parsed.saidi.corp_target)warns.push('⚠️ Corp Target not parsed from SAIDI sheet.');
+  if(!parsed.saidi.om_target)warns.push('⚠️ O&M Target not parsed from SAIDI sheet.');
+  var warnEl=document.getElementById('preview-warnings');
+  if(warns.length>0){warnEl.style.display='block';warnEl.innerHTML=warns.join('<br>');}
+  else{warnEl.style.display='none';}
+
+  // Store parsed data temporarily
+  window._pendingData=parsed;
+
+  // Show modal
+  document.getElementById('preview-modal').style.display='flex';
+}
+
+// Preview modal button handlers registered in window.load below
 
 async function publishData(){
   // User already authenticated via showAdmin — send stored password
@@ -1019,15 +1081,23 @@ async function publishData(){
 async function loadLive(){
   try{
     var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},3000);
+    var t=setTimeout(function(){ctrl.abort();},4000);
     var res=await fetch('/api/load-data',{signal:ctrl.signal});
     clearTimeout(t);
     if(res.ok){
       var s=await res.json();
-      if(s&&s.data&&s.data.saidi){D=s.data;return true;}
+      if(s&&s.data&&s.data.saidi){
+        D=s.data;
+        console.log('Live data loaded:',D.period);
+        return true;
+      }
     }
+    console.log('No live data — using built-in data');
     return false;
-  }catch(e){return false;}
+  }catch(e){
+    console.log('Could not reach server:',e.message);
+    return false;
+  }
 }
 
 function setPeriod(){
@@ -1062,25 +1132,29 @@ function parseWorkbook(wb,fileName){
     function parseTrend(rows){
       if(!rows||rows.length<2)return null;
       var r={};
-      var lmap={'2024':'y2024','2025':'y2025'};
       rows.forEach(function(row){
         if(!row)return;
+        // Find first non-empty cell — could be at col 0, 1, or 2 depending on sheet
         var li=-1;
-        for(var j=0;j<row.length;j++){if(row[j]!==null&&row[j]!==undefined&&row[j]!==''){li=j;break;}}
+        for(var j=0;j<row.length;j++){
+          if(row[j]!==null&&row[j]!==undefined&&row[j]!==''){li=j;break;}
+        }
         if(li<0)return;
-        var lbl=String(row[li]).trim().toLowerCase();
+        // Clean label: remove surrounding quotes, trim whitespace
+        var raw=String(row[li]).replace(/^'+|'+$/g,'').trim().toLowerCase();
         var key=null;
-        if(lbl==='2024')key='y2024';
-        else if(lbl==='2025')key='y2025';
-        else if(lbl.indexOf('2026')>=0&&lbl.indexOf('ytd')>=0)key='y2026_ytd';
-        else if(lbl.indexOf('2026')>=0&&(lbl.indexOf('rolling')>=0||lbl.indexOf('r)')>=0))key='y2026_rolling';
-        else if(lbl.indexOf('corp')>=0)key='corp_target';
-        else if(lbl.indexOf('o&m')>=0||lbl.indexOf('target')>=0)key='om_target';
+        // Match year labels: 2024, 2025, 2024(ytd), 2025 (ytd)
+        if(raw==='2024'||raw==='2024(ytd)'||raw==='2024 (ytd)')key='y2024';
+        else if(raw==='2025'||raw==='2025(ytd)'||raw==='2025 (ytd)')key='y2025';
+        else if(raw.indexOf('2026')>=0&&(raw.indexOf('ytd')>=0))key='y2026_ytd';
+        else if(raw.indexOf('2026')>=0&&(raw.indexOf('rolling')>=0||raw.indexOf('(r)')>=0||raw.indexOf('(r) ')>=0))key='y2026_rolling';
+        else if(raw.indexOf('corp')>=0)key='corp_target';
+        else if(raw.indexOf('o&m')>=0||(raw.indexOf('target')>=0&&raw.indexOf('corp')<0))key='om_target';
         if(!key)return;
         var vals=[];
-        for(var k=li+1;k<=li+12;k++){
+        for(var k=li+1;k<=li+12;k++){ 
           var v=row[k];
-          vals.push((v!==null&&v!==undefined&&v!=='')?(parseFloat(v)||null):null);
+          vals.push((v!==null&&v!==undefined&&v!=='')?parseFloat(v):null);
         }
         r[key]=vals;
       });
@@ -1154,14 +1228,65 @@ function buildTrends(){
 function buildLineChart(id,data,label,type,showOM,showCorp){
   var fmt=function(v){if(v===null)return null;return type==='SAIDI'?v.toFixed(1):type==='SAIFI'?v.toFixed(2):Math.round(v).toLocaleString();};
   var sets=[
-    {label:'2024',data:data.y2024||[],borderColor:'#d1d5db',backgroundColor:'#d1d5db',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
-    {label:'2025',data:data.y2025||[],borderColor:'rgba(192,57,43,0.4)',backgroundColor:'rgba(192,57,43,0.4)',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
-    {label:'2026 YTD',data:data.y2026_ytd||[],borderColor:'#c0392b',backgroundColor:'#c0392b',borderWidth:2.5,pointRadius:3,tension:0.3,fill:false,spanGaps:false,datalabels:{display:true,align:'top',anchor:'end',offset:3,color:'#9b2226',font:{weight:'bold',size:10},formatter:fmt}},
-    {label:'2026 Rolling',data:data.y2026_rolling||[],borderColor:'#1a5276',backgroundColor:'#1a5276',borderWidth:2.5,pointRadius:3,tension:0.3,fill:false,spanGaps:false,datalabels:{display:true,align:'bottom',anchor:'end',offset:3,color:'#154360',font:{weight:'bold',size:10},formatter:fmt}}
+    // 2024 — light dashed grey, no points, subtle background fill
+    {label:'2024',data:data.y2024||[],
+     borderColor:'#cbd5e1',backgroundColor:'rgba(203,213,225,0.08)',
+     borderWidth:1.5,borderDash:[4,4],pointRadius:0,tension:0.4,
+     fill:true,datalabels:{display:false}},
+    // 2025 — dashed amber/orange, slightly more visible, no points
+    {label:'2025',data:data.y2025||[],
+     borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',
+     borderWidth:2,borderDash:[6,3],pointRadius:0,tension:0.4,
+     fill:true,datalabels:{display:false}},
+    // 2026 YTD — solid bold red, visible points with value labels
+    {label:'2026 YTD',data:data.y2026_ytd||[],
+     borderColor:'#c0392b',backgroundColor:'rgba(192,57,43,0.1)',
+     borderWidth:3,pointRadius:5,pointBackgroundColor:'#c0392b',
+     pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:7,
+     tension:0.4,fill:true,spanGaps:false,
+     datalabels:{display:true,align:'top',anchor:'end',offset:4,
+       color:'#c0392b',font:{weight:'bold',size:10},
+       backgroundColor:'rgba(255,255,255,0.85)',borderRadius:4,padding:{top:2,bottom:2,left:4,right:4},
+       formatter:fmt}},
+    // 2026 Rolling — solid bold navy, visible points with value labels
+    {label:'2026 Rolling',data:data.y2026_rolling||[],
+     borderColor:'#1a5276',backgroundColor:'rgba(26,82,118,0.08)',
+     borderWidth:3,pointRadius:5,pointBackgroundColor:'#1a5276',
+     pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:7,
+     tension:0.4,fill:false,spanGaps:false,
+     datalabels:{display:true,align:'bottom',anchor:'end',offset:4,
+       color:'#1a5276',font:{weight:'bold',size:10},
+       backgroundColor:'rgba(255,255,255,0.85)',borderRadius:4,padding:{top:2,bottom:2,left:4,right:4},
+       formatter:fmt}}
   ];
   if(showOM&&data.om_target)sets.push({label:'O&M Target',data:data.om_target,borderColor:'#27ae60',borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false,datalabels:{display:false}});
   if(showCorp&&data.corp_target)sets.push({label:'Corp Target',data:data.corp_target,borderColor:'#111',borderWidth:1.5,borderDash:[3,3],pointRadius:0,fill:false,datalabels:{display:false}});
-  mkChart(id,{type:'line',data:{labels:MO,datasets:sets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{font:{size:11},usePointStyle:true,boxWidth:8}},datalabels:{display:false},tooltip:{backgroundColor:'rgba(12,30,53,0.9)',padding:10,cornerRadius:8}},scales:{y:{beginAtZero:true,title:{display:true,text:label,font:{size:11}},grid:{color:'#f3f4f6'}},x:{grid:{display:false},ticks:{font:{size:11}}}}}});
+  mkChart(id,{type:'line',data:{labels:MO,datasets:sets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{
+    legend:{position:'bottom',labels:{font:{size:11},usePointStyle:true,pointStyle:'circle',boxWidth:8,padding:16}},
+    datalabels:{display:false},
+    tooltip:{
+      backgroundColor:'rgba(12,30,53,0.92)',padding:12,cornerRadius:10,
+      titleFont:{size:12,weight:'bold'},bodyFont:{size:12},
+      callbacks:{
+        title:function(items){return MO[items[0].dataIndex];},
+        label:function(item){return ' '+item.dataset.label+': '+fmt(item.raw);}
+      }
+    }
+  },
+  scales:{
+    y:{
+      beginAtZero:false,
+      title:{display:true,text:label,font:{size:11},color:'#6b7280'},
+      grid:{color:'#f1f5f9',drawBorder:false},
+      ticks:{font:{size:11},color:'#6b7280'},
+      border:{display:false}
+    },
+    x:{
+      grid:{display:false},
+      ticks:{font:{size:11},color:'#6b7280'},
+      border:{display:false}
+    }
+  }}});
 }
 
 function updateAnalysis(){
@@ -1216,7 +1341,10 @@ function buildMap(ind){
     var col=getColor(row.r26),radius=getR(row.r26);
     var circle=L.circleMarker([coords.lat,coords.lng],{color:col,weight:2,opacity:0.9,fillColor:col,fillOpacity:0.3,radius:radius}).addTo(omanMap);
     var lbl=ind==='SAIDI'?row.r26.toFixed(1):row.r26.toFixed(2);
-    circle.bindTooltip('<strong>'+name+'</strong><br>'+ind+': <strong>'+lbl+'</strong><br>YoY: '+row.imp.toFixed(1)+'%'+(mapGrouped?'<br><em>Click to drill down</em>':''),{sticky:true});
+    var tooltipContent = '<strong>'+name+'</strong><br>'+ind+': <strong>'+lbl+'</strong><br>YoY: '+row.imp.toFixed(1)+'%'+(mapGrouped?'<br><em style="font-size:11px;opacity:0.7">Click to drill down</em>':'');
+    circle.bindTooltip(tooltipContent,{sticky:true,opacity:1,direction:'right'});
+    circle.on('mouseover',function(e){this.openTooltip();});
+    circle.on('mouseout',function(e){this.closeTooltip();});
     if(mapGrouped){circle.on('click',function(){mapGrouped=false;buildMap(mapMode);if(omanMap)omanMap.setView([coords.lat,coords.lng],8);});}
   });
   if(!mapGrouped){
@@ -1533,6 +1661,52 @@ function renderGovKpi(){
 // INIT
 // ═══════════════════════════════════════════════════
 window.addEventListener('load', function(){
+  // ── AUTO-LOAD LIVE DATA ON EVERY PAGE LOAD ──
+  // Show loading indicator on welcome screen
+  var enterBtn = document.getElementById('enter-btn');
+  var wperiod = document.querySelector('.wbadge');
+  if(enterBtn){
+    enterBtn.disabled = true;
+    enterBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:8px;animation:spin 0.8s linear infinite"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Loading latest data…';
+    enterBtn.style.opacity = '0.8';
+  }
+  // Try to load live data before user even clicks enter
+  loadLive().then(function(ok){
+    if(ok){
+      // Live data loaded — update welcome screen period display
+      var badge = document.querySelector('#welcome .wbadge span:last-child');
+      var wStats = document.querySelectorAll('.wstat strong');
+      if(wStats.length >= 1) wStats[0].textContent = D.period || 'YTD';
+    }
+  }).catch(function(){}).finally(function(){
+    // Re-enable button regardless
+    if(enterBtn){
+      enterBtn.disabled = false;
+      enterBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg> Enter Dashboard';
+      enterBtn.style.opacity = '1';
+    }
+  });
+  // Preview modal buttons
+  var cancelBtn = document.getElementById('preview-cancel');
+  var publishBtn = document.getElementById('preview-publish');
+  if(cancelBtn){
+    cancelBtn.onclick = function(){
+      document.getElementById('preview-modal').style.display='none';
+      window._pendingData = null;
+      showMsg('info','Cancelled. You can upload a different file.');
+    };
+  }
+  if(publishBtn){
+    publishBtn.onclick = function(){
+      document.getElementById('preview-modal').style.display='none';
+      if(window._pendingData){
+        D = window._pendingData;
+        window._pendingData = null;
+        publishData();
+      }
+    };
+  }
+
   // Sidebar tooltips via JS
   var tip = document.getElementById('sidebar-tooltip');
   document.querySelectorAll('.sitem').forEach(function(btn){
@@ -1559,5 +1733,57 @@ window.addEventListener('load', function(){
   dz2.addEventListener('click',function(){document.getElementById('file-input').click();});
 });
 </script>
+
+<!-- DATA PREVIEW MODAL -->
+<div id="preview-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);backdrop-filter:blur(8px);z-index:99999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
+    <!-- Header -->
+    <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;background:#0c1e35;border-radius:16px 16px 0 0">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:4px">Review Before Publishing</div>
+          <div style="font-size:18px;font-weight:800;color:#fff" id="preview-title">Data Preview</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700;color:#fff;font-family:'JetBrains Mono',monospace" id="preview-period-badge">YTD</div>
+      </div>
+    </div>
+    <!-- Body -->
+    <div style="overflow-y:auto;flex:1;padding:20px 24px">
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="preview-cards"></div>
+      <!-- SAIDI check -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">SAIDI — 2026 YTD Values Parsed</div>
+        <div id="preview-saidi" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <!-- SAIFI check -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">SAIFI — 2026 YTD Values Parsed</div>
+        <div id="preview-saifi" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <!-- Outages check -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">Outage Events — 2026 YTD Values Parsed</div>
+        <div id="preview-outages" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <!-- Gov check -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">Governorate Data</div>
+        <div id="preview-govs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <!-- Warnings -->
+      <div id="preview-warnings" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#92400e"></div>
+      <!-- Confirm message -->
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;font-size:13px;color:#166534;font-weight:600">
+        ✅ Review the data above. If everything looks correct, click <strong>Publish to All Visitors</strong>. Otherwise click <strong>Cancel</strong> to re-upload.
+      </div>
+    </div>
+    <!-- Footer -->
+    <div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8f9fb;border-radius:0 0 16px 16px">
+      <button id="preview-cancel" style="padding:10px 22px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:#6b7280">← Cancel / Re-upload</button>
+      <button id="preview-publish" style="padding:10px 24px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 12px rgba(192,57,43,0.3)">Publish to All Visitors →</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
