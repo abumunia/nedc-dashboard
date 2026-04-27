@@ -1181,8 +1181,19 @@ function parseWorkbook(wb,fileName){
         var cR=nv(row[dc+6]);var cont=cR!==null?Math.round(Math.abs(cR)<=1?cR*100:cR):0;
         var isGrp=cg&&(cg.indexOf('&')>=0||cg.indexOf('+')>=0);
         pGovData.push({group:gd.group,gov:cg,ind:isS?'SAIDI':'SAIFI',y24:parseFloat((y25*0.88).toFixed(2)),y25:y25,r26:r26,t26:t26,imp:imp,cont:cont,isGroup:!!isGrp});});});
-    if(pGovData.length<5)pGovData=D.govData;
-    console.log('parseWorkbook results:',{period:period,govDataLen:pGovData.length,zonesLen:pZones.length,contribSAIDI:pContrib&&pContrib.SAIDI?pContrib.SAIDI.labels.length:0,driversLen:pDrv.length,parsedFromFile:pGovData!==D.govData});
+    console.log('pGovData before fallback check:',pGovData.length,'entries');
+    if(pGovData.length<3)pGovData=D.govData;
+    console.log('parseWorkbook results:',{
+  period:period,
+  govDataLen:pGovData.length,
+  zonesLen:pZones.length,
+  contribSAIDI:pContrib&&pContrib.SAIDI?pContrib.SAIDI.labels.length:0,
+  driversLen:pDrv.length,
+  parsedFromFile:pGovData!==D.govData,
+  sheetNames:sn,
+  muscatRows:gs('Muscat & South')? gs('Muscat & South').length : 'NOT FOUND',
+  muscatRow6:gs('Muscat & South')? JSON.stringify(gs('Muscat & South')[6]) : 'N/A'
+});
     return {period:period,fileName:gName||fileName,months:MO,
       saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
       saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
