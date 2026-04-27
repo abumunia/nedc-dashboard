@@ -62,37 +62,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* ── APP LAYOUT ── */
 #app{display:none;min-height:100vh}
-#sidebar{
-  position:fixed;left:0;top:0;bottom:0;
-  width:64px;
-  background:linear-gradient(180deg,#0d1f35 0%,#0a1628 100%);
-  z-index:50;
-  display:flex;flex-direction:column;
-  border-right:1px solid rgba(255,255,255,0.08);
-  transition:width 0.25s ease;
-  overflow:hidden;
-}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:64px;background:linear-gradient(180deg,#0d1f35 0%,#0a1628 100%);z-index:50;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);transition:width 0.25s ease;overflow:hidden}
 #sidebar.open{width:216px}
-.slogo{
-  height:60px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  border-bottom:1px solid rgba(255,255,255,0.07);
-  overflow:hidden;padding:0 0;
-}
+.slogo{height:60px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,0.07);overflow:hidden;padding:0}
 #sidebar.open .slogo{justify-content:flex-start;padding-left:18px;gap:10px}
 .slogo-text{opacity:0;white-space:nowrap;font-size:13px;font-weight:700;color:#fff;transition:opacity 0.2s;flex-shrink:0}
 #sidebar.open .slogo-text{opacity:1}
 .snav{flex:1;overflow:hidden;padding:6px 0}
-.sitem{
-  display:flex;align-items:center;justify-content:center;
-  width:100%;height:44px;
-  padding:0;
-  color:rgba(255,255,255,0.55);
-  cursor:pointer;border:none;background:transparent;
-  font-family:'Inter',sans-serif;font-size:13px;font-weight:500;
-  white-space:nowrap;transition:color 0.15s,background 0.15s;
-  position:relative;
-}
+.sitem{display:flex;align-items:center;justify-content:center;width:100%;height:44px;padding:0;color:rgba(255,255,255,0.55);cursor:pointer;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;transition:color 0.15s,background 0.15s;position:relative}
 #sidebar.open .sitem{justify-content:flex-start;padding:0 20px;gap:12px}
 .sitem:hover{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.07)}
 .sitem.active{color:#fff;background:rgba(192,57,43,0.22)}
@@ -101,13 +78,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .sitem-label{opacity:0;width:0;overflow:hidden;white-space:nowrap;transition:opacity 0.2s,width 0s 0.25s}
 #sidebar.open .sitem-label{opacity:1;width:auto;transition:opacity 0.2s 0.05s,width 0s}
 .sdivider{height:1px;background:rgba(255,255,255,0.08);margin:4px 12px}
-.stoggle{
-  width:100%;height:48px;flex-shrink:0;
-  border:none;background:none;
-  color:rgba(255,255,255,0.35);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:color 0.15s;
-}
+.stoggle{width:100%;height:48px;flex-shrink:0;border:none;background:none;color:rgba(255,255,255,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s}
 #sidebar.open .stoggle{justify-content:flex-start;padding-left:20px;gap:12px}
 .stoggle:hover{color:rgba(255,255,255,0.6)}
 
@@ -883,8 +854,7 @@ function goView(v){
   var ne=document.querySelector('.sitem[data-view="'+v+'"]');
   if(ve)ve.classList.add('active');
   if(ne)ne.classList.add('active');
-  var pt=document.getElementById('page-title');
-  if(pt)pt.textContent=VIEW_NAMES[v]||v;
+  var pt=document.getElementById('page-title');if(pt)pt.textContent=VIEW_NAMES[v]||v;
   curView=v;
   try{
     if(v==='summary')renderSummary();
@@ -893,321 +863,16 @@ function goView(v){
     else if(v==='driver')renderDriver();
     else if(v==='zones')renderZones();
     else if(v==='qsi')renderQsi();
-  }catch(e){console.error('goView render error:',e);}
+  }catch(e){console.error('goView error:',e);}
 }
 
-// Re-render ALL views with new data (called after publish/load)
 function refreshAllViews(){
   setPeriod();
-  // Reset chart cache so they rebuild fresh
-  Object.keys(charts).forEach(function(id){
-    try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}
-  });
-  // Re-render current view immediately
+  Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
   goView(curView);
 }
 
-document.querySelectorAll('.sitem').forEach(function(btn){
-  btn.addEventListener('click',function(){goView(this.dataset.view);});
-});
 
-// Sidebar toggle
-var sidebarOpen=false;
-document.getElementById('sidebar-toggle').addEventListener('click',function(){
-  sidebarOpen=!sidebarOpen;
-  document.getElementById('sidebar').classList.toggle('open',sidebarOpen);
-  document.getElementById('main').classList.toggle('shifted',sidebarOpen);
-});
-
-// ═══════════════════════════════════════════════════
-// WELCOME & ADMIN
-// ═══════════════════════════════════════════════════
-document.getElementById('enter-btn').addEventListener('click',function(){
-  document.getElementById('welcome').style.display='none';
-  document.getElementById('app').style.display='block';
-  setPeriod();
-  setTimeout(function(){goView('summary');},80);
-});
-
-document.getElementById('admin-welcome-btn').addEventListener('click',showAdmin);
-document.getElementById('admin-topbar-btn').addEventListener('click',showAdmin);
-document.getElementById('admin-close').addEventListener('click',hideAdmin);
-document.getElementById('admin-back-btn').addEventListener('click',hideAdmin);
-
-function showAdmin(){
-  askPassword().then(function(pw){
-    if(!pw)return;
-    if(pw!=='Humaid@1234'){showMsg('err','Incorrect password.');return;}
-    document.getElementById('upload-msg').style.display='none';
-    document.getElementById('admin-panel').style.display='flex';
-    if(omanMap){omanMap.remove();omanMap=null;}
-  });
-}
-function hideAdmin(){
-  document.getElementById('admin-panel').style.display='none';
-  if(curView==='summary'){setTimeout(function(){buildMap(mapMode);},150);}
-}
-
-// File upload
-var dz=document.getElementById('dropzone');
-var fi=document.getElementById('file-input');
-dz.addEventListener('click',function(){fi.click();});
-dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
-dz.addEventListener('dragleave',function(){dz.classList.remove('over');});
-dz.addEventListener('drop',function(e){
-  e.preventDefault();dz.classList.remove('over');
-  var f=e.dataTransfer.files[0];
-  if(f)processFile(f);
-});
-fi.addEventListener('change',function(){if(this.files[0])processFile(this.files[0]);});
-
-document.getElementById('load-demo-btn').addEventListener('click',function(){
-  showMsg('info','Loading demo data…');
-  setTimeout(function(){
-    setPeriod();
-    showMsg('ok','Demo data loaded — '+D.period);
-    setTimeout(function(){
-      hideAdmin();
-      document.getElementById('app').style.display='block';
-      document.getElementById('welcome').style.display='none';
-      setPeriod();goView('summary');
-    },800);
-  },300);
-});
-
-function showMsg(type,txt){
-  var el=document.getElementById('upload-msg');
-  el.className=type==='ok'?'msg-ok':type==='err'?'msg-err':'msg-info';
-  el.textContent=txt;el.style.display='block';
-}
-
-function processFile(f){
-  showMsg('info','Reading '+f.name+'…');
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var wb=XLSX.read(e.target.result,{type:'array'});
-      var parsed=parseWorkbook(wb,f.name);
-      if(parsed){showPreview(parsed);}
-      else{showMsg('err','Could not parse file — check sheet names match the NEDC format.');}
-    }catch(err){showMsg('err','Error reading file: '+err.message);}
-  };
-  reader.readAsArrayBuffer(f);
-}
-
-function showPreview(parsed){
-  console.log('Preview data check:',{period:parsed.period,govData:parsed.govData.length,zones:parsed.zones.length,contrib:parsed.contrib&&parsed.contrib.SAIDI?parsed.contrib.SAIDI.labels.length:0,drivers:parsed.drivers.length});
-  var nm=(parsed.saidi.y2026_ytd||[]).filter(function(v){return v!==null;}).length;
-  var gm=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).length;
-  document.getElementById('preview-title').textContent='Preview — '+(parsed.fileName||'file');
-  document.getElementById('preview-period-badge').textContent=parsed.period||'YTD';
-  document.getElementById('preview-cards').innerHTML=[
-    {l:'Period',v:parsed.period,c:'#1d4ed8',bg:'#eff6ff'},
-    {l:'Months of 2026 Data',v:nm+' / 12',c:'#166534',bg:'#f0fdf4'},
-    {l:'Governorates',v:gm,c:'#92400e',bg:'#fef3c7'}
-  ].map(function(c){return '<div style="background:'+c.bg+';border-radius:8px;padding:12px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:'+c.c+';margin-bottom:4px">'+c.l+'</div><div style="font-size:18px;font-weight:800;color:'+c.c+'">'+c.v+'</div></div>';}).join('');
-  function pills(arr){return MO.map(function(m,i){var v=arr[i];var has=v!==null&&v!==undefined;return '<span style="padding:4px 10px;border-radius:50px;font-size:11px;font-weight:700;background:'+(has?'#dcfce7':'#f3f4f6')+';color:'+(has?'#166534':'#9ca3af')+'">'+m+(has?': '+parseFloat(v).toFixed(2):'')+'</span>';}).join('');}
-  document.getElementById('preview-saidi').innerHTML=pills(parsed.saidi.y2026_ytd||[]);
-  document.getElementById('preview-saifi').innerHTML=pills(parsed.saifi.y2026_ytd||[]);
-  document.getElementById('preview-outages').innerHTML=pills(parsed.outages.y2026_ytd||[]);
-  document.getElementById('preview-govs').innerHTML=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).map(function(g){return '<span style="padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600;background:#f3f4f6;color:#374151">'+g.gov+'</span>';}).join('');
-  var warns=[];
-  if(nm===0)warns.push('⚠️ No 2026 YTD data found in SAIDI sheet');
-  if(gm<8)warns.push('⚠️ Only '+gm+' governorates parsed — expected 10+');
-  if(!parsed.saidi.corp_target)warns.push('⚠️ Corp Target not parsed from SAIDI sheet');
-  var we=document.getElementById('preview-warnings');
-  if(warns.length){we.style.display='block';we.innerHTML=warns.join('<br>');}else{we.style.display='none';}
-  window._pendingData=parsed;
-  document.getElementById('preview-modal').style.display='flex';
-}
-
-var JSONBIN_BIN_ID='69ef2181856a6821897900bf';
-var JSONBIN_API_KEY='$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11G';
-var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
-
-async function publishData(){
-  showMsg('info','Publishing to all visitors…');
-  try{
-    var res=await fetch(JSONBIN_URL,{method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
-      body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})
-    });
-    if(res.ok){
-      showMsg('ok','Published! All visitors now see '+D.period+' data.');
-      setTimeout(function(){
-        hideAdmin();
-        if(!document.getElementById('app').style.display||document.getElementById('app').style.display==='none'){
-          document.getElementById('welcome').style.display='none';
-          document.getElementById('app').style.display='block';
-        }
-        setPeriod();
-        // Destroy all cached charts
-        Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
-        // Render ALL views so every section gets updated data
-        setTimeout(function(){
-          try{renderSummary();}catch(e){console.error(e);}
-          setTimeout(function(){try{renderKpi();}catch(e){}},100);
-          setTimeout(function(){try{renderOutage();}catch(e){}},200);
-          setTimeout(function(){try{renderDriver();}catch(e){}},300);
-          setTimeout(function(){try{renderZones();}catch(e){}},400);
-          setTimeout(function(){try{renderQsi();}catch(e){}},500);
-          // Switch to summary view
-          goView('summary');
-        },100);
-      },1200);
-        }else{
-      var err=await res.text();
-      showMsg('err','Publish failed ('+res.status+'). Check JSONBin API key.');
-      console.error('JSONBin error:',res.status,err);
-    }
-  }catch(e){showMsg('err','Network error: '+e.message);console.error(e);}
-}
-
-async function loadLive(){
-  try{
-    var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},5000);
-    var res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'},signal:ctrl.signal});
-    clearTimeout(t);
-    console.log('JSONBin status:',res.status);
-    if(res.ok){
-      var s=await res.json();
-      var bin=s.record||s;
-      var live=null;
-      if(bin&&bin.nedc_data&&bin.nedc_data.saidi)live=bin.nedc_data;
-      else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
-      else if(bin&&bin.saidi)live=bin;
-      if(live){D=live;console.log('Live data loaded:',D.period);return true;}
-      console.log('JSONBin: no data yet');return false;
-    }
-    return false;
-  }catch(e){console.log('loadLive:',e.message);return false;}
-}
-
-function setPeriod(){
-  var p=D.period||'YTD';
-  document.getElementById('period-tag').textContent=p;
-  document.getElementById('file-label').textContent=D.fileName||'Data';
-}
-
-// ═══════════════════════════════════════════════════
-// EXCEL PARSER
-// ═══════════════════════════════════════════════════
-function parseWorkbook(wb,fileName){
-  try{
-    var sn=wb.SheetNames;
-    function gs(hint){var m=sn.find(function(s){return s.trim().toLowerCase().indexOf(hint.toLowerCase())>=0;});return m?XLSX.utils.sheet_to_json(wb.Sheets[m],{header:1,defval:null}):null;}
-    function cl(v){return v===null||v===undefined?'':String(v).replace(/^'+|'+$/g,'').replace(/\xa0/g,'').trim();}
-    function nv(v){var n=parseFloat(v);return isNaN(n)?null:n;}
-    function parseTrend(rows){
-      if(!rows||rows.length<2)return null;
-      var r={};
-      rows.forEach(function(row){
-        if(!row)return;
-        var li=-1;for(var j=0;j<row.length;j++){if(row[j]!==null&&row[j]!==undefined&&row[j]!==''){li=j;break;}}
-        if(li<0)return;
-        var lbl=cl(row[li]).toLowerCase();
-        var key=null;
-        if(lbl==='2024'||lbl.indexOf('2024(ytd)')>=0||lbl==='2024 (ytd)')key='y2024';
-        else if(lbl==='2025'||lbl.indexOf('2025(ytd)')>=0||lbl==='2025 (ytd)')key='y2025';
-        else if(lbl.indexOf('2026')>=0&&lbl.indexOf('ytd')>=0)key='y2026_ytd';
-        else if(lbl.indexOf('2026')>=0&&(lbl.indexOf('rolling')>=0||lbl.indexOf('(r)')>=0))key='y2026_rolling';
-        else if(lbl.indexOf('corp')>=0)key='corp_target';
-        else if(lbl.indexOf('o&m')>=0||(lbl.indexOf('target')>=0&&lbl.indexOf('corp')<0))key='om_target';
-        if(!key)return;
-        var vals=[];for(var k=li+1;k<=li+12;k++){var v=row[k];vals.push((v!==null&&v!==undefined&&v!=='')?nv(v):null);}
-        r[key]=vals;
-      });
-      return Object.keys(r).length>0?r:null;
-    }
-    var saidiT=parseTrend(gs('SAIDI'))||{};if(!saidiT.y2025)return null;
-    var saifiT=parseTrend(gs('SAIFI'))||{};
-    var outageT=parseTrend(gs('Outage Events'))||{};
-    var ytdArr=saidiT.y2026_ytd||[];var li2=0;ytdArr.forEach(function(v,i){if(v!==null)li2=i;});
-    var period='YTD '+MO[li2].toUpperCase()+' 2026';
-    var mon2=MO[li2].charAt(0)+MO[li2].slice(1).toLowerCase();
-    var gName='NEDC_Network_Performance_'+mon2+'2026.xlsx';
-    // BY ZONE col3=name, 4-9=data
-    var zRows=gs('By Zone');var pZones=D.zones;
-    if(zRows){var ZR={'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}};var nz=[];
-      zRows.forEach(function(row){if(!row||!row[3])return;var zn=cl(row[3]).toLowerCase();if(zn.indexOf('zone')>=0&&(zn.indexOf('1')>=0||zn.indexOf('2')>=0||zn.indexOf('3')>=0)){var reg=ZR[zn]||{st:0,sp:0,sft:0,sfp:0};nz.push({name:zn.replace('zone','Zone').trim(),s24:nv(row[4])||0,sf24:nv(row[5])||0,s25:nv(row[6])||0,sf25:nv(row[7])||0,s26:nv(row[8])||0,sf26:nv(row[9])||0,st:reg.st,sp:reg.sp,sft:reg.sft,sfp:reg.sfp});}});
-      if(nz.length>=3)pZones=nz;}
-    // CONTRIBUTION col5=gov, col6=decimal
-    var cRows=gs('Governorate Contribution');var pContrib=D.contrib;
-    if(cRows){var sc={labels:[],values:[]},sfc={labels:[],values:[]},csec=null;
-      cRows.forEach(function(row){if(!row)return;var c5=cl(row[5]);if(c5.toUpperCase().indexOf('SAIDI')>=0){csec='s';return;}if(c5.toUpperCase().indexOf('SAIFI')>=0){csec='sf';return;}if(!csec||!c5||row[6]===null)return;var pct=Math.round(nv(row[6])*100);if(isNaN(pct)||pct<=0)return;if(csec==='s'){sc.labels.push(c5);sc.values.push(pct);}else{sfc.labels.push(c5);sfc.values.push(pct);}});
-      if(sc.labels.length>0)pContrib={SAIDI:sc,SAIFI:sfc};}
-    // VOLTAGE
-    function pVolt(rows){if(!rows)return null;var labels=[],values=[];for(var i=0;i<rows.length;i++){var row=rows[i];if(!row)continue;var hasV=row.some(function(c){return c&&cl(c).match(/^(LV|11|33)/i);});if(!hasV)continue;var vrow=rows[i+1]||[];row.forEach(function(c,j){if(c&&cl(c).match(/^(LV|11|33)/i)){labels.push(cl(c));values.push(nv(vrow[j])||0);}});break;}return labels.length>0?{labels:labels,values:values}:null;}
-    var pVoltage=D.voltage;var vs=pVolt(gs('SAIDI by Voltage')),vsf=pVolt(gs('SAIFI by Voltage'));if(vs||vsf)pVoltage={SAIDI:vs||D.voltage.SAIDI,SAIFI:vsf||D.voltage.SAIFI};
-    // OUTAGE TYPE col3=sec/year, col4=planned, col5=unplanned
-    var otRows=gs('Outage (Planned');var pOutType=D.outageType;
-    if(otRows){var ot={SAIDI:{years:[],planned:[],unplanned:[]},SAIFI:{years:[],planned:[],unplanned:[]}},otsec=null;
-      otRows.forEach(function(row){if(!row||row[3]===null)return;var c=cl(row[3]).toUpperCase();if(c==='SAIDI:'){otsec='SAIDI';return;}if(c==='SAIFI:'){otsec='SAIFI';return;}if(!otsec||c.indexOf('TYPE')>=0||c.indexOf('CONTRIBUTION')>=0)return;var p=nv(row[4]),u=nv(row[5]);if(p===null||u===null)return;ot[otsec].years.push(cl(row[3]));ot[otsec].planned.push(p);ot[otsec].unplanned.push(u);});
-      if(ot.SAIDI.years.length>0)pOutType=ot;}
-    // MV UNPLANNED col4=gov, col5=decimal
-    var mvRows=gs('Outages 2025');var pMvU=D.mvUnplanned;
-    if(mvRows){var ml=[],mv=[];mvRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);if(!g||g.toLowerCase().indexOf('outage')>=0)return;var v=nv(row[5]);if(v===null)return;ml.push(g);mv.push(Math.round(v*100));});if(ml.length>0)pMvU={labels:ml,values:mv};}
-    // GOV BREAKDOWN SAIDI col5=gov,6=p,7=u | SAIFI col6=gov,7=p,8=u
-    function pBD(rows,gc,pc,uc){var r={};if(!rows)return r;rows.forEach(function(row){if(!row||!row[gc])return;var g=cl(row[gc]);if(!g||g.toLowerCase().indexOf('perform')>=0||g.toLowerCase().indexOf('planned')>=0)return;var p=nv(row[pc]),u=nv(row[uc]);if(p===null||u===null)return;r[g]={p:p,u:u};});return r;}
-    var bdS=pBD(gs('Governorate Performance SAIDI'),5,6,7),bdSf=pBD(gs('Governorate Performance SAIFI'),6,7,8);
-    var pBreakdown=D.breakdown;if(Object.keys(bdS).length>0){pBreakdown={};Object.keys(bdS).forEach(function(g){pBreakdown[g]={SAIDI:bdS[g],SAIFI:bdSf[g]||{p:0,u:0}};});}
-    // MV SUSTAINED col4=gov,5=2026,6=2025,7=2024
-    var susRows=gs('MV Sustained');var pOutComp=D.outageComp;
-    if(susRows){var sl=[],sy6=[],sy5=[],sy4=[];susRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);if(!g||g.toLowerCase().indexOf('mv sustained')>=0||/^20\d\d/.test(g))return;var v5=nv(row[5]),v6=nv(row[6]),v7=nv(row[7]);if(v5===null&&v6===null)return;sl.push(g);sy6.push(v5||0);sy5.push(v6||0);sy4.push(v7||0);});if(sl.length>0)pOutComp={labels:sl,y2026:sy6,y2025:sy5,y2024:sy4};}
-    // PLANNED EXCEED col4=gov,5=2024,6=2025,7=2026
-    var planRows=gs('MV Planned Outages');var pPlanEx=D.plannedExceed;
-    if(planRows){var pl=[],p4=[],p5=[],p6=[];planRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);if(!g||g.toLowerCase().indexOf('mv planned')>=0||/^20\d\d/.test(g))return;var v5=nv(row[5]),v6=nv(row[6]),v7=nv(row[7]);if(v5===null&&v6===null)return;pl.push(g);p4.push(v5||0);p5.push(v6||0);p6.push(v7||0);});if(pl.length>0)pPlanEx={labels:pl,y2024:p4,y2025:p5,y2026:p6};}
-    // TRANSIENT col4=gov, col5=time fraction
-    var tRows=gs('Transient Outage')||gs('2026 (Transient');var pTrans=D.transient;
-    if(tRows){var tl=[],tt=[];tRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0)return;var v=row[5],ts='0:00';if(v!==null&&v!==undefined&&typeof v==='number'&&v<1){var tm=Math.round(v*24*60),h=Math.floor(tm/60),m=tm%60;ts=h+':'+(m<10?'0':'')+m;}else if(v!==null){ts=String(v);}tl.push(g);tt.push(ts);});if(tl.length>0)pTrans={labels:tl,times:tt};}
-    // DRIVER HEATMAP col4='Outage Reason', col5+=govs
-    var dRows=gs('The Driver Frequency');var pDrv=D.drivers,pDrvM=D.driverMatrix;
-    if(dRows){var hi=-1,hr=null;dRows.forEach(function(row,i){if(row&&row[4]&&cl(row[4])==='Outage Reason'){hi=i;hr=row;}});
-      if(hi>=0){var govs=[];for(var j=5;j<hr.length;j++){if(hr[j]!==null)govs.push(cl(hr[j]));}var dGovs=govs.slice(0,-1);var dList=[],dRows2=[];
-        for(var i=hi+1;i<dRows.length;i++){var row=dRows[i];if(!row||!row[4])continue;var reason=cl(row[4]);if(!reason)continue;var counts=[],total=0;for(var j=5;j<5+dGovs.length;j++){var v=parseInt(row[j])||0;counts.push(v);total+=v;}var tot2=parseInt(row[5+dGovs.length])||total;if(tot2===0&&total===0)continue;dList.push({r:reason,n:tot2,c:tot2>=30?'High':tot2>=5?'Medium':'Low'});dRows2.push({d:reason,v:counts});}
-        if(dList.length>0){pDrv=dList.sort(function(a,b){return b.n-a.n;});pDrvM={govs:dGovs,rows:dRows2};}}}
-    // QSI col5=indicator, values 2 rows below col5=y25,col6=y26
-    var qRows=gs('NEDC QSI');var pQsi=D.qsiProjects;
-    if(qRows){var qlist=[];for(var i=0;i<qRows.length;i++){var row=qRows[i];if(!row||!row[5])continue;var ind=cl(row[5]);if(!ind||ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('quality')>=0||ind.toLowerCase().indexOf('indicator')>=0)continue;var vrow=null;for(var k=i+1;k<=i+3&&k<qRows.length;k++){var tr=qRows[k];if(tr&&nv(tr[5])!==null&&nv(tr[6])!==null){vrow=tr;break;}if(tr&&nv(tr[4])!==null&&nv(tr[5])!==null){vrow=tr;break;}}if(!vrow)continue;var y25=nv(vrow[5]),y26=nv(vrow[6]);if(y25===null||y26===null)continue;var imp=y25!==0?((y26-y25)/y25*100):0;qlist.push({ind:ind,y25:Math.round(y25),y26:Math.round(y26),imp:parseFloat(imp.toFixed(1))});}if(qlist.length>0)pQsi=qlist;}
-    // GOV GROUPS
-    var gSheets=[{hint:'Muscat & South',group:'Muscat + South Batinah',nc:3,ic:4},{hint:'North Batinah & Al',group:'North Batinah & Al Buraimi',nc:3,ic:4},{hint:'Dakilyah',group:'Al Dakilyah & Dhahira',nc:4,ic:5},{hint:'Sharqiyah',group:'Sharqiyah ( South & North) + Wusta',nc:3,ic:4},{hint:'Musandam',group:'Musandam',nc:4,ic:5}];
-    var pGovData=[];
-    gSheets.forEach(function(gd){var rows=gs(gd.hint);if(!rows)return;var cg=null;
-      rows.forEach(function(row){if(!row)return;if(row[gd.nc]!==null&&row[gd.nc]!==undefined){var g=cl(row[gd.nc]);if(g&&g.replace(/\s/g,'')!==''&&g!=='\xa0')cg=g;}
-        if(!row[gd.ic])return;var ind=cl(row[gd.ic]).toUpperCase();var isS=ind==='SAIDI',isSf=ind.indexOf('SAFI')>=0;if(!isS&&!isSf)return;
-        var dc=gd.ic+1;var y25=nv(row[dc])||0,r26=nv(row[dc+2])||0,t26=nv(row[dc+3])||0;
-        var impR=nv(row[dc+5]);var imp=impR!==null?parseFloat((Math.abs(impR)>2?impR:impR*100).toFixed(1)):0;
-        var cR=nv(row[dc+6]);var cont=cR!==null?Math.round(Math.abs(cR)<=1?cR*100:cR):0;
-        var isGrp=cg&&(cg.indexOf('&')>=0||cg.indexOf('+')>=0);
-        pGovData.push({group:gd.group,gov:cg,ind:isS?'SAIDI':'SAIFI',y24:parseFloat((y25*0.88).toFixed(2)),y25:y25,r26:r26,t26:t26,imp:imp,cont:cont,isGroup:!!isGrp});});});
-    console.log('pGovData before fallback check:',pGovData.length,'entries');
-    if(pGovData.length<3)pGovData=D.govData;
-    console.log('parseWorkbook results:',{
-  period:period,
-  govDataLen:pGovData.length,
-  zonesLen:pZones.length,
-  contribSAIDI:pContrib&&pContrib.SAIDI?pContrib.SAIDI.labels.length:0,
-  driversLen:pDrv.length,
-  parsedFromFile:pGovData!==D.govData,
-  sheetNames:sn,
-  muscatRows:gs('Muscat & South')? gs('Muscat & South').length : 'NOT FOUND',
-  muscatRow6:gs('Muscat & South')? JSON.stringify(gs('Muscat & South')[6]) : 'N/A'
-});
-    return {period:period,fileName:gName||fileName,months:MO,
-      saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
-      saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
-      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target},
-      govData:pGovData,contrib:pContrib,voltage:pVoltage,zones:pZones,breakdown:pBreakdown,
-      outageType:pOutType,mvUnplanned:pMvU,outageComp:pOutComp,plannedExceed:pPlanEx,
-      transient:pTrans,drivers:pDrv,driverMatrix:pDrvM,qsiProjects:pQsi,
-      govKpi:D.govKpi,govCoords:D.govCoords,govGroups:D.govGroups};
-  }catch(e){console.error('parseWorkbook error:',e);return null;}
-}
-
-// ═══════════════════════════════════════════════════
-// RENDER SUMMARY
-// ═══════════════════════════════════════════════════
 function renderSummary(){
   renderSumKPIs();
   renderZoneCards();
@@ -1631,81 +1296,406 @@ function renderGovKpi(){
 // INIT
 // ═══════════════════════════════════════════════════
 window.addEventListener('load', function(){
-  // Auto-load live data before user enters
+  // Auto-load live data before enter
   var enterBtn=document.getElementById('enter-btn');
   if(enterBtn){enterBtn.disabled=true;enterBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:8px;animation:spin 0.8s linear infinite"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Loading…';enterBtn.style.opacity='0.7';}
   loadLive().then(function(ok){
     if(enterBtn){enterBtn.disabled=false;enterBtn.innerHTML='<svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg> Enter Dashboard';enterBtn.style.opacity='1';}
-    // If dashboard is already showing (user is inside), refresh all views with new data
-    if(ok && document.getElementById('app').style.display==='block'){
-      refreshAllViews();
-    }
-  }).catch(function(){
-    if(enterBtn){enterBtn.disabled=false;enterBtn.style.opacity='1';}
-  });
-  // Preview modal buttons
+    if(ok&&document.getElementById('app').style.display==='block'){refreshAllViews();}
+  }).catch(function(){if(enterBtn){enterBtn.disabled=false;enterBtn.style.opacity='1';}});
+  // Preview buttons
   var cb=document.getElementById('preview-cancel');
   var pb=document.getElementById('preview-publish');
-  if(cb)cb.onclick=function(){document.getElementById('preview-modal').style.display='none';window._pendingData=null;showMsg('info','Cancelled. You can upload a different file.');};
-  if(pb)pb.onclick=function(){
-    document.getElementById('preview-modal').style.display='none';
-    if(window._pendingData){
-      D=window._pendingData;
-      window._pendingData=null;
-      publishData();
-    }
-  };
-  // Also handle load-demo-btn
+  if(cb)cb.onclick=function(){document.getElementById('preview-modal').style.display='none';window._pendingData=null;showMsg('info','Cancelled.');};
+  if(pb)pb.onclick=function(){document.getElementById('preview-modal').style.display='none';if(window._pendingData){D=window._pendingData;window._pendingData=null;publishData();}};
+  // load-demo button
   var ldb=document.getElementById('load-demo-btn');
-  if(ldb)ldb.onclick=function(){showMsg('info','Loading data…');setTimeout(function(){setPeriod();showMsg('ok','Data loaded — '+D.period);setTimeout(function(){hideAdmin();document.getElementById('welcome').style.display='none';document.getElementById('app').style.display='block';refreshAllViews();setTimeout(function(){goView('summary');},100);},800);},300);};
-  // Sidebar JS tooltips
+  if(ldb)ldb.onclick=function(){showMsg('info','Loading data…');setTimeout(function(){setPeriod();showMsg('ok','Data loaded — '+D.period);setTimeout(function(){hideAdmin();document.getElementById('welcome').style.display='none';document.getElementById('app').style.display='block';refreshAllViews();},800);},300);};
+  // Sidebar tooltips
   var tip=document.getElementById('sidebar-tooltip');
-  if(tip){
-    document.querySelectorAll('.sitem').forEach(function(btn){
-      btn.addEventListener('mouseenter',function(){
-        if(document.getElementById('sidebar').classList.contains('open'))return;
-        var label=btn.getAttribute('data-tooltip');if(!label)return;
-        tip.textContent=label;tip.style.display='block';
-        var r=btn.getBoundingClientRect();
-        tip.style.left=(r.right+12)+'px';
-        tip.style.top=(r.top+r.height/2-tip.offsetHeight/2)+'px';
-      });
-      btn.addEventListener('mouseleave',function(){tip.style.display='none';});
-      btn.addEventListener('click',function(){tip.style.display='none';});
-    });
-  }
+  if(tip){document.querySelectorAll('.sitem').forEach(function(btn){
+    btn.addEventListener('mouseenter',function(){
+      if(document.getElementById('sidebar').classList.contains('open'))return;
+      var label=btn.getAttribute('data-tooltip');if(!label)return;
+      tip.textContent=label;tip.style.display='block';
+      var r=btn.getBoundingClientRect();
+      tip.style.left=(r.right+12)+'px';tip.style.top=(r.top+r.height/2-tip.offsetHeight/2)+'px';});
+    btn.addEventListener('mouseleave',function(){tip.style.display='none';});
+    btn.addEventListener('click',function(){tip.style.display='none';});});}
   if(typeof ChartDataLabels!=='undefined'){Chart.register(ChartDataLabels);}
   // Setup dropzone
   var dz2=document.getElementById('dropzone');
   dz2.addEventListener('click',function(){document.getElementById('file-input').click();});
 });
 </script>
-<!-- DATA PREVIEW MODAL -->
 <div id="preview-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);backdrop-filter:blur(8px);z-index:99999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
-    <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;background:#0c1e35;border-radius:16px 16px 0 0">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:4px">Review Before Publishing</div>
-          <div style="font-size:18px;font-weight:800;color:#fff" id="preview-title">Data Preview</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.1);padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700;color:#fff" id="preview-period-badge">YTD</div>
-      </div>
+  <div style="background:#fff;border-radius:16px;max-width:680px;width:100%;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
+    <div style="padding:18px 24px;background:#0c1e35;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:4px">Review Before Publishing</div>
+      <div style="font-size:17px;font-weight:800;color:#fff" id="preview-title">Data Preview</div></div>
+      <div style="background:rgba(255,255,255,0.1);padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700;color:#fff" id="preview-period-badge">YTD</div>
     </div>
-    <div style="overflow-y:auto;flex:1;padding:20px 24px">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="preview-cards"></div>
-      <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">SAIDI — 2026 YTD</div><div id="preview-saidi" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
-      <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">SAIFI — 2026 YTD</div><div id="preview-saifi" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
-      <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">Outage Events — 2026 YTD</div><div id="preview-outages" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
-      <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">Governorates Parsed</div><div id="preview-govs" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
-      <div id="preview-warnings" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#92400e"></div>
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;font-size:13px;color:#166534;font-weight:600">✅ Review the data above — if everything looks correct click <strong>Publish to All Visitors</strong>. Otherwise click <strong>Cancel</strong> to re-upload.</div>
+    <div style="overflow-y:auto;flex:1;padding:18px 24px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="preview-cards"></div>
+      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">SAIDI — 2026 YTD</div><div id="preview-saidi" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">SAIFI — 2026 YTD</div><div id="preview-saifi" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">Outage Events — 2026 YTD</div><div id="preview-outages" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">Governorates Parsed</div><div id="preview-govs" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div id="preview-warnings" style="border-radius:8px;padding:12px 14px;font-size:12px;display:none"></div>
     </div>
-    <div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8f9fb;border-radius:0 0 16px 16px">
-      <button id="preview-cancel" style="padding:10px 22px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:#6b7280">← Cancel / Re-upload</button>
-      <button id="preview-publish" style="padding:10px 24px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Publish to All Visitors →</button>
+    <div style="padding:14px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8f9fb;border-radius:0 0 16px 16px">
+      <button id="preview-cancel" style="padding:9px 20px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:#6b7280">← Cancel</button>
+      <button id="preview-publish" style="padding:9px 22px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Publish to All Visitors →</button>
     </div>
   </div>
 </div>
 </body>
 </html>
+function parseWorkbook(wb,fileName){
+  try{
+    var sn=wb.SheetNames;
+    function gs(hint){var m=sn.find(function(s){return s.trim().toLowerCase().indexOf(hint.toLowerCase())>=0;});return m?XLSX.utils.sheet_to_json(wb.Sheets[m],{header:1,defval:null}):null;}
+    function cl(v){return v===null||v===undefined?'':String(v).replace(/^'+|'+$/g,'').replace(/\xa0/g,'').trim();}
+    function nv(v){var n=parseFloat(v);return isNaN(n)?null:n;}
+
+    // ── TREND PARSER ──
+    function parseTrend(rows){
+      if(!rows||rows.length<2)return null;
+      var r={};
+      rows.forEach(function(row){
+        if(!row)return;
+        var li=-1;for(var j=0;j<row.length;j++){if(row[j]!==null&&row[j]!==undefined&&row[j]!==''){li=j;break;}}
+        if(li<0)return;
+        var lbl=cl(row[li]).toLowerCase();
+        var key=null;
+        if(lbl.indexOf('2024')>=0&&(lbl==='2024'||lbl.indexOf('ytd')>=0))key='y2024';
+        else if(lbl.indexOf('2025')>=0&&(lbl==='2025'||lbl.indexOf('ytd')>=0))key='y2025';
+        else if(lbl.indexOf('2026')>=0&&lbl.indexOf('ytd')>=0)key='y2026_ytd';
+        else if(lbl.indexOf('2026')>=0&&(lbl.indexOf('rolling')>=0||lbl.indexOf('(r)')>=0||lbl==='2026 (r)'))key='y2026_rolling';
+        else if(lbl.indexOf('corp')>=0)key='corp_target';
+        else if(lbl==='target'||lbl.indexOf('o&m')>=0||(lbl.indexOf('target')>=0&&lbl.indexOf('corp')<0&&lbl.indexOf('2026')<0))key='om_target';
+        if(!key)return;
+        var vals=[];for(var k=li+1;k<=li+12;k++){var v=row[k];vals.push((v!==null&&v!==undefined&&v!=='')?nv(v):null);}
+        r[key]=vals;
+      });
+      return Object.keys(r).length>0?r:null;
+    }
+
+    var saidiT=parseTrend(gs('SAIDI'))||{};if(!saidiT.y2025)return null;
+    var saifiT=parseTrend(gs('SAIFI'))||{};
+    var outageT=parseTrend(gs('Outage Events'))||{};
+    var ytdArr=saidiT.y2026_ytd||[];var li2=0;ytdArr.forEach(function(v,i){if(v!==null)li2=i;});
+    var period='YTD '+MO[li2].toUpperCase()+' 2026';
+    var mon2=MO[li2].charAt(0)+MO[li2].slice(1).toLowerCase();
+    var gName='NEDC_Performance_'+mon2+'2026.xlsx';
+
+    // ── BY ZONE col3=name, 4-9=data ──
+    var zRows=gs('By Zone');var pZones=D.zones;
+    if(zRows){var ZR={'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}};var nz=[];
+      zRows.forEach(function(row){if(!row||!row[3])return;var zn=cl(row[3]).toLowerCase();
+        if(zn.indexOf('zone')>=0&&(zn.indexOf('1')>=0||zn.indexOf('2')>=0||zn.indexOf('3')>=0)){
+          var reg=ZR[zn]||{st:0,sp:0,sft:0,sfp:0};
+          nz.push({name:zn.replace('zone','Zone').trim(),s24:nv(row[4])||0,sf24:nv(row[5])||0,s25:nv(row[6])||0,sf25:nv(row[7])||0,s26:nv(row[8])||0,sf26:nv(row[9])||0,st:reg.st,sp:reg.sp,sft:reg.sft,sfp:reg.sfp});}});
+      if(nz.length>=3)pZones=nz;}
+
+    // ── CONTRIBUTION col5=gov, col6=decimal ──
+    var cRows=gs('Governorate Contribution');var pContrib=D.contrib;
+    if(cRows){var sc={labels:[],values:[]},sfc={labels:[],values:[]},csec=null;
+      cRows.forEach(function(row){if(!row)return;var c5=cl(row[5]);
+        if(c5.toUpperCase().indexOf('SAIDI')>=0){csec='s';return;}
+        if(c5.toUpperCase().indexOf('SAIFI')>=0){csec='sf';return;}
+        if(!csec||!c5||row[6]===null)return;var pct=Math.round(nv(row[6])*100);if(isNaN(pct)||pct<=0)return;
+        if(csec==='s'){sc.labels.push(c5);sc.values.push(pct);}else{sfc.labels.push(c5);sfc.values.push(pct);}});
+      if(sc.labels.length>0)pContrib={SAIDI:sc,SAIFI:sfc};}
+
+    // ── VOLTAGE — find LV/11K/33K header row, next row=values ──
+    function pVolt(rows){if(!rows)return null;var labels=[],values=[];
+      for(var i=0;i<rows.length;i++){var row=rows[i];if(!row)continue;
+        var hasV=row.some(function(c){return c&&cl(c).toUpperCase().match(/^(LV|11|33)/);});
+        if(!hasV)continue;var vrow=rows[i+1]||[];
+        row.forEach(function(c,j){if(c&&cl(c).toUpperCase().match(/^(LV|11|33)/)){labels.push(cl(c));values.push(nv(vrow[j])||0);}});break;}
+      return labels.length>0?{labels:labels,values:values}:null;}
+    var pVoltage=D.voltage;
+    var vs=pVolt(gs('SAIDI by Voltage')),vsf=pVolt(gs('SAIFI by Voltage'));
+    if(vs||vsf)pVoltage={SAIDI:vs||D.voltage.SAIDI,SAIFI:vsf||D.voltage.SAIFI};
+
+    // ── OUTAGE TYPE col3=section/year, col4=planned, col5=unplanned ──
+    var otRows=gs('Outage (Planned');var pOutType=D.outageType;
+    if(otRows){var ot={SAIDI:{years:[],planned:[],unplanned:[]},SAIFI:{years:[],planned:[],unplanned:[]}},otsec=null;
+      otRows.forEach(function(row){if(!row||row[3]===null)return;var c=cl(row[3]).toUpperCase();
+        if(c==='SAIDI:'){otsec='SAIDI';return;}if(c==='SAIFI:'){otsec='SAIFI';return;}
+        if(!otsec||c.indexOf('TYPE')>=0||c.indexOf('CONTRIBUTION')>=0)return;
+        var p=nv(row[4]),u=nv(row[5]);if(p===null||u===null)return;
+        ot[otsec].years.push(cl(row[3]));ot[otsec].planned.push(p);ot[otsec].unplanned.push(u);});
+      if(ot.SAIDI.years.length>0)pOutType=ot;}
+
+    // ── MV UNPLANNED col4=gov, col5=decimal ──
+    var mvRows=gs('Outages 2025');var pMvU=D.mvUnplanned;
+    if(mvRows){var ml=[],mv=[];
+      mvRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);if(!g||g.toLowerCase().indexOf('outage')>=0)return;var v=nv(row[5]);if(v===null)return;ml.push(g);mv.push(Math.round(v*100));});
+      if(ml.length>0)pMvU={labels:ml,values:mv};}
+
+    // ── GOV BREAKDOWN ──
+    function pBD(rows,gc,pc,uc){var r={};if(!rows)return r;
+      rows.forEach(function(row){if(!row||!row[gc])return;var g=cl(row[gc]);
+        if(!g||g.toLowerCase().indexOf('perform')>=0||g.toLowerCase().indexOf('planned')>=0)return;
+        var p=nv(row[pc]),u=nv(row[uc]);if(p===null||u===null)return;r[g]={p:p,u:u};});return r;}
+    var bdS=pBD(gs('Governorate Performance SAIDI'),5,6,7);
+    var bdSf=pBD(gs('Governorate Performance SAIFI'),6,7,8);
+    var pBreakdown=D.breakdown;
+    if(Object.keys(bdS).length>0){pBreakdown={};Object.keys(bdS).forEach(function(g){pBreakdown[g]={SAIDI:bdS[g],SAIFI:bdSf[g]||{p:0,u:0}};});}
+
+    // ── MV SUSTAINED col4=gov,5=2026,6=2025,7=2024 ──
+    var susRows=gs('MV Sustained');var pOutComp=D.outageComp;
+    if(susRows){var sl=[],sy6=[],sy5=[],sy4=[];
+      susRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);
+        if(!g||g.toLowerCase().indexOf('mv sustained')>=0||/^20\d\d/.test(g))return;
+        var v5=nv(row[5]),v6=nv(row[6]),v7=nv(row[7]);if(v5===null&&v6===null)return;
+        sl.push(g);sy6.push(v5||0);sy5.push(v6||0);sy4.push(v7||0);});
+      if(sl.length>0)pOutComp={labels:sl,y2026:sy6,y2025:sy5,y2024:sy4};}
+
+    // ── PLANNED EXCEED col4=gov,5=2024,6=2025,7=2026 ──
+    var planRows=gs('MV Planned Outages');var pPlanEx=D.plannedExceed;
+    if(planRows){var pl=[],p4=[],p5=[],p6=[];
+      planRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);
+        if(!g||g.toLowerCase().indexOf('mv planned')>=0||/^20\d\d/.test(g))return;
+        var v5=nv(row[5]),v6=nv(row[6]),v7=nv(row[7]);if(v5===null&&v6===null)return;
+        pl.push(g);p4.push(v5||0);p5.push(v6||0);p6.push(v7||0);});
+      if(pl.length>0)pPlanEx={labels:pl,y2024:p4,y2025:p5,y2026:p6};}
+
+    // ── TRANSIENT col4=gov, col5=time fraction ──
+    var tRows=gs('Transient Outage')||gs('2026 (Transient');var pTrans=D.transient;
+    if(tRows){var tl=[],tt=[];
+      tRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);
+        if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0)return;
+        var v=row[5],ts='0:00';
+        if(v!==null&&v!==undefined&&typeof v==='number'&&v<1){var tm=Math.round(v*24*60),h=Math.floor(tm/60),m=tm%60;ts=h+':'+(m<10?'0':'')+m;}
+        else if(v!==null){ts=String(v);}
+        tl.push(g);tt.push(ts);});
+      if(tl.length>0)pTrans={labels:tl,times:tt};}
+
+    // ── DRIVER HEATMAP ──
+    var dRows=gs('The Driver Frequency');var pDrv=D.drivers,pDrvM=D.driverMatrix;
+    if(dRows){var hi=-1,hr=null;
+      dRows.forEach(function(row,i){if(row&&row[4]&&cl(row[4])==='Outage Reason'){hi=i;hr=row;}});
+      if(hi>=0){var govs=[];for(var j=5;j<hr.length;j++){if(hr[j]!==null)govs.push(cl(hr[j]));}
+        var dGovs=govs.slice(0,-1);var dList=[],dRows2=[];
+        for(var i=hi+1;i<dRows.length;i++){var row=dRows[i];if(!row||!row[4])continue;
+          var reason=cl(row[4]);if(!reason)continue;
+          var counts=[],total=0;for(var j=5;j<5+dGovs.length;j++){var vv=parseInt(row[j])||0;counts.push(vv);total+=vv;}
+          var tot2=parseInt(row[5+dGovs.length])||total;if(tot2===0&&total===0)continue;
+          dList.push({r:reason,n:tot2,c:tot2>=30?'High':tot2>=5?'Medium':'Low'});dRows2.push({d:reason,v:counts});}
+        if(dList.length>0){pDrv=dList.sort(function(a,b){return b.n-a.n;});pDrvM={govs:dGovs,rows:dRows2};}}}
+
+    // ── QSI PROJECTS ──
+    var qRows=gs('NEDC QSI');var pQsi=D.qsiProjects;
+    if(qRows){var qlist=[];
+      for(var i=0;i<qRows.length;i++){var row=qRows[i];if(!row)continue;
+        if(row[4]&&cl(row[4]).toLowerCase().indexOf('quality of supply')>=0)break;
+        if(!row[5])continue;var ind=cl(row[5]);
+        if(!ind||ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('quality')>=0||ind.toLowerCase().indexOf('indicator')>=0)continue;
+        if(ind.match(/^\d{4}/)||ind.toLowerCase().indexOf('improvement')>=0)continue;
+        var vrow=null;
+        for(var k=i+1;k<=i+3&&k<qRows.length;k++){var tr=qRows[k];if(!tr)continue;
+          var v4=nv(tr[4]),v5=nv(tr[5]),v6=nv(tr[6]);
+          if(v5!==null&&v5>=2020&&v5<=2030)continue;if(v6!==null&&v6>=2020&&v6<=2030)continue;
+          if(v4!==null&&v4>10&&v5!==null&&v6!==null&&v5>=0&&v6>=0){vrow=tr;break;}}
+        if(!vrow)continue;var y25=nv(vrow[5]),y26=nv(vrow[6]);if(y25===null||y26===null)continue;
+        var imp=y25!==0?((y26-y25)/y25*100):0;
+        qlist.push({ind:ind,y25:Math.round(y25),y26:Math.round(y26),imp:parseFloat(imp.toFixed(1))});
+        if(qlist.length>=6)break;}
+      if(qlist.length>0)pQsi=qlist;}
+
+    // ── GOV GROUPS — dynamic column detection ──
+    var gSheets=[
+      {hint:'Muscat & South',group:'Muscat + South Batinah'},
+      {hint:'North Batinah & Al',group:'North Batinah & Al Buraimi'},
+      {hint:'Dakilyah',group:'Al Dakilyah & Dhahira'},
+      {hint:'Sharqiyah',group:'Sharqiyah ( South & North) + Wusta'},
+      {hint:'Musandam',group:'Musandam'}
+    ];
+    var pGovData=[];
+    gSheets.forEach(function(gd){
+      var rows=gs(gd.hint);if(!rows)return;
+      var cg=null;
+      rows.forEach(function(row){
+        if(!row)return;
+        // Find indicator dynamically: SAIDI, SAIFI, or SAF anywhere in row
+        var ic=-1;
+        for(var j=0;j<row.length;j++){
+          if(row[j]===null||row[j]===undefined)continue;
+          var cv=cl(row[j]).toUpperCase();
+          if(cv==='SAIDI'||cv==='SAIFI'||cv==='SAFI'||cv.indexOf('SAF')>=0){ic=j;break;}
+        }
+        if(ic<0)return;
+        var ind=cl(row[ic]).toUpperCase();
+        var isS=ind==='SAIDI';
+        var isSf=(ind==='SAIFI'||ind==='SAFI'||ind.indexOf('SAF')>=0);
+        // Gov name: cell before indicator — only update if non-null (SAIFI rows keep prev cg)
+        if(ic>0&&row[ic-1]!==null&&row[ic-1]!==undefined){
+          var gv=cl(row[ic-1]);
+          if(gv&&gv.length>1&&!gv.match(/^20\d\d/)&&isNaN(parseFloat(gv))&&gv.toLowerCase().indexOf('target')<0&&gv.toLowerCase().indexOf('ytd')<0)cg=gv;
+        }
+        if(!cg)return;
+        var dc=ic+1;
+        var y25=nv(row[dc])||0;
+        var r26=nv(row[dc+2])||0;
+        var t26=nv(row[dc+3])||0;
+        var impR=nv(row[dc+5]);
+        var imp=impR!==null?parseFloat((Math.abs(impR)>2?impR:impR*100).toFixed(1)):0;
+        var cR=nv(row[dc+6]);
+        var cont=cR!==null?Math.round(Math.abs(cR)<=1?cR*100:cR):0;
+        var isGrp=cg&&(cg.indexOf('&')>=0||cg.indexOf('+')>=0);
+        pGovData.push({group:gd.group,gov:cg,ind:isS?'SAIDI':'SAIFI',
+          y24:parseFloat((y25*0.88).toFixed(2)),y25:y25,r26:r26,t26:t26,
+          imp:imp,cont:cont,isGroup:!!isGrp});
+      });
+    });
+    console.log('parseWorkbook:',{period:period,govDataLen:pGovData.length,zonesLen:pZones.length,contribSAIDI:pContrib.SAIDI?pContrib.SAIDI.labels.length:0,parsedFromFile:pGovData!==D.govData});
+    if(pGovData.length<3)pGovData=D.govData;
+
+    return {
+      period:period,fileName:gName||fileName,months:MO,
+      saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
+      saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
+      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target},
+      govData:pGovData,contrib:pContrib,voltage:pVoltage,zones:pZones,
+      breakdown:pBreakdown,outageType:pOutType,mvUnplanned:pMvU,
+      outageComp:pOutComp,plannedExceed:pPlanEx,transient:pTrans,
+      drivers:pDrv,driverMatrix:pDrvM,qsiProjects:pQsi,
+      govKpi:D.govKpi,govCoords:D.govCoords,govGroups:D.govGroups
+    };
+  }catch(e){console.error('parseWorkbook error:',e);return null;}
+}function processFile(f){
+  showMsg('info','Reading '+f.name+'…');
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var parsed=parseWorkbook(wb,f.name);
+      if(parsed){showPreview(parsed);}
+      else{showMsg('err','Could not parse — check sheet names match NEDC format.');}
+    }catch(err){showMsg('err','Error: '+err.message);}
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function showPreview(parsed){
+  var MOS2=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var nm=(parsed.saidi.y2026_ytd||[]).filter(function(v){return v!==null&&v!==undefined;}).length;
+  var gm=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).length;
+
+  document.getElementById('preview-title').textContent='Preview — '+(parsed.fileName||'file');
+  document.getElementById('preview-period-badge').textContent=parsed.period||'YTD';
+
+  document.getElementById('preview-cards').innerHTML=[
+    {l:'Period',v:parsed.period,c:'#1d4ed8',bg:'#eff6ff'},
+    {l:'Months 2026',v:nm+' / 12',c:'#166534',bg:'#f0fdf4'},
+    {l:'Governorates',v:gm,c:'#92400e',bg:'#fef3c7'}
+  ].map(function(c){return '<div style="background:'+c.bg+';border-radius:8px;padding:12px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:'+c.c+';margin-bottom:4px">'+c.l+'</div><div style="font-size:18px;font-weight:800;color:'+c.c+'">'+c.v+'</div></div>';}).join('');
+
+  function pills(arr){return MOS2.map(function(m,i){var v=arr[i];var has=v!==null&&v!==undefined;return '<span style="padding:3px 9px;border-radius:50px;font-size:11px;font-weight:700;background:'+(has?'#dcfce7':'#f3f4f6')+';color:'+(has?'#166534':'#9ca3af')+'">'+m+(has?': '+parseFloat(v).toFixed(2):'')+'</span>';}).join('');}
+  document.getElementById('preview-saidi').innerHTML=pills(parsed.saidi.y2026_ytd||[]);
+  document.getElementById('preview-saifi').innerHTML=pills(parsed.saifi.y2026_ytd||[]);
+  document.getElementById('preview-outages').innerHTML=pills(parsed.outages.y2026_ytd||[]);
+  document.getElementById('preview-govs').innerHTML=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).map(function(g){return '<span style="padding:3px 9px;border-radius:50px;font-size:11px;font-weight:600;background:#f3f4f6;color:#374151">'+g.gov+'</span>';}).join('');
+
+  // Comprehensive data check
+  var warns=[],infos=[];
+  if(nm===0)warns.push('SAIDI: No 2026 YTD data');else infos.push('SAIDI: '+nm+' months');
+  if(!parsed.saidi.corp_target)warns.push('Corp Target: not parsed');else infos.push('Corp Target: ok');
+  if(!parsed.saidi.om_target)warns.push('O&M Target: not parsed');else infos.push('O&M Target: ok');
+  if(parsed.zones.length<3)warns.push('Zones: only '+parsed.zones.length+' (expected 3)');else infos.push('Zones: '+parsed.zones.map(function(z){return z.name+' s26='+z.s26;}).join(', '));
+  var sG=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).length;
+  var sfG=(parsed.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIFI';}).length;
+  if(sG<8)warns.push('Gov SAIDI: only '+sG+' govs');else infos.push('Gov SAIDI: '+sG+' govs');
+  if(sfG<5)warns.push('Gov SAIFI: only '+sfG);else infos.push('Gov SAIFI: '+sfG+' entries');
+  var cS=parsed.contrib&&parsed.contrib.SAIDI?parsed.contrib.SAIDI.labels.length:0;
+  if(cS<5)warns.push('Contribution: only '+cS);else infos.push('Contribution: '+cS+' govs');
+  var vS=parsed.voltage&&parsed.voltage.SAIDI?parsed.voltage.SAIDI.labels.length:0;
+  if(vS<2)warns.push('Voltage: not parsed');else infos.push('Voltage: '+parsed.voltage.SAIDI.labels.join('/')+' = '+parsed.voltage.SAIDI.values.join('/'));
+  var otL=parsed.outageType&&parsed.outageType.SAIDI?parsed.outageType.SAIDI.years.length:0;
+  if(otL<2)warns.push('Outage Type: not parsed');else infos.push('Outage Type: '+otL+' periods');
+  var mvL=parsed.mvUnplanned?parsed.mvUnplanned.labels.length:0;
+  if(mvL<5)warns.push('MV Unplanned: only '+mvL);else infos.push('MV Unplanned: '+mvL+' govs');
+  var bdL=parsed.breakdown?Object.keys(parsed.breakdown).length:0;
+  if(bdL<5)warns.push('Gov Breakdown: only '+bdL);else infos.push('Gov Breakdown: '+bdL+' govs');
+  var susL=parsed.outageComp?parsed.outageComp.labels.length:0;
+  if(susL<5)warns.push('MV Sustained: only '+susL);else infos.push('MV Sustained: '+susL+' govs');
+  var peL=parsed.plannedExceed?parsed.plannedExceed.labels.length:0;
+  if(peL<5)warns.push('Planned Exceed: only '+peL);else infos.push('Planned Exceed: '+peL+' govs');
+  var trL=parsed.transient?parsed.transient.labels.length:0;
+  if(trL<5)warns.push('Transient: only '+trL);else infos.push('Transient: '+trL+' govs');
+  if(parsed.drivers.length<5)warns.push('Drivers: only '+parsed.drivers.length);else infos.push('Drivers: '+parsed.drivers.length+' — top: '+parsed.drivers[0].r+'('+parsed.drivers[0].n+')');
+  if(parsed.qsiProjects.length<2)warns.push('QSI: only '+parsed.qsiProjects.length);else infos.push('QSI: '+parsed.qsiProjects.map(function(q){return q.ind+'('+q.y25+'→'+q.y26+')';}).join(' | '));
+
+  var allOk=warns.length===0;
+  var we=document.getElementById('preview-warnings');
+  we.style.display='block';
+  we.style.background=allOk?'#f0fdf4':'#fefce8';
+  we.style.border='1px solid '+(allOk?'#bbf7d0':'#fcd34d');
+  var html='<div style="font-size:12px;font-weight:700;color:'+(allOk?'#166534':'#92400e')+';margin-bottom:8px">'+(allOk?'✅ All '+infos.length+' data checks passed!':'⚠️ '+warns.length+' warnings — '+infos.length+' checks passed')+'</div>';
+  if(warns.length)html+=warns.map(function(w){return '<div style="font-size:12px;color:#c0392b;padding:1px 0">❌ '+w+'</div>';}).join('');
+  html+=infos.map(function(i){return '<div style="font-size:11px;color:#6b7280;padding:1px 0">✓ '+i+'</div>';}).join('');
+  we.innerHTML=html;
+
+  var criticalOk=nm>=1&&parsed.zones.length>=3;
+  var pb=document.getElementById('preview-publish');
+  if(pb){pb.disabled=!criticalOk;pb.style.opacity=criticalOk?'1':'0.5';}
+
+  window._pendingData=parsed;
+  document.getElementById('preview-modal').style.display='flex';
+}
+var JSONBIN_BIN_ID='69ef2181856a6821897900bf';
+var JSONBIN_API_KEY='$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11G';
+var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
+
+async function publishData(){
+  showMsg('info','Publishing to all visitors…');
+  try{
+    var res=await fetch(JSONBIN_URL,{method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
+      body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})});
+    if(res.ok){
+      showMsg('ok','Published! All visitors now see '+D.period+' data.');
+      setTimeout(function(){
+        hideAdmin();
+        if(!document.getElementById('app').style.display||document.getElementById('app').style.display==='none'){
+          document.getElementById('welcome').style.display='none';
+          document.getElementById('app').style.display='block';}
+        setPeriod();
+        Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
+        setTimeout(function(){
+          try{renderSummary();}catch(e){console.error(e);}
+          setTimeout(function(){try{renderKpi();}catch(e){}},80);
+          setTimeout(function(){try{renderOutage();}catch(e){}},160);
+          setTimeout(function(){try{renderDriver();}catch(e){}},240);
+          setTimeout(function(){try{renderZones();}catch(e){}},320);
+          setTimeout(function(){try{renderQsi();}catch(e){}},400);
+          goView('summary');
+        },100);
+      },1200);
+    }else{var err=await res.text();showMsg('err','Publish failed ('+res.status+'). '+err);}
+  }catch(e){showMsg('err','Network error: '+e.message);}
+}
+
+async function loadLive(){
+  try{
+    var ctrl=new AbortController();
+    var t=setTimeout(function(){ctrl.abort();},5000);
+    var res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'},signal:ctrl.signal});
+    clearTimeout(t);
+    console.log('JSONBin status:',res.status);
+    if(res.ok){
+      var s=await res.json();
+      var bin=s.record||s;
+      var live=null;
+      if(bin&&bin.nedc_data&&bin.nedc_data.saidi)live=bin.nedc_data;
+      else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
+      else if(bin&&bin.saidi)live=bin;
+      if(live){D=live;console.log('Live data loaded:',D.period);return true;}
+      return false;
+    }
+    return false;
+  }catch(e){console.log('loadLive:',e.message);return false;}
+}
