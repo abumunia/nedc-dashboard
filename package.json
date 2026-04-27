@@ -1,0 +1,9 @@
+{
+  "name": "nedc-dashboard",
+  "version": "1.0.0",
+  "description": "NEDC Network Performance Dashboard",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

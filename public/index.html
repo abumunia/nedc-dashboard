@@ -1,0 +1,3143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEDC Network Performance Dashboard</title>
+<!-- Icons: inline SVG — zero CDN dependency -->
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+<!-- Tailwind removed — not needed, was breaking Font Awesome icons -->
+<!-- JS Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --red: #C41E3A; --red-light: #E8354F; --red-dark: #9A1829;
+    --navy: #0A1628; --navy-mid: #132240; --navy-light: #1E3A5F;
+    --slate: #2D4A6B; --slate-light: #4A6FA5;
+    --gold: #D4A017; --gold-light: #F0C040;
+    --green: #0E7B4F; --green-light: #16A368;
+    --amber: #C4720A; --amber-light: #E8900E;
+    --gray-50: #F8FAFC; --gray-100: #F1F5F9; --gray-200: #E2E8F0;
+    --gray-300: #CBD5E1; --gray-500: #64748B; --gray-700: #334155; --gray-900: #0F172A;
+    --surface: #FFFFFF; --surface-2: #F8FAFC; --surface-3: #F1F5F9;
+    --border: rgba(15,23,42,0.08); --shadow: 0 4px 24px rgba(10,22,40,0.08);
+    --shadow-lg: 0 12px 48px rgba(10,22,40,0.14);
+    --radius: 14px; --radius-sm: 8px; --radius-lg: 20px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body, h1, h2, h3, h4, h5, h6, p, ul, ol, li { margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; }
+  h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
+  code, .mono { font-family: 'DM Mono', monospace; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--gray-100); }
+  ::-webkit-scrollbar-thumb { background: var(--slate-light); border-radius: 3px; }
+
+  /* ── UPLOAD SCREEN ── */
+  #upload-screen {
+    position: fixed; inset: 0; z-index: 100;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 50%, var(--navy-light) 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upload-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 28px;
+    padding: 48px;
+    max-width: 560px; width: 90%;
+    text-align: center;
+  }
+  .upload-drop-zone {
+    border: 2px dashed rgba(196,30,58,0.5);
+    border-radius: 16px;
+    padding: 40px 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(196,30,58,0.04);
+    margin: 28px 0;
+  }
+  .upload-drop-zone:hover, .upload-drop-zone.dragover {
+    border-color: var(--red-light);
+    background: rgba(196,30,58,0.10);
+    transform: scale(1.01);
+  }
+  .upload-drop-zone input[type="file"] { display: none; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--red) 0%, var(--red-light) 100%);
+    color: white; border: none; border-radius: 50px;
+    padding: 14px 32px; font-size: 15px; font-weight: 700;
+    font-family: 'Syne', sans-serif; cursor: pointer;
+    transition: all 0.3s; letter-spacing: 0.3px;
+    box-shadow: 0 8px 24px rgba(196,30,58,0.35);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(196,30,58,0.5); }
+
+  /* ── SIDEBAR NAVIGATION ── */
+  /* ── SIDEBAR ── */
+  #sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: 64px;
+    background: linear-gradient(180deg, #112035 0%, #0D1B2E 100%);
+    z-index: 50;
+    display: flex; flex-direction: column; align-items: stretch;
+    padding: 0; gap: 0;
+    border-right: 1px solid rgba(255,255,255,0.07);
+    transition: width 0.28s cubic-bezier(0.4,0,0.2,1);
+    overflow: visible;
+  }
+  #sidebar.expanded { width: 216px; }
+
+  /* Logo area */
+  .nav-logo {
+    padding: 18px 0 14px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    margin-bottom: 8px; overflow: hidden;
+  }
+  #sidebar.expanded .nav-logo { justify-content: flex-start; padding-left: 18px; }
+
+  /* Nav items */
+  .nav-item {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; padding: 11px 0;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer; transition: all 0.18s ease;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    white-space: nowrap; text-decoration: none; border: none; background: transparent;
+    position: relative; outline: none; -webkit-appearance: none;
+    width: 100%; overflow: hidden;
+  }
+  #sidebar.expanded .nav-item { justify-content: flex-start; padding: 11px 20px; }
+
+  /* Icon inside nav */
+  .nav-item svg {
+    width: 19px; height: 19px; min-width: 19px;
+    fill: currentColor; flex-shrink: 0;
+  }
+
+  /* Active left accent bar */
+  .nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 50%;
+    transform: translateY(-50%); width: 3px; height: 60%;
+    background: #E8354F; border-radius: 0 3px 3px 0;
+  }
+
+  .nav-item:hover {
+    color: rgba(255,255,255,0.95);
+    background: rgba(255,255,255,0.08);
+  }
+  .nav-item.active {
+    color: #ffffff;
+    background: rgba(196,30,58,0.22);
+  }
+
+  /* Labels — hidden when collapsed */
+  .nav-label {
+    opacity: 0; width: 0; overflow: hidden;
+    transition: opacity 0.18s 0.05s, width 0.18s;
+    white-space: nowrap;
+  }
+  #sidebar.expanded .nav-label { opacity: 1; width: auto; }
+
+  /* Divider */
+  .nav-divider {
+    height: 1px; background: rgba(255,255,255,0.08);
+    margin: 6px 12px;
+  }
+
+  /* ── MAIN CONTENT ── */
+  #app { margin-left: 64px; transition: margin-left 0.28s cubic-bezier(0.4,0,0.2,1); }
+  #app.sidebar-expanded { margin-left: 216px; }
+
+  /* app margin now defined in sidebar block above */
+
+  /* ── TOPBAR ── */
+  #topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(248,250,252,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar-title { font-family: 'DM Sans', sans-serif; font-size: 18px; font-weight: 700; color: var(--navy); letter-spacing: -0.3px; }
+  .period-badge {
+    background: var(--navy); color: white;
+    padding: 5px 14px; border-radius: 50px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+    font-family: 'DM Mono', monospace;
+  }
+  .upload-new-btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 16px; border-radius: 8px;
+    background: white; border: 1px solid var(--border);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    color: var(--gray-700); transition: all 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .upload-new-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── VIEWS ── */
+  .view { display: none; padding: 28px; }
+  .view.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: white; border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .card-title { font-size: 14px; font-weight: 700; color: var(--gray-900); font-family: 'DM Sans', sans-serif; letter-spacing: -0.1px; }
+  .card-subtitle { font-size: 12px; color: var(--gray-500); margin-top: 3px; font-family: 'DM Sans', sans-serif; font-weight: 400; }
+  .card-body { padding: 20px 24px; }
+
+  /* ── KPI CARDS ── */
+  .kpi-card {
+    background: white; border-radius: var(--radius);
+    border: 1px solid var(--border); padding: 20px 22px;
+    position: relative; overflow: hidden;
+    transition: all 0.25s; cursor: default;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .kpi-card::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .kpi-card.red::after { background: linear-gradient(90deg, var(--red), var(--red-light)); }
+  .kpi-card.blue::after { background: linear-gradient(90deg, #1E5FA8, #3B82F6); }
+  .kpi-card.green::after { background: linear-gradient(90deg, var(--green), var(--green-light)); }
+  .kpi-card.amber::after { background: linear-gradient(90deg, var(--amber), var(--amber-light)); }
+  .kpi-card.navy::after { background: linear-gradient(90deg, var(--navy), var(--slate)); }
+  .kpi-label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 10px; font-family: 'DM Sans', sans-serif; }
+  .kpi-value { font-family: 'DM Sans', sans-serif; font-size: 30px; font-weight: 700; color: var(--gray-900); line-height: 1; letter-spacing: -0.5px; }
+  .kpi-unit { font-size: 13px; font-weight: 500; color: var(--gray-500); margin-left: 4px; }
+  .kpi-meta { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+  .badge.up { background: #FEE2E2; color: var(--red); }
+  .badge.down { background: #DCFCE7; color: #166534; }
+  .badge.neutral { background: var(--gray-100); color: var(--gray-500); }
+  .badge.warn { background: #FEF3C7; color: #92400E; }
+
+  /* ── STATUS DOTS ── */
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .status-dot.red { background: var(--red); }
+  .status-dot.green { background: var(--green-light); }
+  .status-dot.amber { background: var(--amber); }
+  .status-dot.pulse { animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.3); }
+  }
+
+  /* ── TABS ── */
+  .subtab-bar { display: flex; gap: 4px; background: var(--gray-100); padding: 4px; border-radius: 10px; }
+  .subtab {
+    padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; color: var(--gray-500); border: none;
+    background: transparent; font-family: 'DM Sans', sans-serif;
+  }
+  .subtab.active { background: white; color: var(--navy); box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    background: var(--gray-50); padding: 10px 14px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--gray-500);
+    border-bottom: 1px solid var(--gray-200); text-align: left;
+  }
+  .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--gray-50); }
+  .data-table tr.group-total td { background: #FFF5F5; font-weight: 700; border-top: 2px solid #FECACA; }
+
+  /* ── HEATMAP ── */
+  .heatmap-cell { padding: 8px 6px; text-align: center; font-size: 12px; font-weight: 700; transition: opacity 0.2s; cursor: default; border-radius: 4px; }
+  .heatmap-cell:hover { opacity: 0.8; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar { height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .progress-fill.good { background: linear-gradient(90deg, var(--green), var(--green-light)); }
+  .progress-fill.warn { background: linear-gradient(90deg, var(--amber), var(--amber-light)); }
+  .progress-fill.bad { background: linear-gradient(90deg, var(--red-dark), var(--red-light)); }
+
+  /* ── ZONE COMPLIANCE CARD ── */
+  .zone-card {
+    background: white; border-radius: var(--radius);
+    border: 1px solid var(--border); padding: 20px;
+    position: relative; overflow: hidden;
+  }
+  .zone-card .zone-band { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .zone-card.compliant .zone-band { background: var(--green-light); }
+  .zone-card.at-risk .zone-band { background: var(--amber); }
+  .zone-card.breach .zone-band { background: var(--red); }
+
+  /* ── DRAWER ── */
+  #reg-drawer {
+    position: fixed; right: 0; top: 0; bottom: 0;
+    width: 400px; background: white; z-index: 60;
+    transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    border-left: 1px solid var(--border); box-shadow: -8px 0 32px rgba(0,0,0,0.1);
+    overflow-y: auto;
+  }
+  #reg-drawer.open { transform: translateX(0); }
+  #reg-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 55; display: none; backdrop-filter: blur(2px); }
+  #reg-overlay.open { display: block; }
+
+  /* ── MAP ── */
+  #omanMap { height: 500px; border-radius: 0 0 var(--radius) var(--radius); }
+  .leaflet-container { background: #EEF2F7 !important; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(10,22,40,0.6);
+    backdrop-filter: blur(4px); z-index: 70;
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: white; border-radius: var(--radius-lg);
+    max-width: 900px; width: 100%; max-height: 90vh;
+    overflow-y: auto; box-shadow: var(--shadow-lg);
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── GRID HELPERS ── */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+  @media(max-width:1024px) { .grid-4 { grid-template-columns: repeat(2,1fr); } .grid-3 { grid-template-columns: repeat(2,1fr); } }
+  @media(max-width:640px) { .grid-2,.grid-3,.grid-4,.grid-auto { grid-template-columns: 1fr; } }
+
+  .section-gap { margin-bottom: 28px; }
+  .section-title { font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; letter-spacing: -0.2px; }
+  .section-title::before { content: ''; display: block; width: 4px; height: 18px; background: var(--red); border-radius: 2px; }
+
+  /* ── EXEC BRIEF MODAL ── */
+  .exec-brief-modal { position: fixed; inset: 0; z-index: 90; background: rgba(10,22,40,0.7); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .exec-brief-box { background: white; border-radius: 24px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 40px 100px rgba(0,0,0,0.3); }
+  .exec-brief-header { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); padding: 32px 36px; border-radius: 24px 24px 0 0; }
+  .action-item-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 8px; background: var(--gray-50); border: 1px solid var(--gray-200); margin-bottom: 8px; }
+
+  /* ── SPARKLINE-LIKE TREND ── */
+  .trend-mini { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; }
+  .trend-mini.up { color: var(--red); }
+  .trend-mini.down { color: var(--green-light); }
+
+  /* ── FILE STATUS ── */
+  .file-status { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--gray-50); border-radius: 8px; border: 1px solid var(--gray-200); font-size: 13px; }
+
+  /* ── TOOLTIP OVERRIDE ── */
+  .leaflet-tooltip { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-family: 'DM Sans', sans-serif; box-shadow: var(--shadow); }
+
+  /* ── LOADING ── */
+  .loading-spinner { width: 36px; height: 36px; border: 3px solid var(--gray-200); border-top-color: var(--red); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 40px auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── IMPROVEMENT % COLORS ── */
+  .imp-good { color: var(--green); background: #DCFCE7; padding: 2px 8px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+  .imp-bad { color: var(--red); background: #FEE2E2; padding: 2px 8px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+  .imp-neutral { color: var(--gray-500); background: var(--gray-100); padding: 2px 8px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+
+  /* print */
+  @media print { #sidebar, #topbar .upload-new-btn { display: none; } #app { margin-left: 0; } }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     UPLOAD SCREEN
+════════════════════════════════════════════════════ -->
+<div id="upload-screen">
+  <!-- Ambient background orbs -->
+  <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">
+    <div style="position:absolute;top:-20%;left:-10%;width:55%;height:55%;border-radius:50%;background:radial-gradient(circle,rgba(196,30,58,0.18) 0%,transparent 70%);animation:float1 8s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-15%;right:-5%;width:45%;height:45%;border-radius:50%;background:radial-gradient(circle,rgba(30,95,168,0.14) 0%,transparent 70%);animation:float2 10s ease-in-out infinite"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.02) 0%,transparent 60%);pointer-events:none"></div>
+    <style>
+      @keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-20px)}}
+      @keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-15px,15px)}}
+    </style>
+  </div>
+
+  <!-- WELCOME CARD -->
+  <div id="welcome-card" class="upload-card" style="max-width:520px">
+    <img src="https://i.imgur.com/uhQSx3a.jpeg" alt="NEDC" style="height:52px;width:auto;margin:0 auto 22px;display:block;filter:brightness(0) invert(1);opacity:0.8" onerror="this.style.display='none'">
+    <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(196,30,58,0.15);border:1px solid rgba(196,30,58,0.3);border-radius:50px;padding:4px 14px;margin-bottom:18px">
+      <span style="width:6px;height:6px;border-radius:50%;background:#E8354F;animation:pulse-dot 2s infinite;display:inline-block"></span>
+      <span style="color:#F87171;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase">Nama Electricity Distribution Company</span>
+    </div>
+    <h1 style="font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:white;line-height:1.1;margin-bottom:10px">
+      Network<br><span style="color:rgba(255,255,255,0.45)">Performance</span><br>Dashboard
+    </h1>
+    <p style="color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:28px;line-height:1.6">
+      Strategic network KPI monitoring · Reliability analytics<br>
+      <span id="welcome-period-label" style="color:rgba(255,255,255,0.6);font-weight:600">YTD Apr 2026</span>
+    </p>
+
+    <!-- Stats strip -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;margin-bottom:28px">
+      <div style="background:rgba(255,255,255,0.04);padding:14px 10px;text-align:center">
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white">10</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px">Governorates</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);padding:14px 10px;text-align:center">
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white">6</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px">Dashboard Views</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);padding:14px 10px;text-align:center">
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white">3</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px">Zones</div>
+      </div>
+    </div>
+
+    <!-- Enter Dashboard button — primary CTA for all users -->
+    <button class="btn-primary" onclick="enterDashboardDirect()" style="width:100%;font-size:16px;padding:16px 32px;margin-bottom:12px">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:10px"><path d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l370.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z"/></svg>Enter Dashboard
+    </button>
+
+    <!-- Admin link — subtle, below the main CTA -->
+    <div style="text-align:center;margin-top:4px">
+      <button onclick="showAdminUpload()" style="background:none;border:none;color:rgba(255,255,255,0.25);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;padding:6px 12px;border-radius:6px;transition:all 0.2s;text-decoration:underline;text-underline-offset:3px" onmouseover="this.style.color='rgba(255,255,255,0.55)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:5px;font-size:10px"><path d="M144 144v48H304V144c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192V144C80 64.5 144.5 0 224 0s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64H80z"/></svg>Admin · Update Data
+      </button>
+    </div>
+
+    <p style="color:rgba(255,255,255,0.15);font-size:10px;margin-top:16px;letter-spacing:0.5px">CONFIDENTIAL · INTERNAL USE ONLY</p>
+  </div>
+
+  <!-- ADMIN UPLOAD PANEL — hidden by default, slides in over welcome card -->
+  <div id="admin-panel" class="upload-card" style="max-width:520px;display:none;position:absolute">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:rgba(196,30,58,0.2);display:flex;align-items:center;justify-content:center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;color:#F87171;font-size:14px"><path d="M144 144v48H304V144c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192V144C80 64.5 144.5 0 224 0s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64H80z"/></svg>
+        </div>
+        <div>
+          <div style="color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:16px">Admin Data Update</div>
+          <div style="color:rgba(255,255,255,0.35);font-size:11px">Upload new monthly Excel file</div>
+        </div>
+      </div>
+      <button onclick="hideAdminUpload()" style="background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.5);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
+      </button>
+    </div>
+
+    <div class="upload-drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" style="margin:0 0 16px">
+      <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileUpload(event)">
+      <div style="font-size:32px;margin-bottom:10px">📊</div>
+      <div style="color:rgba(255,255,255,0.8);font-weight:600;font-size:14px;margin-bottom:5px">Drop Excel file here</div>
+      <div style="color:rgba(255,255,255,0.35);font-size:12px">.xlsx / .xls — NEDC monthly KPI export</div>
+    </div>
+
+    <div id="upload-status" style="display:none;margin:12px 0">
+      <div class="loading-spinner"></div>
+      <div style="color:rgba(255,255,255,0.6);font-size:13px;text-align:center;margin-top:8px">Reading file…</div>
+    </div>
+    <div id="upload-error" style="display:none;background:rgba(196,30,58,0.15);border:1px solid rgba(196,30,58,0.3);border-radius:10px;padding:12px 16px;color:#F87171;font-size:13px;margin:12px 0"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+      <button class="btn-primary" onclick="loadDemoData()" style="font-size:13px;padding:12px 16px;background:rgba(255,255,255,0.12);box-shadow:none;border:1px solid rgba(255,255,255,0.15)" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M448 80v48c0 44.2-100.3 80-224 80S0 172.2 0 128V80C0 35.8 100.3 0 224 0S448 35.8 448 80zM393.2 214.7c20.8-7.4 39.9-16.9 54.8-28.6V288c0 44.2-100.3 80-224 80S0 332.2 0 288V186.1c14.9 11.8 34 21.2 54.8 28.6C99.7 230.7 159.5 240 224 240s124.3-9.3 169.2-25.3zM0 346.1c14.9 11.8 34 21.2 54.8 28.6C99.7 390.7 159.5 400 224 400s124.3-9.3 169.2-25.3c20.8-7.4 39.9-16.9 54.8-28.6V432c0 44.2-100.3 80-224 80S0 476.2 0 432V346.1z"/></svg>Load Latest Monthly Data
+      </button>
+      <button onclick="hideAdminUpload()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:50px;padding:12px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s" onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>Back
+      </button>
+    </div>
+    <p style="color:rgba(255,255,255,0.15);font-size:10px;margin-top:14px;text-align:center;letter-spacing:0.5px">RESTRICTED · AUTHORISED PERSONNEL ONLY</p>
+  </div>
+</div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════ -->
+<div id="main-app" style="display:none">
+
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="nav-logo">
+      <img src="https://i.imgur.com/uhQSx3a.jpeg" alt="NEDC" style="height:32px;width:auto;filter:brightness(0) invert(1);opacity:0.7;flex-shrink:0" onerror="this.style.display='none'">
+      <span class="nav-label" style="color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:13px">NEDC</span>
+    </div>
+    <div class="nav-divider"></div>
+    <button class="nav-item active" onclick="switchView('summary')" id="nav-summary">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM256 416c35.3 0 64-28.7 64-64c0-17.4-6.9-33.1-18.1-44.6L366 161.7c5.3-12.1-.2-26.3-12.3-31.6s-26.3 .2-31.6 12.3L257.9 288c-.6 0-1.3 0-1.9 0c-35.3 0-64 28.7-64 64s28.7 64 64 64zM176 144a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM96 288a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm416-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/></svg><span class="nav-label">Executive Summary</span>
+    </button>
+    <button class="nav-item" onclick="switchView('kpi')" id="nav-kpi">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M32 32c17.7 0 32 14.3 32 32V400c0 8.8 7.2 16 16 16H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H80c-44.2 0-80-35.8-80-80V64C0 46.3 14.3 32 32 32zm96 96c0-17.7 14.3-32 32-32l192 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-192 0c-17.7 0-32-14.3-32-32zm32 96c17.7 0 32 14.3 32 32s-14.3 32-32 32-32-14.3-32-32 14.3-32 32-32zm96-64c0-17.7 14.3-32 32-32s32 14.3 32 32v160c0 17.7-14.3 32-32 32s-32-14.3-32-32V224zm128-32c17.7 0 32 14.3 32 32v160c0 17.7-14.3 32-32 32s-32-14.3-32-32V224c0-17.7 14.3-32 32-32z"/></svg><span class="nav-label">KPI View</span>
+    </button>
+    <button class="nav-item" onclick="switchView('outage')" id="nav-outage">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.8L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.2L349.4 44.6z"/></svg><span class="nav-label">Outage Analysis</span>
+    </button>
+    <button class="nav-item" onclick="switchView('driver')" id="nav-driver">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M352 320c88.4 0 160-71.6 160-160c0-15.3-2.2-30.1-6.2-44.2c-3.1-10.8-16.4-13.2-24.3-5.3l-76.8 76.8c-3 3-7.1 4.7-11.3 4.7H336c-8.8 0-16-7.2-16-16V118.3c0-4.2 1.7-8.3 4.7-11.3l76.8-76.8c7.9-7.9 5.4-21.2-5.3-24.3C382.1 2.2 367.3 0 352 0C263.6 0 192 71.6 192 160c0 19.1 3.4 37.5 9.5 54.5L19.9 396.1C7.2 408.8 0 426.1 0 444.1C0 481.6 30.4 512 67.9 512c18 0 35.3-7.2 48-19.9L297.5 310.5c17 6.2 35.4 9.5 54.5 9.5z"/></svg><span class="nav-label">Driver Analysis</span>
+    </button>
+    <button class="nav-item" onclick="switchView('zones')" id="nav-zones">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M408 120c0 54.6-73.1 151.9-105.2 192c-7.7 9.6-22 9.6-29.6 0C241.1 271.9 168 174.6 168 120C168 53.7 221.7 0 288 0s120 53.7 120 120zm8 80.4c3.5-6.9 6.7-13.8 9.6-20.6c.5-1.2 1-2.5 1.5-3.7l116-46.4C558.9 123.4 576 135 576 152V422.8c0 9.8-6 18.6-15.1 22.3L416 503V200.4zm-278.5-65c3 6.9 6.1 13.8 9.6 20.6V451.8L32.9 502.7C17.1 509 0 497.4 0 480.4V209.6c0-9.8 6-18.6 15.1-22.3L137.5 135.4zm98.5 240.6V504l192-54.9V376c-35.3 14.1-70.6 28.2-105.9 42.3c-11.6 4.6-24.5 4.6-36.1 0c-16.7-6.7-33.3-13.3-50-20z"/></svg><span class="nav-label">NPI & Zones</span>
+    </button>
+    <button class="nav-item" onclick="switchView('qsi')" id="nav-qsi">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M384 160c-17.7 0-32-14.3-32-32s14.3-32 32-32H544c17.7 0 32 14.3 32 32V288c0 17.7-14.3 32-32 32s-32-14.3-32-32V205.3L342.6 374.6c-12.5 12.5-32.8 12.5-45.3 0L192 269.3 54.6 406.6c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l160-160c12.5-12.5 32.8-12.5 45.3 0L320 306.7 466.7 160H384z"/></svg><span class="nav-label">QSI Improvements</span>
+    </button>
+    <div class="nav-divider"></div>
+    <button class="nav-item" onclick="toggleSidebar()" style="margin-top:auto">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg><span class="nav-label">Collapse</span>
+    </button>
+  </nav>
+
+  <!-- MAIN -->
+  <div id="app">
+    <!-- TOPBAR -->
+    <div id="topbar">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="topbar-title" id="topbar-title">Executive Summary</div>
+        <span class="period-badge" id="period-badge">YTD</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="file-status" id="file-status">
+          <span class="status-dot green pulse"></span>
+          <span id="file-name-display">Demo Data Loaded</span>
+        </div>
+        <button class="upload-new-btn" onclick="showAdminUploadFromDashboard()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;font-size:11px"><path d="M144 144v48H304V144c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192V144C80 64.5 144.5 0 224 0s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64H80z"/></svg>&nbsp;Admin · Update Data
+        </button>
+      </div>
+    </div>
+
+    <!-- ── VIEW: EXECUTIVE SUMMARY ── -->
+    <div id="view-summary" class="view active">
+      <!-- KPI Strip -->
+      <div class="grid-4 section-gap" id="summary-kpis"></div>
+      <!-- Map + Pie Row -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:28px">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Regional Performance Map</div>
+              <div class="card-subtitle">Visualizing <span data-period>YTD</span> intensity by governorate — click clusters to drill down</div>
+            </div>
+            <div class="subtab-bar">
+              <button class="subtab active" id="map-saidi" onclick="createOmanMap('SAIDI')">SAIDI</button>
+              <button class="subtab" id="map-saifi" onclick="createOmanMap('SAIFI')">SAIFI</button>
+            </div>
+          </div>
+          <div id="omanMap"></div>
+          <div style="padding:12px 20px;background:var(--gray-50);border-top:1px solid var(--gray-100);display:flex;gap:20px;font-size:12px;color:var(--gray-500)">
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#DC2626;display:inline-block"></span>Critical</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#F59E0B;display:inline-block"></span>Moderate</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#10B981;display:inline-block"></span>Good</span>
+            <span style="margin-left:auto;font-style:italic">Circle size = relative magnitude</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Impact Contribution by Governorate</div>
+              <div class="card-subtitle">% share of total network impact (<span id="contrib-period">YTD</span>)</div>
+            </div>
+            <div class="subtab-bar">
+              <button class="subtab active" id="pie-saidi" onclick="updateContributionPie('SAIDI')">SAIDI</button>
+              <button class="subtab" id="pie-saifi" onclick="updateContributionPie('SAIFI')">SAIFI</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:16px">
+            <div style="height:320px"><canvas id="govPieChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <!-- Trend Charts -->
+      <div class="card section-gap">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Monthly Performance Trends</div>
+            <div class="card-subtitle">YTD actuals, rolling 12-month, and targets vs forecast</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--gray-600)">
+              <input type="checkbox" id="chk-forecast" checked onchange="rebuildTrendCharts()"> Forecast
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--green)">
+              <input type="checkbox" id="chk-om-target" checked onchange="rebuildTrendCharts()"> O&M Target
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--gray-900)">
+              <input type="checkbox" id="chk-corp-target" onchange="rebuildTrendCharts()"> Corp Target
+            </label>
+          </div>
+        </div>
+        <div class="card-body" style="background:var(--gray-50)">
+          <div class="grid-2" style="margin-bottom:20px">
+            <div style="background:white;border-radius:10px;padding:16px;border:1px solid var(--gray-200)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <h4 style="font-size:13px;font-weight:700;color:var(--gray-700);display:flex;align-items:center;gap:8px">
+                  <span style="width:3px;height:14px;background:var(--red);border-radius:2px;display:inline-block"></span>SAIDI (Minutes)
+                </h4>
+                <button onclick="openTrendModal('SAIDI')" style="background:none;border:none;color:var(--gray-400);cursor:pointer;padding:4px;border-radius:4px;transition:all 0.2s" onmouseover="this.style.color='var(--navy)'" onmouseout="this.style.color='var(--gray-400)'"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"/></svg></button>
+              </div>
+              <div style="height:260px"><canvas id="saidiTrendChart"></canvas></div>
+              <div id="saidiAnalysis" style="margin-top:12px;padding:10px 12px;background:var(--gray-50);border-radius:7px;font-size:12px;color:var(--gray-600);border:1px solid var(--gray-200)"></div>
+            </div>
+            <div style="background:white;border-radius:10px;padding:16px;border:1px solid var(--gray-200)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <h4 style="font-size:13px;font-weight:700;color:var(--gray-700);display:flex;align-items:center;gap:8px">
+                  <span style="width:3px;height:14px;background:#3B82F6;border-radius:2px;display:inline-block"></span>SAIFI (Freq/Cust)
+                </h4>
+                <button onclick="openTrendModal('SAIFI')" style="background:none;border:none;color:var(--gray-400);cursor:pointer;padding:4px;border-radius:4px;transition:all 0.2s" onmouseover="this.style.color='var(--navy)'" onmouseout="this.style.color='var(--gray-400)'"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"/></svg></button>
+              </div>
+              <div style="height:260px"><canvas id="saifiTrendChart"></canvas></div>
+              <div id="saifiAnalysis" style="margin-top:12px;padding:10px 12px;background:var(--gray-50);border-radius:7px;font-size:12px;color:var(--gray-600);border:1px solid var(--gray-200)"></div>
+            </div>
+          </div>
+          <div style="background:white;border-radius:10px;padding:16px;border:1px solid var(--gray-200)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <h4 style="font-size:13px;font-weight:700;color:var(--gray-700);display:flex;align-items:center;gap:8px">
+                <span style="width:3px;height:14px;background:var(--gray-500);border-radius:2px;display:inline-block"></span>Total Outage Events
+              </h4>
+              <button onclick="openTrendModal('OUTAGES')" style="background:none;border:none;color:var(--gray-400);cursor:pointer;padding:4px;border-radius:4px" onmouseover="this.style.color='var(--navy)'" onmouseout="this.style.color='var(--gray-400)'"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"/></svg></button>
+            </div>
+            <div style="height:220px"><canvas id="outageTrendChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <!-- Zone Status -->
+      <div class="section-gap">
+        <div class="section-title">Zonal Regulatory Compliance Status</div>
+        <div class="grid-3" id="zone-compliance-cards"></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: KPI ── -->
+    <div id="view-kpi" class="view">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+        <div class="subtab-bar">
+          <button class="subtab active" id="kpi-saidi-btn" onclick="switchKpiView('SAIDI')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-104-76.3-190.2-176-205.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H176zm72 304c0 22.1-17.9 40-40 40s-40-17.9-40-40V208c0-22.1 17.9-40 40-40s40 17.9 40 40v96z"/></svg>SAIDI</button>
+          <button class="subtab" id="kpi-saifi-btn" onclick="switchKpiView('SAIFI')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.8L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.2L349.4 44.6z"/></svg>SAIFI</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="font-size:13px;font-weight:600;color:var(--gray-600)">Filter Group:</label>
+          <select id="kpi-gov-filter" onchange="renderKpiTable()" style="border:1px solid var(--gray-300);border-radius:8px;padding:7px 12px;font-size:13px;background:white;color:var(--gray-700)">
+            <option value="All">All Governorates</option>
+            <option value="Muscat + South Batinah">Muscat & South Batinah</option>
+            <option value="North Batinah & Al Buraimi">North Batinah & Al Buraimi</option>
+            <option value="Al Dakilyah & Dhahira">Al Dakhiliyah & Dhahira</option>
+            <option value="Sharqiyah ( South & North) + Wusta">Sharqiyah & Wusta</option>
+            <option value="Musandam">Musandam</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-auto section-gap" id="kpi-summary-cards"></div>
+      <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:20px;margin-bottom:28px">
+        <div class="card">
+          <div class="card-header"><div class="card-title" id="kpi-bar-title">SAIDI — Governorate YTD Comparison</div></div>
+          <div class="card-body"><div style="height:340px"><canvas id="govBarChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Contribution by Voltage Level</div></div>
+          <div class="card-body"><div style="height:340px"><canvas id="voltageDonut"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card section-gap" id="kpi-table-card">
+        <div class="card-header"><div class="card-title" id="kpi-table-title">Detailed Governorate Data</div></div>
+        <div style="overflow-x:auto"><table class="data-table" id="kpi-main-table"><thead><tr><th>Governorate</th><th>2024 YTD</th><th>2025 YTD</th><th>2026 Rolling</th><th>2026 Target</th><th>Imp % (YoY)</th><th>Status</th></tr></thead><tbody id="kpi-table-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: OUTAGE ANALYSIS ── -->
+    <div id="view-outage" class="view">
+      <div class="grid-4 section-gap" id="outage-kpi-cards"></div>
+      <div style="display:flex;justify-content:center;margin-bottom:20px">
+        <div class="subtab-bar">
+          <button class="subtab active" id="out-saidi-btn" onclick="switchOutageView('SAIDI')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-104-76.3-190.2-176-205.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H176zm72 304c0 22.1-17.9 40-40 40s-40-17.9-40-40V208c0-22.1 17.9-40 40-40s40 17.9 40 40v96z"/></svg>SAIDI Impact</button>
+          <button class="subtab" id="out-saifi-btn" onclick="switchOutageView('SAIFI')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.8L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.2L349.4 44.6z"/></svg>SAIFI Impact</button>
+        </div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-header"><div class="card-title" id="stacked-chart-title">Governorate Breakdown: Planned vs Unplanned SAIDI</div></div>
+        <div class="card-body"><div style="height:400px"><canvas id="govStackedChart"></canvas></div></div>
+      </div>
+      <div class="grid-2 section-gap">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Planned vs Unplanned Contribution</div></div>
+          <div class="card-body"><div style="height:260px"><canvas id="outageTypeChart"></canvas></div>
+            <div id="outage-type-analysis" style="margin-top:12px;padding:10px 12px;background:var(--gray-50);border-radius:7px;font-size:12px;color:var(--gray-600);border:1px solid var(--gray-200)"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">MV Unplanned — Governorate Share</div></div>
+          <div class="card-body"><div style="height:280px"><canvas id="mvUnplannedPie"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-header">
+          <div class="card-title">MV Sustained Outages Comparison</div>
+          <select id="outage-gov-filter" onchange="rebuildOutageCompChart()" style="border:1px solid var(--gray-300);border-radius:8px;padding:6px 12px;font-size:13px;background:white;color:var(--gray-700)">
+            <option value="All">All Governorates</option>
+            <option value="Muscat">Muscat</option>
+            <option value="North Batinah">North Batinah</option>
+            <option value="Dhakhliya">Dhakhliya</option>
+            <option value="North Sharqiya">North Sharqiya</option>
+            <option value="South Batinah">South Batinah</option>
+            <option value="Wusta">Wusta</option>
+            <option value="Dhahira">Dhahira</option>
+            <option value="South Sharqyia">South Sharqyia</option>
+            <option value="Buraimi">Buraimi</option>
+            <option value="Musandam">Musandam</option>
+          </select>
+        </div>
+        <div class="card-body"><div style="height:380px"><canvas id="govOutageCompChart"></canvas></div></div>
+      </div>
+      <div class="grid-2 section-gap">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Planned Outages Exceeding 5 Hours</div></div>
+          <div class="card-body"><div style="height:280px"><canvas id="plannedExceedChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Transient Outage Duration by Governorate</div></div>
+          <div class="card-body"><div style="height:280px"><canvas id="transientChart"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: DRIVER ANALYSIS ── -->
+    <div id="view-driver" class="view">
+      <div class="grid-4 section-gap" id="driver-kpi-cards"></div>
+      <div class="card section-gap">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Driver Frequency Heatmap by Governorate</div>
+            <div class="card-subtitle">Number of sustained MV unplanned outage events per driver per governorate</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="font-size:13px;font-weight:600;color:var(--gray-600)">Show top:</label>
+            <select id="heatmap-filter" onchange="renderHeatmap(this.value)" style="border:1px solid var(--gray-300);border-radius:8px;padding:6px 10px;font-size:13px;background:white">
+              <option value="2">2</option><option value="4">4</option><option value="6" selected>6</option><option value="8">8</option><option value="10">10</option><option value="All">All</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto;padding:16px"><div id="heatmapContainer"></div></div>
+        <div style="padding:12px 20px;background:var(--gray-50);border-top:1px solid var(--gray-100);font-size:12px;color:var(--gray-500)">
+          Color intensity = number of events relative to row maximum. Percentages show each governorate's share of that driver.
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card" style="grid-column:1 / -1">
+          <div class="card-header">
+            <div class="card-title">Outage Count by Driver Category</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:13px;font-weight:600;color:var(--gray-600)">Filter:</label>
+              <select id="driver-cat-filter" onchange="filterDriverChart(this.value)" style="border:1px solid var(--gray-300);border-radius:8px;padding:6px 10px;font-size:13px;background:white">
+                <option value="All">All Drivers</option>
+                <option value="High">High Impact</option>
+                <option value="Medium">Medium Impact</option>
+                <option value="Low">Low Impact</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
+              <div style="height:auto"><canvas id="driverBarChart"></canvas></div>
+              <div id="driver-insight-panel" style="background:var(--gray-50);border-radius:10px;padding:16px;border:1px solid var(--gray-200)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: NPI & ZONES ── -->
+    <div id="view-zones" class="view">
+      <button onclick="openRegDrawer()" style="position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:45;background:var(--red);color:white;border:none;padding:14px 6px;border-radius:8px 0 0 8px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:1px;writing-mode:vertical-rl;text-orientation:mixed;box-shadow:-4px 0 12px rgba(196,30,58,0.35)">
+        ⚖ REGULATORY TARGETS
+      </button>
+      <div class="grid-4 section-gap" id="zone-kpi-cards"></div>
+      <div class="card section-gap">
+        <div class="card-header"><div class="card-title">Zone Performance Detail</div></div>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="zone-table">
+            <thead><tr>
+              <th rowspan="2">Zone</th>
+              <th colspan="2" style="text-align:center;border-bottom:1px solid var(--gray-200)">2024</th>
+              <th colspan="2" style="text-align:center;border-bottom:1px solid var(--gray-200)">2025</th>
+              <th colspan="2" style="text-align:center;background:#EFF6FF;border-bottom:1px solid #BFDBFE;color:#1E40AF">2026 Rolling</th>
+              <th colspan="2" style="text-align:center;border-bottom:1px solid var(--gray-200)">YoY Δ</th>
+              <th rowspan="2" style="text-align:center">Status</th>
+            </tr><tr>
+              <th style="text-align:center">SAIDI</th><th style="text-align:center">SAIFI</th>
+              <th style="text-align:center">SAIDI</th><th style="text-align:center">SAIFI</th>
+              <th style="text-align:center;background:#EFF6FF;color:#1E40AF">SAIDI</th><th style="text-align:center;background:#EFF6FF;color:#1E40AF">SAIFI</th>
+              <th style="text-align:center">SAIDI</th><th style="text-align:center">SAIFI</th>
+            </tr></thead>
+            <tbody id="zone-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-header">
+          <div><div class="card-title">Zone Performance Trends (Multi-Year)</div><div class="card-subtitle">2024 vs 2025 vs 2026 Rolling</div></div>
+          <div style="display:flex;gap:8px">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--gray-500)"><input type="checkbox" id="zone-2024" checked onchange="rebuildZoneCharts()"> 2024</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--red)"><input type="checkbox" id="zone-2025" checked onchange="rebuildZoneCharts()"> 2025</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;color:#2563EB"><input type="checkbox" id="zone-2026" checked onchange="rebuildZoneCharts()"> 2026 Rolling</label>
+          </div>
+        </div>
+        <div class="card-body" style="background:var(--gray-50)">
+          <div class="grid-2">
+            <div style="background:white;border-radius:10px;padding:16px;border:1px solid var(--gray-200)">
+              <h4 style="font-size:13px;font-weight:700;margin-bottom:12px">SAIDI by Zone</h4>
+              <div style="height:260px"><canvas id="zoneSaidiChart"></canvas></div>
+            </div>
+            <div style="background:white;border-radius:10px;padding:16px;border:1px solid var(--gray-200)">
+              <h4 style="font-size:13px;font-weight:700;margin-bottom:12px">SAIFI by Zone</h4>
+              <div style="height:260px"><canvas id="zoneSaifiChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: QSI IMPROVEMENTS ── -->
+    <div id="view-qsi" class="view">
+      <div style="display:flex;justify-content:center;margin-bottom:24px">
+        <div class="subtab-bar">
+          <button class="subtab active" id="qsi-proj-btn" onclick="switchQsiTab('projects')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M152.1 38.2c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 113C-2.3 103.6-2.3 88.4 7 79s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zm0 160c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zM224 96c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H192c-17.7 0-32-14.3-32-32zM48 368a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"/></svg>Improvement Projects</button>
+          <button class="subtab" id="qsi-kpi-btn" onclick="switchQsiTab('govkpi')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:6px"><path d="M448 256A192 192 0 1 0 64 256a192 192 0 1 0 384 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm256 80a80 80 0 1 0 0-160 80 80 0 1 0 0 160zm0-144a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>2026 Governorate KPIs</button>
+        </div>
+      </div>
+      <div id="qsi-projects-panel">
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-bottom:28px">
+          <div class="card">
+            <div class="card-header"><div class="card-title">QSI Project Performance (2025 vs <span data-period>YTD</span>)</div></div>
+            <div style="overflow-x:auto">
+              <table class="data-table"><thead><tr><th>Project / Indicator</th><th style="text-align:center">2025 YTD</th><th style="text-align:center">2026 YTD</th><th style="text-align:center">Change %</th></tr></thead>
+              <tbody id="qsi-table-body"></tbody></table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Performance Comparison</div></div>
+            <div class="card-body"><div style="height:280px"><canvas id="qsiCompChart"></canvas></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Key Insights & Analytical Takeaways</div></div>
+          <div class="card-body" id="qsi-insights"></div>
+        </div>
+      </div>
+      <div id="qsi-govkpi-panel" style="display:none">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">2026 Action Plan & KPI Targets</div><div class="card-subtitle">YTD tracking against annual targets with improvement status</div></div>
+            <select id="gov-kpi-select" onchange="renderGovKpiTable()" style="border:1px solid var(--gray-300);border-radius:8px;padding:7px 12px;font-size:13px;background:white;color:var(--gray-700)">
+              <option value="Muscat">Muscat</option>
+              <option value="South Batinah">South Batinah</option>
+              <option value="North Batinah">North Batinah</option>
+              <option value="Al Buraimi">Al Buraimi</option>
+              <option value="Sharqiyah North">Sharqiyah North</option>
+              <option value="South Sharqiyah">South Sharqiyah</option>
+              <option value="Al Wusta">Al Wusta</option>
+              <option value="Ad Dakhliyah">Ad Dakhliyah</option>
+              <option value="Ad Dhahira">Ad Dhahira</option>
+              <option value="Musandam">Musandam</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Type</th><th style="width:28%">Action / Task</th>
+                <th style="text-align:center">2025 Record</th>
+                <th style="text-align:center">Target Imp %</th>
+                <th style="text-align:center">Weight</th>
+                <th style="text-align:center;background:#EFF6FF;color:#1E40AF">2026 Target</th>
+                <th style="text-align:center;background:#F8FAFC">2025 YTD</th>
+                <th style="text-align:center;background:#F8FAFC">2026 YTD</th>
+                <th style="text-align:center">YTD Imp %</th>
+              </tr></thead>
+              <tbody id="gov-kpi-table-body"></tbody>
+            </table>
+          </div>
+          <div style="padding:10px 20px;background:var(--gray-50);border-top:1px solid var(--gray-100);font-size:11px;color:var(--gray-500)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;color:var(--red);margin-right:4px"><path d="M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7 .2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8 .2-40.1l216-368C228.7 39.5 241.8 32 256 32zm0 128c-13.3 0-24 10.7-24 24V296c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24zm32 224a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/></svg>Highlighted rows indicate where 2026 YTD has already exceeded the annual target.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- end #app -->
+
+  <!-- REGULATORY TARGETS DRAWER -->
+  <div id="reg-overlay" onclick="closeRegDrawer()"></div>
+  <div id="reg-drawer">
+    <div style="padding:24px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:5">
+      <h3 style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">Regulatory Targets 2026–2029</h3>
+      <button onclick="closeRegDrawer()" style="background:none;border:none;cursor:pointer;color:var(--gray-500);font-size:18px;padding:4px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg></button>
+    </div>
+    <div id="reg-drawer-content" style="padding:20px"></div>
+  </div>
+
+  <!-- TREND EXPAND MODAL -->
+  <div class="modal-overlay" id="trend-modal">
+    <div class="modal-box">
+      <div style="padding:20px 24px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:5">
+        <div><h3 id="modal-trend-title" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700"></h3><p style="font-size:12px;color:var(--gray-500);margin-top:2px">Full-view trend analysis</p></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="modal-forecast" checked onchange="rebuildModalChart()"> Forecast</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="modal-om" checked onchange="rebuildModalChart()"> O&M</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="modal-corp" onchange="rebuildModalChart()"> Corp</label>
+          <button onclick="closeTrendModal()" style="background:none;border:none;cursor:pointer;color:var(--gray-500);font-size:18px;padding:4px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg></button>
+        </div>
+      </div>
+      <div style="padding:24px;background:var(--gray-50)">
+        <div style="background:white;border-radius:10px;padding:20px;border:1px solid var(--gray-200)">
+          <div style="height:400px"><canvas id="modal-trend-canvas"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end #main-app -->
+<script>
+
+// ── Inline SVG icon helper — no CDN needed ──
+function icon(name, extraStyle) {
+  const s = extraStyle ? `;${extraStyle}` : '';
+  const base = `style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:5px${s}"`;
+  const svgs = {
+    'fa-stopwatch': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" ${base}><path d="M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-104-76.3-190.2-176-205.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H176zm72 304c0 22.1-17.9 40-40 40s-40-17.9-40-40V208c0-22.1 17.9-40 40-40s40 17.9 40 40v96z"/></svg>`,
+    'fa-bolt': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" ${base}><path d="M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.8L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.2L349.4 44.6z"/></svg>`,
+    'fa-power-off': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" ${base}><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V256c0 17.7 14.3 32 32 32s32-14.3 32-32V32zM143.5 120.6c13.6-11.3 15.4-31.5 4.1-45.1s-31.5-15.4-45.1-4.1C49.7 115.4 16 181.8 16 256c0 132.5 107.5 240 240 240s240-107.5 240-240c0-74.2-33.8-140.6-86.6-184.6c-13.6-11.3-33.8-9.4-45.1 4.1s-9.4 33.8 4.1 45.1c38.9 32.3 63.5 81 63.5 135.4c0 97.2-78.8 176-176 176s-176-78.8-176-176c0-54.4 24.7-103.1 63.5-135.4z"/></svg>`,
+    'fa-plug-circle-xmark': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="currentColor" ${base}><path d="M96 0C78.3 0 64 14.3 64 32v96h64V32C128 14.3 113.7 0 96 0zM288 0c-17.7 0-32 14.3-32 32v96h64V32c0-17.7-14.3-32-32-32zM32 160c-17.7 0-32 14.3-32 32s14.3 32 32 32h16v32c0 77.4 55 142 128 156.8V480c0 17.7 14.3 32 32 32s32-14.3 32-32V412.8C283.6 403.6 320 370 320 352v-96h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zm416 32a128 128 0 1 1 0 256 128 128 0 1 1 0-256zm-43.3 75.3c-6.2 6.2-6.2 16.4 0 22.6L426.7 312l-22.1 22.1c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L449.3 334.6l22.1 22.1c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L471.9 312l22.1-22.1c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L449.3 289.4l-22.1-22.1c-6.2-6.2-16.4-6.2-22.6 0z"/></svg>`,
+    'fa-trophy': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="currentColor" ${base}><path d="M400 0H176c-26.5 0-48.1 21.8-47.1 48.2c.2 5.3 .4 10.6 .7 15.8H24C10.7 64 0 74.7 0 88c0 92.6 33.5 157 78.5 200.7c44.3 43.1 98.3 64.8 138.1 75.8c23.4 6.5 39.4 26 39.4 45.6c0 20.9-17 37.9-37.9 37.9H192c-17.7 0-32 14.3-32 32s14.3 32 32 32H384c17.7 0 32-14.3 32-32s-14.3-32-32-32H357.9C337 448 320 431 320 410.1c0-19.6 15.9-39.2 39.4-45.6c39.9-11 93.9-32.7 138.2-75.8C542.5 245 576 180.6 576 88c0-13.3-10.7-24-24-24H446.4c.3-5.2 .5-10.5 .7-15.8C448.1 21.8 426.5 0 400 0z"/></svg>`,
+    'fa-chart-pie': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" ${base}><path d="M304 240V16.6c0-9 7-16.6 16-16.6C443.7 0 512 68.3 512 192c0 9-7.6 16-16.6 16H304zM288 272c8.8 0 16 7.2 16 16V496c0 9-7.6 16-16.6 16C163.5 512 80 428.5 80 320c0-8.8 7.2-16 16-16H288zM224 240H48c-9 0-16-7.6-16-16.6C32 100.2 112.8 15.7 216 16c8.8 0 16 7.2 16 16V224c0 8.8-7.2 16-8 16z"/></svg>`,
+    'fa-triangle-exclamation': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" ${base}><path d="M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7 .2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8 .2-40.1l216-368C228.7 39.5 241.8 32 256 32zm0 128c-13.3 0-24 10.7-24 24V296c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24zm32 224a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/></svg>`,
+    'fa-chart-line': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" ${base}><path d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64V400c0 44.2 35.8 80 80 80H480c17.7 0 32-14.3 32-32s-14.3-32-32-32H80c-8.8 0-16-7.2-16-16V64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"/></svg>`,
+    'fa-bullseye': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" ${base}><path d="M448 256A192 192 0 1 0 64 256a192 192 0 1 0 384 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm256 80a80 80 0 1 0 0-160 80 80 0 1 0 0 160zm0-144a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>`,
+    'fa-gears': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" fill="currentColor" ${base}><path d="M308.5 135.3c7.1-6.3 9.9-16.2 6.2-25c-2.3-5.3-4.8-10.5-7.6-15.5L304 89.4c-3-5-6.3-9.9-9.8-14.6c-5.9-7.9-16.4-10.6-25.5-6.5L249.1 78c-5.5 2.5-11.8 2.9-17.6 1.2L212.1 74c-9.3-2.7-19.1 1.2-24 9.5c-2.7 4.7-5.1 9.6-7.2 14.6c-3.4 8.1-1 17.3 5.6 23.3l16.5 15.1c4.3 4 6.6 9.6 6.4 15.4l-.5 22.2c-.2 5.7 1.7 11.3 5.3 15.8l0 0c3.6 4.5 8.8 7.4 14.4 8.1l21.9 2.5c5.7.7 11 3.4 14.9 7.7l14.8 16.2c6.1 6.6 15.8 8.4 23.9 4.6l19.4-9c5.1-2.4 10.9-2.8 16.3-.9l22 7.6c9 3.1 18.9-.9 23.3-9.2l9.5-17.5c2.8-5.1 3.3-11.1 1.4-16.6l-8.5-24.4c-1.8-5.4-1.2-11.2 1.6-16.2z"/></svg>`,
+    'fa-bolt-lightning': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" ${base}><path d="M349.4 44.6c5.9-13.7 1.5-29.7-10.6-38.5s-28.6-8-39.9 1.8l-256 224c-10 8.8-13.6 22.9-8.9 35.3S50.7 288 64 288H175.8L98.6 467.4c-5.9 13.7-1.5 29.7 10.6 38.5s28.6 8 39.9-1.8l256-224c10-8.8 13.6-22.9 8.9-35.3s-16.6-20.7-30-20.7H272.2L349.4 44.6z"/></svg>`,
+    'fa-cable-car': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" ${base}><path d="M256 48a208 208 0 1 1 0 416A208 208 0 1 1 256 48zm0-48C114.6 0 0 114.6 0 256S114.6 512 256 512s256-114.6 256-256S397.4 0 256 0zM175 175c-9.4 9.4-9.4 24.6 0 33.9l47 47-47 47c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l47-47 47 47c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-47-47 47-47c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-47 47-47-47c-9.4-9.4-24.6-9.4-33.9 0z"/></svg>`,
+  };
+  return svgs[name] || `<span style="display:inline-block;width:1em;height:1em;background:currentColor;border-radius:2px;opacity:0.5;${s}"></span>`;
+}
+
+// ── Toast notification ──
+function showToast(msg, duration = 3500) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#0F2040;color:white;padding:10px 20px;border-radius:50px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.25);opacity:0;transition:all 0.3s ease;white-space:nowrap';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => {
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+  });
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(10px)';
+    setTimeout(() => t.remove(), 300);
+  }, duration);
+}
+
+// ═══════════════════════════════════════════════════
+// DATA STORE — populated from uploaded Excel OR demo data
+// ═══════════════════════════════════════════════════
+let D = {}; // global data store
+
+// ── DEMO DATA (Latest Available) ──
+const DEMO_DATA = {
+  period: "YTD APR 2026",
+  fileName: "Demo_Apr2026.xlsx",
+  months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  saidi: {
+    y2024: [18.0,53.1,68.4,112.5,128.6,143.9,158.7,172.2,183.1,196.3,209.7,225.2],
+    y2025: [17.6,33.6,40.0,54.0,64.1,74.1,94.1,111.8,128.2,142.2,153.7,168.8],
+    y2025_rolling: [225,206.7,197.5,168.2,162.2,156.8,162,168,173.5,171.5,170,169.6],
+    y2026_ytd: [14.7,29.2,null,null,null,null,null,null,null,null,null,null],
+    y2026_rolling: [166.8,165.3,null,null,null,null,null,null,null,null,null,null],
+    om_target: Array(12).fill(144),
+    corp_target: Array(12).fill(157),
+    forecast_2025: [null,null,null,null,null,null,null,null,null,null,null,169.6]
+  },
+  saifi: {
+    y2024: [0.15,0.47,0.67,0.88,1.07,1.32,1.52,1.72,1.84,1.97,2.08,2.21],
+    y2025: [0.2,0.3,0.4,0.6,0.7,0.9,1.1,1.4,1.6,1.7,1.8,1.97],
+    y2025_rolling: [2.2,2.04,1.95,1.91,1.89,1.82,1.85,1.89,1.95,1.96,1.95,1.98],
+    y2026_ytd: [0.1,0.28,null,null,null,null,null,null,null,null,null,null],
+    y2026_rolling: [1.96,1.97,null,null,null,null,null,null,null,null,null,null],
+    om_target: Array(12).fill(1.68),
+    corp_target: Array(12).fill(1.83),
+    forecast_2025: [null,null,null,null,null,null,null,null,null,null,null,1.98]
+  },
+  outages: {
+    y2024: [1552,4347,7423,11045,14667,19474,23652,27068,30870,34504,37135,39562],
+    y2025: [2128,4321,6402,8870,12708,17297,21153,24219,27370,30205,32323,34289],
+    y2025_rolling: [38732,38233,37352,36332,36682,36642,36475,36251,35743,35076,34660,34289],
+    y2026_ytd: [2308,4156,null,null,null,null,null,null,null,null,null,null],
+    y2026_rolling: [35699,35265,null,null,null,null,null,null,null,null,null,null],
+    target: Array(12).fill(32575),
+    forecast_2025: [null,null,null,null,null,null,null,null,null,null,null,34289]
+  },
+  govData: [
+    {group:"Muscat + South Batinah",governorate:"Muscat",indicator:"SAIDI",ytd2024:10.23,ytd2025:11.9,rolling2026:73.08,target2026:65,improvement:16.3,contribution:15},
+    {group:"Muscat + South Batinah",governorate:"South Batinah",indicator:"SAIDI",ytd2024:25.47,ytd2025:26.1,rolling2026:154.5,target2026:138,improvement:2.5,contribution:10},
+    {group:"Muscat + South Batinah",governorate:"Muscat & South Batinah",indicator:"SAIDI",ytd2024:14.0,ytd2025:15.5,rolling2026:93.4,target2026:0,improvement:10.7,contribution:27,isGroup:true},
+    {group:"North Batinah & Al Buraimi",governorate:"North Batinah",indicator:"SAIDI",ytd2024:38.8,ytd2025:29.8,rolling2026:144.7,target2026:135,improvement:-23.0,contribution:16},
+    {group:"North Batinah & Al Buraimi",governorate:"Al Buraimi",indicator:"SAIDI",ytd2024:9.57,ytd2025:7.26,rolling2026:93.5,target2026:146,improvement:-24.0,contribution:2},
+    {group:"North Batinah & Al Buraimi",governorate:"North Batinah & Al Buraimi",indicator:"SAIDI",ytd2024:35.1,ytd2025:26.3,rolling2026:136.8,target2026:0,improvement:-25.0,contribution:19,isGroup:true},
+    {group:"Al Dakilyah & Dhahira",governorate:"Al Dakilyah",indicator:"SAIDI",ytd2024:48.27,ytd2025:37.7,rolling2026:296.7,target2026:239,improvement:-22.0,contribution:21},
+    {group:"Al Dakilyah & Dhahira",governorate:"Dhahira",indicator:"SAIDI",ytd2024:27.5,ytd2025:18.5,rolling2026:200.4,target2026:185,improvement:-33.0,contribution:6},
+    {group:"Al Dakilyah & Dhahira",governorate:"Al Dakilyah & Dhahira",indicator:"SAIDI",ytd2024:41.9,ytd2025:31.5,rolling2026:262.9,target2026:0,improvement:-25.0,contribution:29,isGroup:true},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"South Sharqiyah",indicator:"SAIDI",ytd2024:71.9,ytd2025:61.08,rolling2026:237.7,target2026:225,improvement:-15.0,contribution:10},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"North Sharqiya",indicator:"SAIDI",ytd2024:59.2,ytd2025:67.96,rolling2026:287.1,target2026:252,improvement:15.0,contribution:11},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"Wusta",indicator:"SAIDI",ytd2024:142.3,ytd2025:99.92,rolling2026:622.2,target2026:580,improvement:-30.0,contribution:8},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"Sharqiyah (S&N) & Wusta",indicator:"SAIDI",ytd2024:75.4,ytd2025:68.6,rolling2026:308.9,target2026:0,improvement:-9.0,contribution:31,isGroup:true},
+    {group:"Musandam",governorate:"Musandam",indicator:"SAIDI",ytd2024:107.4,ytd2025:21.5,rolling2026:116.7,target2026:181,improvement:-80.0,contribution:1.5},
+    // SAIFI
+    {group:"Muscat + South Batinah",governorate:"Muscat",indicator:"SAIFI",ytd2024:0.1,ytd2025:0.13,rolling2026:0.98,target2026:0.89,improvement:30.0,contribution:16},
+    {group:"Muscat + South Batinah",governorate:"South Batinah",indicator:"SAIFI",ytd2024:0.25,ytd2025:0.3,rolling2026:1.86,target2026:1.49,improvement:20.0,contribution:10},
+    {group:"Muscat + South Batinah",governorate:"Muscat & South Batinah",indicator:"SAIFI",ytd2024:0.14,ytd2025:0.17,rolling2026:1.2,target2026:0,improvement:21.4,contribution:27,isGroup:true},
+    {group:"North Batinah & Al Buraimi",governorate:"North Batinah",indicator:"SAIFI",ytd2024:0.45,ytd2025:0.4,rolling2026:2.2,target2026:2.01,improvement:-11.0,contribution:20},
+    {group:"North Batinah & Al Buraimi",governorate:"Al Buraimi",indicator:"SAIFI",ytd2024:0.18,ytd2025:0.1,rolling2026:1.6,target2026:1.75,improvement:-44.0,contribution:7},
+    {group:"North Batinah & Al Buraimi",governorate:"North Batinah & Al Buraimi",indicator:"SAIFI",ytd2024:0.41,ytd2025:0.37,rolling2026:2.1,target2026:0,improvement:-10.0,contribution:22,isGroup:true},
+    {group:"Al Dakilyah & Dhahira",governorate:"Al Dakilyah",indicator:"SAIFI",ytd2024:0.35,ytd2025:0.3,rolling2026:2.85,target2026:2.32,improvement:-14.0,contribution:17},
+    {group:"Al Dakilyah & Dhahira",governorate:"Dhahira",indicator:"SAIFI",ytd2024:0.35,ytd2025:0.28,rolling2026:2.4,target2026:2.43,improvement:-20.0,contribution:7},
+    {group:"Al Dakilyah & Dhahira",governorate:"Al Dakilyah & Dhahira",indicator:"SAIFI",ytd2024:0.35,ytd2025:0.29,rolling2026:2.7,target2026:0,improvement:-17.0,contribution:24,isGroup:true},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"South Sharqiyah",indicator:"SAIFI",ytd2024:0.37,ytd2025:0.5,rolling2026:2.4,target2026:2.11,improvement:35.0,contribution:7},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"North Sharqiya",indicator:"SAIFI",ytd2024:0.43,ytd2025:0.36,rolling2026:3.2,target2026:3.1,improvement:-16.0,contribution:12},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"Wusta",indicator:"SAIFI",ytd2024:0.6,ytd2025:0.6,rolling2026:4.6,target2026:3.77,improvement:0.0,contribution:5},
+    {group:"Sharqiyah ( South & North) + Wusta",governorate:"Sharqiyah (S&N) & Wusta",indicator:"SAIFI",ytd2024:0.43,ytd2025:0.45,rolling2026:3.03,target2026:0,improvement:5.0,contribution:24,isGroup:true},
+    {group:"Musandam",governorate:"Musandam",indicator:"SAIFI",ytd2024:1.33,ytd2025:0.33,rolling2026:2.9,target2026:3.56,improvement:-75.0,contribution:3}
+  ],
+  contribution: {
+    SAIDI: {labels:["North Batinah","North Sharqiyyah","AL Dakhliya","Muscat","South Sharqiyyah","South Batinah","AL Wusta","Al Dhahra","Birami","Musandam"],values:[18,16,15,14,14,11,7,3,1,1]},
+    SAIFI: {labels:["North Batinah","Muscat","AL Dakhliya","South Batinah","South Sharqiyyah","North Sharqiyyah","Al Dhahra","Birami","AL Wusta","Musandam"],values:[24,16,13,12,11,8,5,5,4,2]}
+  },
+  voltage: {
+    SAIDI:{labels:['11 KV','33 KV','LV'],values:[24.1,4.1,1]},
+    SAIFI:{labels:['11 KV','33 KV','LV'],values:[0.19,0.08,0.01]}
+  },
+  zones: [
+    {name:"Zone 1",saidi24:81.5,saifi24:1.1,saidi25:71.4,saifi25:0.94,saidi26:73.9,saifi26:0.98,
+     saidiTarget:72,saidiPenalty:75.6,saifiTarget:1.03,saifiPenalty:1.08},
+    {name:"Zone 2",saidi24:280.5,saifi24:2.5,saidi25:235.4,saifi25:2.4,saidi26:231.8,saifi26:2.4,
+     saidiTarget:238,saidiPenalty:249.9,saifiTarget:2.20,saifiPenalty:2.31},
+    {name:"Zone 3",saidi24:293.3,saifi24:3.2,saidi25:153.1,saifi25:2.3,saidi26:151.5,saifi26:2.33,
+     saidiTarget:133,saidiPenalty:139.7,saifiTarget:2.20,saifiPenalty:2.31}
+  ],
+  govBreakdown: {
+    "Muscat":{SAIDI:{planned:4,unplanned:8},SAIFI:{planned:0.025,unplanned:0.113}},
+    "Al Dakilyah":{SAIDI:{planned:26,unplanned:12},SAIFI:{planned:0.103,unplanned:0.21}},
+    "South Batinah":{SAIDI:{planned:10,unplanned:16},SAIFI:{planned:0.044,unplanned:0.255}},
+    "North Batinah":{SAIDI:{planned:18,unplanned:13},SAIFI:{planned:0.128,unplanned:0.29}},
+    "South Sharqiyah":{SAIDI:{planned:44,unplanned:17},SAIFI:{planned:0.175,unplanned:0.334}},
+    "North Sharqiya":{SAIDI:{planned:59,unplanned:8},SAIFI:{planned:0.214,unplanned:0.141}},
+    "Musandam":{SAIDI:{planned:3,unplanned:19},SAIFI:{planned:0.048,unplanned:0.282}},
+    "Al Buraimi":{SAIDI:{planned:4,unplanned:4},SAIFI:{planned:0.3,unplanned:0.078}},
+    "Wusta":{SAIDI:{planned:82,unplanned:17},SAIFI:{planned:0.328,unplanned:0.275}},
+    "Dhahira":{SAIDI:{planned:8,unplanned:10},SAIFI:{planned:0.118,unplanned:0.164}}
+  },
+  outageType: {
+    SAIDI:{years:['2024','2025','2026 (YTD)'],planned:[79.7,64.3,17.7],unplanned:[145.5,104.5,11.5]},
+    SAIFI:{years:['2024','2025','2026 (YTD)'],planned:[0.5,0.37,0.09],unplanned:[1.7,1.6,0.19]}
+  },
+  mvUnplanned: {labels:["North Batinah","Muscat","AL Dakhliya","South Sharqiyah","South Batinah","AL Wusta","North Sharqiyah","Al Dhahira","Musandam","Buraimi"],values:[23,19,15,12,11,6,4,4,3,2]},
+  outageComp: {
+    labels:['Muscat','North Batinah','Dhakhliya','North Sharqiya','South Batinah','Wusta','Dhahira','South Sharqyia','Buraimi','Musandam'],
+    y2026:[78,95,61,18,45,26,18,48,10,13],
+    y2025:[532,580,437,317,281,219,225,186,136,73],
+    y2024:[604,750,458,371,298,213,179,302,152,61]
+  },
+  plannedExceed: {
+    labels:['Dakhliya','Sharqyia N','Sharqyia S','Batinah S','Dhahira','N Batinah','Muscat','Wusta','Buraimi','Musandam'],
+    y2024:[8,18,11,8,5,13,21,25,2,0],y2025:[42,27,37,52,15,60,79,94,1,1],y2026:[8,18,11,8,5,13,21,25,2,0]
+  },
+  transient: {
+    labels:['WUSTA','Muscat','Dhahira','SHARQIYA-N','NEDC','SHARQIYA-S','SOUTH-B','DAKHLYA','Musandam','N Batinah','Buraimi'],
+    times:['3:24','1:09','1:45','1:03','1:30','1:02','1:05','0:48','9:21','0:49','0:00']
+  },
+  drivers: [
+    {reason:"TERMINATION",count:75,category:"High"},
+    {reason:"CONDUCTOR & PG & Jumper",count:64,category:"High"},
+    {reason:"Transient",count:59,category:"High"},
+    {reason:"Cable damaged",count:39,category:"High"},
+    {reason:"Cable Faulty",count:19,category:"Medium"},
+    {reason:"Distribution transformer",count:14,category:"Medium"},
+    {reason:"DOF",count:9,category:"Medium"},
+    {reason:"POLE FIRED",count:9,category:"Medium"},
+    {reason:"RMU ISSUE",count:9,category:"Medium"},
+    {reason:"TREE & truck TOUCHES",count:8,category:"Medium"},
+    {reason:"Pole broken(Accident)",count:7,category:"Medium"},
+    {reason:"Lightning Arrestor",count:7,category:"Medium"},
+    {reason:"ABS",count:6,category:"Medium"},
+    {reason:"FUSE",count:6,category:"Medium"},
+    {reason:"OETC & GEN & PDO",count:6,category:"Medium"},
+    {reason:"Bird & Animal",count:5,category:"Medium"},
+    {reason:"TX Oil leakage",count:5,category:"Medium"},
+    {reason:"Cable Joint",count:4,category:"Low"},
+    {reason:"Vandalism",count:4,category:"Low"},
+    {reason:"Wrong Rotation",count:3,category:"Low"},
+    {reason:"Customer Side",count:1,category:"Low"},
+    {reason:"LT fault",count:1,category:"Low"},
+    {reason:"Overload",count:1,category:"Low"},
+    {reason:"POLE LEANING",count:1,category:"Low"},
+    {reason:"Power TX Issue",count:1,category:"Low"},
+    {reason:"Protection Malfunction",count:1,category:"Low"},
+    {reason:"Safe operation",count:1,category:"Low"},
+    {reason:"Safety",count:1,category:"Low"},
+    {reason:"Under Investigation",count:1,category:"Low"}
+  ],
+  driverMatrix: {
+    governorates:["Buraimi","AD DAKHLIYA","AD DHAHIRA","Musandam","Muscat","N Batinah","SHARQIYA-N","SHARQIYA-S","SOUTH-B","AL WUSTA"],
+    driverData:[
+      {driver:"TERMINATION",counts:[3,9,5,0,12,23,2,5,13,3]},
+      {driver:"CONDUCTOR & PG & Jumper",counts:[0,16,2,2,9,13,3,8,7,4]},
+      {driver:"Transient",counts:[0,6,2,2,7,16,1,10,10,5]},
+      {driver:"Cable damaged",counts:[1,6,1,0,13,10,0,5,2,1]},
+      {driver:"Cable Faulty",counts:[0,4,3,0,9,1,1,1,0,0]},
+      {driver:"Distribution transformer",counts:[0,2,1,1,2,4,2,1,1,0]},
+      {driver:"DOF",counts:[1,0,1,0,0,4,0,3,0,0]},
+      {driver:"POLE FIRED",counts:[0,0,0,0,0,4,1,3,1,0]},
+      {driver:"RMU ISSUE",counts:[0,2,1,1,0,0,2,0,1,2]},
+      {driver:"TREE & truck TOUCHES",counts:[0,0,0,0,3,4,0,0,1,0]}
+    ]
+  },
+  qsiProjects: [
+    {indicator:"Transient Outages",y2025:26,y2026:59,improvement:127},
+    {indicator:"Cable Damage",y2025:24,y2026:39,improvement:63},
+    {indicator:"Cable Termination",y2025:95,y2026:75,improvement:-21},
+    {indicator:"OHL (Conductor Fall & PG)",y2025:44,y2026:64,improvement:45}
+  ],
+  govKpiData: {
+    "Muscat":[
+      {type:"Planned",action:"Connect M. Generator for planned programs with customers >60 & duration >5 hrs",record25:"79",imp:"34%",weight:"10%",target26:"52",ytd25:"38",ytd26:"20"},
+      {type:"Planned",action:"Feeder Splitting and OHL Optimization (programs >150 customers need GM approval)",record25:"36",imp:"10%",weight:"10%",target26:"32",ytd25:"10",ytd26:"10"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages by enhancing maintenance & root cause analysis",record25:"76",imp:"45%",weight:"20%",target26:"42",ytd25:"8",ytd26:"12"},
+      {type:"Unplanned",action:"Reduce average restoration time via FBI project",record25:"145 Min",imp:"10%",weight:"5%",target26:"130 Min",ytd25:"126 Min",ytd26:"121.7 Min"},
+      {type:"Unplanned",action:"Reduce Transient Outages by modifying protection scheme (ARC Relay)",record25:"62",imp:"15%",weight:"15%",target26:"53",ytd25:"3",ytd26:"7"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls & PG outages via enhanced maintenance",record25:"47",imp:"6%",weight:"10%",target26:"44",ytd25:"6",ytd26:"9"},
+      {type:"Unplanned",action:"Reduce Cable Faulty Outages by root cause analysis",record25:"97",imp:"25%",weight:"10%",target26:"73",ytd25:"10",ytd26:"9"},
+      {type:"Unplanned",action:"Reduce Cable Damage by modifying excavation permit process",record25:"75",imp:"40%",weight:"10%",target26:"45",ytd25:"7",ytd26:"13"}
+    ],
+    "South Batinah":[
+      {type:"Planned",action:"Connect M. Generator for planned programs with customers >60 & duration >5 hrs",record25:"52",imp:"12%",weight:"10%",target26:"44",ytd25:"9",ytd26:"8"},
+      {type:"Planned",action:"Feeder Splitting and OHL Optimization",record25:"58",imp:"10%",weight:"10%",target26:"52",ytd25:"10",ytd26:"12"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"33",imp:"33%",weight:"20%",target26:"22",ytd25:"9",ytd26:"13"},
+      {type:"Unplanned",action:"Reduce Transient Outages by modifying protection scheme",record25:"51",imp:"10%",weight:"20%",target26:"46",ytd25:"7",ytd26:"10"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"115",imp:"10%",weight:"10%",target26:"104 Min",ytd25:"108.5 Min",ytd26:"91 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls & PG outages",record25:"34",imp:"29%",weight:"10%",target26:"24",ytd25:"8",ytd26:"7"},
+      {type:"Unplanned",action:"Reduce Distribution Transformer Outages",record25:"4",imp:"50%",weight:"10%",target26:"2",ytd25:"3",ytd26:"1"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"10",imp:"30%",weight:"10%",target26:"7",ytd25:"2",ytd26:"1"}
+    ],
+    "North Batinah":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"52",imp:"12%",weight:"10%",target26:"44",ytd25:"14",ytd26:"13"},
+      {type:"Planned",action:"Splitting FDR & OHL Optimization",record25:"196",imp:"10%",weight:"10%",target26:"176",ytd25:"35",ytd26:"23"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"136",imp:"34%",weight:"20%",target26:"90",ytd25:"22",ytd26:"23"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"80",imp:"14%",weight:"20%",target26:"69",ytd25:"3",ytd26:"16"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"84 Min",imp:"5%",weight:"10%",target26:"80 Min",ytd25:"84 Min",ytd26:"90.5 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"77",imp:"6%",weight:"10%",target26:"72",ytd25:"5",ytd26:"13"},
+      {type:"Unplanned",action:"Reduce Distribution Transformer Outages",record25:"25",imp:"20%",weight:"10%",target26:"20",ytd25:"2",ytd26:"4"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"2",imp:"50%",weight:"10%",target26:"1",ytd25:"8",ytd26:"1"}
+    ],
+    "Al Buraimi":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"1",imp:"100%",weight:"10%",target26:"0",ytd25:"0",ytd26:"0"},
+      {type:"Planned",action:"Feeder Splitting and OHL Optimization",record25:"10",imp:"20%",weight:"10%",target26:"8",ytd25:"0",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"28",imp:"42%",weight:"20%",target26:"16",ytd25:"5",ytd26:"3"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"16",imp:"25%",weight:"20%",target26:"12",ytd25:"1",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"17",imp:"41%",weight:"10%",target26:"10",ytd25:"0",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"103",imp:"10%",weight:"10%",target26:"93 Min",ytd25:"90 Min",ytd26:"282 Min"},
+      {type:"Unplanned",action:"Reduce Distribution Transformer Outages",record25:"10",imp:"40%",weight:"10%",target26:"6",ytd25:"1",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"20",imp:"25%",weight:"10%",target26:"15",ytd25:"0",ytd26:"1"}
+    ],
+    "Sharqiyah North":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"27",imp:"16%",weight:"10%",target26:"22",ytd25:"13",ytd26:"18"},
+      {type:"Planned",action:"Feeder Splitting and OHL Optimization",record25:"94",imp:"10%",weight:"10%",target26:"85",ytd25:"24",ytd26:"33"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"57",imp:"75%",weight:"20%",target26:"14",ytd25:"4",ytd26:"1"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"48",imp:"16%",weight:"20%",target26:"40",ytd25:"1",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"111 Min",imp:"10%",weight:"10%",target26:"100 Min",ytd25:"109.6 Min",ytd26:"66 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"44",imp:"32%",weight:"10%",target26:"30",ytd25:"5",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce Distribution Transformer Outages",record25:"15",imp:"33%",weight:"10%",target26:"10",ytd25:"1",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"17",imp:"29%",weight:"10%",target26:"12",ytd25:"1",ytd26:"0"}
+    ],
+    "South Sharqiyah":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"37",imp:"19%",weight:"10%",target26:"30",ytd25:"10",ytd26:"11"},
+      {type:"Planned",action:"Feeder Splitting and OHL Optimization",record25:"86",imp:"10%",weight:"10%",target26:"78",ytd25:"24",ytd26:"24"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"51",imp:"11%",weight:"20%",target26:"45",ytd25:"8",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"33",imp:"39%",weight:"20%",target26:"20",ytd25:"2",ytd26:"1"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"130 Min",imp:"10%",weight:"10%",target26:"117 Min",ytd25:"84 Min",ytd26:"125 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"42",imp:"16%",weight:"10%",target26:"35",ytd25:"5",ytd26:"3"},
+      {type:"Unplanned",action:"Reduce Distribution Transformer Outages",record25:"16",imp:"25%",weight:"10%",target26:"12",ytd25:"2",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"21",imp:"38%",weight:"10%",target26:"13",ytd25:"0",ytd26:"1"}
+    ],
+    "Al Wusta":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"94",imp:"18%",weight:"10%",target26:"77",ytd25:"18",ytd26:"21"},
+      {type:"Planned",action:"Splitting FDR & OHL Optimization",record25:"75",imp:"10%",weight:"10%",target26:"67",ytd25:"21",ytd26:"15"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"16",imp:"37%",weight:"20%",target26:"10",ytd25:"4",ytd26:"3"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"26",imp:"19%",weight:"20%",target26:"21",ytd25:"4",ytd26:"5"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"193",imp:"10%",weight:"10%",target26:"174 Min",ytd25:"165 Min",ytd26:"250 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"47",imp:"11%",weight:"10%",target26:"42",ytd25:"6",ytd26:"4"},
+      {type:"Unplanned",action:"Reduce Distribution Transformer Outages",record25:"7",imp:"29%",weight:"10%",target26:"5",ytd25:"1",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"4",imp:"50%",weight:"10%",target26:"2",ytd25:"0",ytd26:"0"}
+    ],
+    "Ad Dakhliyah":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"42",imp:"10%",weight:"10%",target26:"38",ytd25:"14",ytd26:"8"},
+      {type:"Planned",action:"Feeder Splitting and OHL Optimization",record25:"137",imp:"10%",weight:"10%",target26:"123",ytd25:"27",ytd26:"18"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"78",imp:"58%",weight:"20%",target26:"33",ytd25:"17",ytd26:"9"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"92",imp:"22%",weight:"20%",target26:"72",ytd25:"2",ytd26:"6"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"143",imp:"10%",weight:"10%",target26:"130 Min",ytd25:"153.9 Min",ytd26:"121.6 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"49",imp:"33%",weight:"10%",target26:"33",ytd25:"8",ytd26:"16"},
+      {type:"Unplanned",action:"Reduce Distribution Transformer Outages",record25:"37",imp:"14%",weight:"10%",target26:"32",ytd25:"3",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"33",imp:"9%",weight:"10%",target26:"30",ytd25:"0",ytd26:"1"}
+    ],
+    "Ad Dhahira":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"15",imp:"47%",weight:"10%",target26:"8",ytd25:"8",ytd26:"5"},
+      {type:"Planned",action:"Feeder Splitting and OHL Optimization",record25:"62",imp:"10%",weight:"10%",target26:"56",ytd25:"6",ytd26:"1"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"30",imp:"70%",weight:"20%",target26:"10",ytd25:"5",ytd26:"5"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"42",imp:"29%",weight:"20%",target26:"30",ytd25:"0",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"138",imp:"10%",weight:"10%",target26:"124 Min",ytd25:"190 Min",ytd26:"62 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"46",imp:"74%",weight:"15%",target26:"12",ytd25:"1",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce Pole Broken Outages",record25:"19",imp:"47%",weight:"15%",target26:"10",ytd25:"0",ytd26:"0"}
+    ],
+    "Musandam":[
+      {type:"Planned",action:"Connect M. Generator for planned programs",record25:"0",imp:"100%",weight:"10%",target26:"0",ytd25:"0",ytd26:"1"},
+      {type:"Planned",action:"Splitting FDR & OHL Optimization",record25:"4",imp:"25%",weight:"10%",target26:"3",ytd25:"0",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce Cable Termination Outages",record25:"7",imp:"28%",weight:"20%",target26:"5",ytd25:"1",ytd26:"0"},
+      {type:"Unplanned",action:"Reduce Transient Outages",record25:"15",imp:"13%",weight:"20%",target26:"13",ytd25:"2",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce average restoration via FBI project",record25:"127",imp:"10%",weight:"15%",target26:"114 Min",ytd25:"181 Min",ytd26:"267.8 Min"},
+      {type:"Unplanned",action:"Reduce OHL conductor falls",record25:"4",imp:"25%",weight:"10%",target26:"3",ytd25:"0",ytd26:"2"},
+      {type:"Unplanned",action:"Reduce Cable Damage Outages",record25:"7",imp:"28%",weight:"15%",target26:"5",ytd25:"0",ytd26:"0"}
+    ]
+  },
+  govCoords: {
+    "Muscat & South Batinah":{lat:23.65,lng:57.8},
+    "North Batinah & Al Buraimi":{lat:24.25,lng:56.3},
+    "Al Dakilyah & Dhahira":{lat:22.85,lng:56.75},
+    "Sharqiyah (S&N) & Wusta":{lat:21.0,lng:58.3},
+    "Musandam":{lat:25.9,lng:56.4},
+    "Muscat":{lat:23.6,lng:58.5},
+    "South Batinah":{lat:23.6,lng:57.5},
+    "North Batinah":{lat:24.3,lng:56.7},
+    "Al Buraimi":{lat:24.2,lng:55.9},
+    "Al Dakilyah":{lat:22.9,lng:57.5},
+    "Dhahira":{lat:22.8,lng:56.0},
+    "South Sharqiyah":{lat:22.0,lng:59.0},
+    "North Sharqiya":{lat:22.9,lng:59.5},
+    "Wusta":{lat:19.8,lng:56.8}
+  },
+  regTargets: {
+    saidi: [
+      {zone:"Zone 1",rolling:73.9,status:"at-risk",base:[72,67,62,55],penalty:[75.6,70.4,65.1,57.8]},
+      {zone:"Zone 2",rolling:231.8,status:"compliant",base:[238,202,151,90],penalty:[249.9,212.1,158.6,94.5]},
+      {zone:"Zone 3",rolling:151.5,status:"breach",base:[133,122,110,90],penalty:[139.7,128.1,115.5,94.5]}
+    ],
+    saifi: [
+      {zone:"Zone 1",rolling:0.98,status:"compliant",base:[1.03,0.97,0.90,0.90],penalty:[1.08,1.02,0.95,0.95]},
+      {zone:"Zone 2",rolling:2.40,status:"breach",base:[2.20,1.90,1.50,1.20],penalty:[2.31,2.00,1.58,1.26]},
+      {zone:"Zone 3",rolling:2.33,status:"breach",base:[2.20,1.90,1.50,1.20],penalty:[2.31,2.00,1.58,1.26]}
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let currentView = 'summary';
+let kpiMode = 'SAIDI';
+let outageMode = 'SAIDI';
+let mapMode = 'SAIDI';
+let mapGrouped = true;
+let modalTrendType = null;
+let omanMap = null;
+let charts = {}; // chart registry
+let sidebarExpanded = false;
+
+const CHART_COLORS = ['#1E3A8A','#C41E3A','#D4A017','#0E7B4F','#7C3AED','#0284C7','#DC2626','#D97706','#0D9488','#64748B'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ═══════════════════════════════════════════════════
+// FILE UPLOAD
+// ═══════════════════════════════════════════════════
+async function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  await processExcelFile(file);
+}
+
+function setupDropZone() {
+  const zone = document.getElementById('drop-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) processExcelFile(file);
+    else showUploadError('Please upload an Excel file (.xlsx or .xls)');
+  });
+}
+
+async function processExcelFile(file) {
+  document.getElementById('upload-status').style.display = 'block';
+  document.getElementById('upload-error').style.display = 'none';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      // Try to parse known sheets, fall back to demo data with file metadata
+      const parsed = tryParseWorkbook(wb, file.name);
+      if (parsed) {
+        D = parsed;
+        const saidiMonths = (parsed.saidi.y2026_ytd||[]).filter(v=>v!==null).length;
+        const govCount = (parsed.govData||[]).filter(g=>!g.isGroup&&g.indicator==="SAIDI").length;
+        const driverCount = (parsed.drivers||[]).length;
+        showUploadError("✅ Parsed: " + saidiMonths + " months of 2026 data, " + govCount + " governorates, " + driverCount + " driver types. Period: " + parsed.period, true);
+
+        // Push to Netlify so all visitors get updated data
+        const uploadBtn = document.getElementById("file-input");
+        const statusEl = document.getElementById("upload-error");
+        try {
+          const pw = await promptAdminPassword();
+          if (pw) {
+            statusEl.textContent = "⏳ Saving data for all visitors…";
+            statusEl.style.display = "block";
+            statusEl.style.color = "#0284c7";
+            statusEl.style.background = "rgba(2,132,199,0.1)";
+            statusEl.style.borderColor = "rgba(2,132,199,0.3)";
+            const result = await pushDataToServer(parsed, pw);
+            showUploadError("🌐 Data published! All visitors will now see " + parsed.period + " data.", true);
+          } else {
+            showUploadError("✅ File parsed locally. Enter password to publish for all visitors.", true);
+          }
+        } catch(e) {
+          showUploadError("⚠️ Parse OK but could not publish: " + e.message + ". Data loaded locally only.", true);
+        }
+      } else {
+        D = Object.assign({}, JSON.parse(JSON.stringify(DEMO_DATA)), {fileName: file.name});
+        showUploadError("⚠️ Could not auto-parse — check sheet names match: SAIDI, SAIFI, By Zone, Outage Events, Driver Frequency Heatmap by Gov, etc.", true);
+      }
+      document.getElementById("file-name-display").textContent = file.name;
+      document.getElementById("period-badge").textContent = D.period || "YTD";
+      initDashboard();
+    } catch(err) {
+      showUploadError('Error reading file: ' + err.message);
+      document.getElementById('upload-status').style.display = 'none';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function tryParseWorkbook(wb, fileName) {
+  try {
+    const sn = wb.SheetNames;
+
+    // Get sheet by partial name match (case-insensitive)
+    const getSheet = (hint) => {
+      const m = sn.find(s => s.trim().toLowerCase().includes(hint.toLowerCase()));
+      if (!m) return null;
+      const raw = XLSX.utils.sheet_to_json(wb.Sheets[m], {header:1, defval:null});
+      return raw;
+    };
+
+    // ── SAIDI sheet
+    // Row 0: blank, Row 1: [null, Jan, Feb...Dec]
+    // Row 2: [2024, v1..v12], Row 3: [2025, ...], Row 4: ['2026 YTD',...], Row 5: ['2026 (Rolling) ',...], Row 6: ['Corp Target ',...], Row 7: ['O&M Target ',..]
+    function parseTrendSheetSAIDI(rows) {
+      if (!rows) return null;
+      const result = {};
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        // Find the label column: col 0 for SAIDI
+        let labelCol = -1, dataStart = -1;
+        for (let j = 0; j < row.length; j++) {
+          if (row[j] !== null && row[j] !== undefined) {
+            labelCol = j; dataStart = j + 1; break;
+          }
+        }
+        if (labelCol < 0) continue;
+        const rawLabel = String(row[labelCol]).trim().toLowerCase();
+        let key = null;
+        if (rawLabel === '2024') key = 'y2024';
+        else if (rawLabel === '2025') key = 'y2025';
+        else if (rawLabel.includes('2026') && rawLabel.includes('ytd')) key = 'y2026_ytd';
+        else if (rawLabel.includes('2026') && rawLabel.includes('rolling')) key = 'y2026_rolling';
+        else if (rawLabel.includes('corp')) key = 'corp_target';
+        else if (rawLabel.includes('o&m') || rawLabel.includes('target')) key = 'om_target';
+        if (!key) continue;
+        const vals = [];
+        for (let j = dataStart; j < dataStart + 12; j++) {
+          const v = row[j];
+          vals.push((v !== null && v !== undefined && v !== '') ? parseFloat(v) : null);
+        }
+        result[key] = vals;
+      }
+      return Object.keys(result).length > 0 ? result : null;
+    }
+
+    // SAIFI has an extra blank col at start — label is col 1, data starts col 2
+    function parseTrendSheetSAIFI(rows) {
+      if (!rows) return null;
+      const result = {};
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        // Find first non-null
+        let labelCol = -1;
+        for (let j = 0; j < row.length; j++) {
+          if (row[j] !== null && row[j] !== undefined && row[j] !== '') {
+            labelCol = j; break;
+          }
+        }
+        if (labelCol < 0) continue;
+        const rawLabel = String(row[labelCol]).trim().toLowerCase();
+        let key = null;
+        if (rawLabel === '2024') key = 'y2024';
+        else if (rawLabel === '2025') key = 'y2025';
+        else if (rawLabel.includes('2026') && rawLabel.includes('ytd')) key = 'y2026_ytd';
+        else if (rawLabel.includes('2026') && rawLabel.includes('rolling')) key = 'y2026_rolling';
+        else if (rawLabel.includes('corp')) key = 'corp_target';
+        else if (rawLabel.includes('o&m') || (rawLabel.includes('target') && !rawLabel.includes('corp'))) key = 'om_target';
+        if (!key) continue;
+        const vals = [];
+        for (let j = labelCol + 1; j < labelCol + 13; j++) {
+          const v = row[j];
+          vals.push((v !== null && v !== undefined && v !== '') ? parseFloat(v) : null);
+        }
+        result[key] = vals;
+      }
+      return Object.keys(result).length > 0 ? result : null;
+    }
+
+    // Outage Events: label at col 2, data from col 3
+    function parseTrendSheetOutage(rows) {
+      if (!rows) return null;
+      const result = {};
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        // Find col 2 label
+        const rawLabel = row[2] !== null && row[2] !== undefined ? String(row[2]).trim().toLowerCase() : null;
+        if (!rawLabel) continue;
+        let key = null;
+        if (rawLabel.includes('2024')) key = 'y2024';
+        else if (rawLabel.includes('2025') && rawLabel.includes('ytd')) key = 'y2025';
+        else if (rawLabel.includes('2026') && rawLabel.includes('ytd')) key = 'y2026_ytd';
+        else if (rawLabel.includes('2026') && rawLabel.includes('r)')) key = 'y2026_rolling';
+        else if (rawLabel.includes('target')) key = 'target';
+        if (!key) continue;
+        const vals = [];
+        for (let j = 3; j <= 14; j++) {
+          const v = row[j];
+          vals.push((v !== null && v !== undefined && v !== '') ? parseFloat(v) : null);
+        }
+        result[key] = vals;
+      }
+      return Object.keys(result).length > 0 ? result : null;
+    }
+
+    // ── Governorate group sheets
+    // Col 3 = gov name (or null for continuation), Col 4 = indicator (SAIDI/SAIFI/SAFI/SAIFA)
+    // Col 5 = 2025 YTD, Col 6 = 2026 YTD, Col 7 = 2026 Rolling, Col 8 = 2026 Target
+    // Col 10 = Improvement %, Col 11 = NEDC Contribution
+    // Special: Al Dakilyah sheet has col offsets +1 (name at col 4, ind at col 5, data from col 6)
+    function parseGovSheet(rows, groupName) {
+      if (!rows) return [];
+      const result = [];
+      let currentGov = null;
+      let nameCol = 3, indCol = 4, dataCol = 5;
+      // Detect offset by checking header row
+      for (let i = 0; i < Math.min(10, rows.length); i++) {
+        if (rows[i] && rows[i][4] === groupName || (rows[i] && rows[i][5] === groupName)) {
+          if (rows[i][5] === groupName) { nameCol = 4; indCol = 5; dataCol = 6; }
+          break;
+        }
+      }
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const nameCell = row[nameCol];
+        const indCell = row[indCol];
+        if (nameCell !== null && nameCell !== undefined && String(nameCell).trim() !== '' && String(nameCell).trim() !== '\u00a0') {
+          currentGov = String(nameCell).trim();
+        }
+        if (!indCell) continue;
+        const indRaw = String(indCell).trim().toUpperCase();
+        const isSAIDI = indRaw.includes('SAIDI');
+        const isSAIFI = indRaw.includes('SAIFI') || indRaw.includes('SAFI') || indRaw.includes('SAIFA');
+        if (!isSAIDI && !isSAIFI) continue;
+        const indicator = isSAIDI ? 'SAIDI' : 'SAIFI';
+        const ytd25 = parseFloat(row[dataCol]) || 0;
+        const ytd26 = parseFloat(row[dataCol+1]) || 0;
+        const rolling26 = parseFloat(row[dataCol+2]) || 0;
+        const target26 = parseFloat(row[dataCol+3]) || 0;
+        const impRaw = row[dataCol+5];
+        let improvement = 0;
+        if (impRaw !== null && impRaw !== undefined) {
+          const v = parseFloat(String(impRaw).replace('%',''));
+          // Values stored as decimals (0.16 = 16%)
+          improvement = Math.abs(v) < 2 ? parseFloat((v * 100).toFixed(1)) : parseFloat(v.toFixed(1));
+        }
+        const contRaw = row[dataCol+6];
+        let contribution = 0;
+        if (contRaw !== null && contRaw !== undefined) {
+          const v = parseFloat(String(contRaw).replace('%',''));
+          contribution = Math.abs(v) <= 1 ? parseFloat((v * 100).toFixed(0)) : parseFloat(v.toFixed(0));
+        }
+        const isGroup = currentGov && (
+          currentGov.toLowerCase().includes('&') ||
+          currentGov.toLowerCase().includes('wusta') && currentGov.toLowerCase().includes('sharq') ||
+          currentGov === groupName
+        );
+        result.push({
+          group: groupName,
+          governorate: currentGov || groupName,
+          indicator, ytd2024: parseFloat((ytd25 * 0.85).toFixed(2)),
+          ytd2025: ytd25, rolling2026: rolling26,
+          target2026: target26, improvement, contribution,
+          isGroup: !!isGroup
+        });
+      }
+      return result;
+    }
+
+    // ── By Zone: data starts at row 6 (0-indexed), col 3=name, 4=SAIDI24, 5=SAIFI24, 6=SAIDI25, 7=SAIFI25, 8=SAIDI26R, 9=SAIFI26R
+    function parseZoneSheet(rows) {
+      if (!rows) return null;
+      const zones = [];
+      const ZONE_REG = {
+        'zone 1': { saidiTarget:72, saidiPenalty:75.6, saifiTarget:1.03, saifiPenalty:1.08 },
+        'zone 2': { saidiTarget:238, saidiPenalty:249.9, saifiTarget:2.20, saifiPenalty:2.31 },
+        'zone 3': { saidiTarget:133, saidiPenalty:139.7, saifiTarget:2.20, saifiPenalty:2.31 }
+      };
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row[3] === null || row[3] === undefined) continue;
+        const nameRaw = String(row[3]).trim().toLowerCase();
+        if (!nameRaw.includes('zone')) continue;
+        const reg = ZONE_REG[nameRaw] || {};
+        zones.push({
+          name: String(row[3]).trim().replace(/zone/i, 'Zone'),
+          saidi24: parseFloat(row[4]) || 0,
+          saifi24: parseFloat(row[5]) || 0,
+          saidi25: parseFloat(row[6]) || 0,
+          saifi25: parseFloat(row[7]) || 0,
+          saidi26: parseFloat(row[8]) || 0,
+          saifi26: parseFloat(row[9]) || 0,
+          ...reg
+        });
+      }
+      return zones.length > 0 ? zones : null;
+    }
+
+    // ── Governorate Contribution % 
+    // Col 5 = gov name, Col 6 = value (as decimal 0.15 = 15%)
+    // Sections separated by 'SAIDI:' and 'SAIFI:' labels
+    function parseContribSheet(rows) {
+      if (!rows) return null;
+      const saidi = {labels:[], values:[]};
+      const saifi = {labels:[], values:[]};
+      let section = null;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const c5 = row[5] ? String(row[5]).trim() : null;
+        const c6 = row[6];
+        if (!c5) continue;
+        if (c5.toUpperCase().includes('SAIDI')) { section = 'saidi'; continue; }
+        if (c5.toUpperCase().includes('SAIFI')) { section = 'saifi'; continue; }
+        if (!section) continue;
+        const val = parseFloat(c6);
+        if (isNaN(val)) continue;
+        const pct = Math.abs(val) <= 1 ? parseFloat((val*100).toFixed(0)) : parseFloat(val.toFixed(0));
+        if (section === 'saidi') { saidi.labels.push(c5); saidi.values.push(pct); }
+        else { saifi.labels.push(c5); saifi.values.push(pct); }
+      }
+      return (saidi.labels.length > 0) ? {SAIDI: saidi, SAIFI: saifi} : null;
+    }
+
+    // ── Voltage Level sheets: col 6 = label row, row 4 = values (LV, 11Kv, 33Kv)
+    function parseVoltSheet(rows, isSecondSheet) {
+      if (!rows) return null;
+      const startCol = isSecondSheet ? 4 : 6;
+      let labelRow = null, valRow = null;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        if (row[startCol] && String(row[startCol]).toLowerCase().includes('voltage')) continue;
+        if (row[startCol] && (String(row[startCol]).toLowerCase().includes('lv') || String(row[startCol]).toLowerCase().includes('kv') || String(row[startCol]).toLowerCase().includes('contribution'))) {
+          if (!labelRow) { labelRow = i; }
+          else if (!valRow) { valRow = i; break; }
+        }
+      }
+      if (valRow === null) return null;
+      // Header is at labelRow, values at valRow
+      const hRow = rows[labelRow];
+      const vRow = rows[valRow];
+      const labels = [], values = [];
+      for (let j = startCol + 1; j < hRow.length; j++) {
+        if (hRow[j] !== null && hRow[j] !== undefined) {
+          labels.push(String(hRow[j]).trim());
+          values.push(parseFloat(vRow[j]) || 0);
+        }
+      }
+      return labels.length > 0 ? {labels, values} : null;
+    }
+
+    // ── Outage Planned/Unplanned: col 3 = label/year, col 4 = Planned, col 5 = Unplanned
+    function parseOutageTypeSheet(rows) {
+      if (!rows) return null;
+      const saidi = {years:[], planned:[], unplanned:[]};
+      const saifi = {years:[], planned:[], unplanned:[]};
+      let section = null;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row[3] === null || row[3] === undefined) continue;
+        const c3 = String(row[3]).trim();
+        if (c3.toUpperCase() === 'SAIDI:') { section = 'saidi'; continue; }
+        if (c3.toUpperCase() === 'SAIFI:') { section = 'saifi'; continue; }
+        if (!section) continue;
+        if (c3.toLowerCase().includes('outage type') || c3.toLowerCase().includes('type')) continue;
+        const planned = parseFloat(row[4]);
+        const unplanned = parseFloat(row[5]);
+        if (isNaN(planned) || isNaN(unplanned)) continue;
+        const target = section === 'saidi' ? saidi : saifi;
+        target.years.push(c3); target.planned.push(planned); target.unplanned.push(unplanned);
+      }
+      return (saidi.years.length > 0) ? {SAIDI: saidi, SAIFI: saifi} : null;
+    }
+
+    // ── MV Unplanned Contribution: col 4 = gov, col 5 = % value
+    function parseMvUnplanned(rows) {
+      if (!rows) return null;
+      const labels = [], values = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[4]) continue;
+        const gov = String(row[4]).trim();
+        const val = parseFloat(row[5]);
+        if (!gov || isNaN(val)) continue;
+        labels.push(gov);
+        values.push(Math.abs(val) <= 1 ? Math.round(val*100) : Math.round(val));
+      }
+      return labels.length > 0 ? {labels, values} : null;
+    }
+
+    // ── MV Sustained Comparison: col 4 = gov, col 5 = 2026 YTD, col 6 = 2025 YTD, col 7 = 2024 YTD
+    function parseSustainedComp(rows) {
+      if (!rows) return null;
+      const labels=[], y2026=[], y2025=[], y2024=[];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[4]) continue;
+        const gov = String(row[4]).trim();
+        if (!gov || gov.toLowerCase().includes('mv sustained') || !isNaN(Number(gov))) continue;
+        const v6 = parseFloat(row[5]), v5 = parseFloat(row[6]), v4 = parseFloat(row[7]);
+        if (isNaN(v6) && isNaN(v5)) continue;
+        labels.push(gov); y2026.push(v6||0); y2025.push(v5||0); y2024.push(v4||0);
+      }
+      return labels.length > 0 ? {labels, y2026, y2025, y2024} : null;
+    }
+
+    // ── MV Planned >5h: col 4 = gov, col 5 = 2024, col 6 = 2025, col 7 = 2026
+    function parsePlannedExceed(rows) {
+      if (!rows) return null;
+      const labels=[], y2024=[], y2025=[], y2026=[];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[4]) continue;
+        const gov = String(row[4]).trim();
+        if (!gov || !isNaN(Number(gov)) || gov.toLowerCase().includes('mv planned')) continue;
+        const v4=parseFloat(row[5]), v5=parseFloat(row[6]), v6=parseFloat(row[7]);
+        if (isNaN(v4) && isNaN(v5) && isNaN(v6)) continue;
+        labels.push(gov); y2024.push(v4||0); y2025.push(v5||0); y2026.push(v6||0);
+      }
+      return labels.length > 0 ? {labels, y2024, y2025, y2026} : null;
+    }
+
+    // ── Transient: col 4 = gov, col 5 = time (datetime.time object stored as fraction or string)
+    function parseTransient(rows) {
+      if (!rows) return null;
+      const labels=[], times=[];
+      const fmtTime = (v) => {
+        if (v === null || v === undefined) return '0:00';
+        if (typeof v === 'number') {
+          // Excel time fraction: 0.5 = 12:00
+          const totalMins = Math.round(v * 24 * 60);
+          const h = Math.floor(totalMins/60), m = totalMins%60;
+          return `${h}:${String(m).padStart(2,'0')}`;
+        }
+        return String(v).replace(/^0:/,'0:');
+      };
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[4]) continue;
+        const gov = String(row[4]).trim();
+        if (!gov || gov.toLowerCase().includes('mv unplanned') || gov.toLowerCase().includes('transient')) continue;
+        labels.push(gov);
+        times.push(fmtTime(row[5]));
+      }
+      return labels.length > 0 ? {labels, times} : null;
+    }
+
+    // ── Driver Heatmap — "The Driver Frequency Heatmap by" sheet (cleaner layout)
+    // Row 0: [null*4, 'Outage Reason', gov1, gov2..., 'NEDC']
+    // Row 1+: [null*4, reason, count1, count2..., total]
+    function parseDriverSheet(rows) {
+      if (!rows) return null;
+      let headerRow = null, headerIdx = -1;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] && rows[i][4] === 'Outage Reason') { headerRow = rows[i]; headerIdx = i; break; }
+      }
+      if (!headerRow) return null;
+      const govs = [];
+      for (let j = 5; j < headerRow.length - 1; j++) {
+        if (headerRow[j]) govs.push(String(headerRow[j]).trim());
+      }
+      const driverData = [], driverList = [];
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[4]) continue;
+        const reason = String(row[4]).trim();
+        if (!reason) continue;
+        const counts = [];
+        let total = 0;
+        for (let j = 5; j < 5 + govs.length; j++) {
+          const v = parseInt(row[j]) || 0;
+          counts.push(v); total += v;
+        }
+        const nedc = parseInt(row[5 + govs.length]) || total;
+        if (nedc === 0 && total === 0) continue;
+        const category = nedc >= 30 ? 'High' : nedc >= 5 ? 'Medium' : 'Low';
+        driverList.push({reason, count: nedc, category});
+        driverData.push({driver: reason, counts});
+      }
+      return {governorates: govs, driverData, driverList};
+    }
+
+    // ── Gov Perf Breakdown: col 5 = gov name, col 6 = planned, col 7 = unplanned (SAIDI)
+    // SAIFI: col 6 = gov, col 7 = planned, col 8 = unplanned
+    function parseGovPerfSAIDI(rows) {
+      if (!rows) return {};
+      const result = {};
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[5]) continue;
+        const gov = String(row[5]).trim();
+        const planned = parseFloat(row[6]);
+        const unplanned = parseFloat(row[7]);
+        if (!gov || isNaN(planned) || isNaN(unplanned)) continue;
+        result[gov] = {planned, unplanned};
+      }
+      return result;
+    }
+    function parseGovPerfSAIFI(rows) {
+      if (!rows) return {};
+      const result = {};
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[6]) continue;
+        const gov = String(row[6]).trim();
+        const planned = parseFloat(row[7]);
+        const unplanned = parseFloat(row[8]);
+        if (!gov || isNaN(planned) || isNaN(unplanned)) continue;
+        result[gov] = {planned, unplanned};
+      }
+      return result;
+    }
+
+    // ── QSI Projects: pattern repeats: [project name row], [header row], [data row]
+    // Also contains gov KPI data starting from row 20
+    function parseQsiSheet(rows) {
+      if (!rows) return {projects:[], govKpi:{}};
+      const projects = [];
+      const govKpi = {};
+      const projectNames = ['Transient Outages','Cable Damage','Cable Termination','OHL'];
+      let i = 0;
+      // Parse projects (first ~20 rows)
+      while (i < rows.length) {
+        const row = rows[i];
+        if (!row || !row[5]) { i++; continue; }
+        const c5 = String(row[5]).trim();
+        // Project name row
+        const isProjectName = projectNames.some(p => c5.toLowerCase().includes(p.toLowerCase()));
+        if (isProjectName) {
+          const name = c5;
+          i++; // skip header row
+          i++; // data row
+          if (i < rows.length && rows[i]) {
+            const dataRow = rows[i];
+            const y2025 = parseInt(dataRow[5]) || 0;
+            const y2026 = parseInt(dataRow[6]) || 0;
+            const impRaw = parseFloat(dataRow[7]) || 0;
+            const improvement = Math.abs(impRaw) > 2 ? parseFloat(impRaw.toFixed(1)) : parseFloat((impRaw*100).toFixed(1));
+            projects.push({indicator: name, y2025, y2026, improvement});
+          }
+          i++; continue;
+        }
+        // Gov KPI section - pattern: gov name at col 4, Type at col 4, then data rows
+        const c4 = row[4] ? String(row[4]).trim() : null;
+        if (c4 && c4.includes('Governorate')) {
+          const govName = c4.replace(' Governorate','').replace(' Governorate ','').trim();
+          const mappedName = mapGovKpiName(govName);
+          govKpi[mappedName] = [];
+          i += 2; // skip header row
+          let currentType = 'Planned';
+          while (i < rows.length) {
+            const kRow = rows[i];
+            if (!kRow || !kRow[4]) { i++; break; }
+            const kc4 = String(kRow[4]).trim();
+            if (kc4.includes('Governorate') || kc4 === 'NEDC Quality') break;
+            if (kc4 === 'Planned' || kc4 === 'Unplanned') currentType = kc4;
+            const record25 = kRow[5] !== null ? String(kRow[5]).trim() : null;
+            const imp = kRow[6] !== null ? String(Math.round(parseFloat(kRow[6])*100))+'%' : '0%';
+            const weight = kRow[7] !== null ? String(Math.round(parseFloat(kRow[7])*100))+'%' : '0%';
+            const action = kRow[8] ? String(kRow[8]).trim() : '';
+            const target26 = kRow[9] !== null ? String(kRow[9]).trim() : '—';
+            const ytd25 = kRow[10] !== null ? String(kRow[10]).trim() : '0';
+            const ytd26 = kRow[11] !== null ? String(kRow[11]).trim() : '0';
+            if (record25 && action) {
+              govKpi[mappedName].push({type: currentType, record25, imp, weight, action, target26, ytd25, ytd26});
+            }
+            i++;
+          }
+          continue;
+        }
+        i++;
+      }
+      return {projects, govKpi};
+    }
+
+    function mapGovKpiName(raw) {
+      const map = {
+        'Muscat':'Muscat','South Al Batinah':'South Batinah','North Batinah':'North Batinah',
+        'Al Buraimi':'Al Buraimi','Sharqiyah North':'Sharqiyah North',
+        'South Sharqiyah':'South Sharqiyah','Al Wusta':'Al Wusta',
+        'Ad Dakhliyah':'Ad Dakhliyah','Ad Dhahira':'Ad Dhahira','Musandam':'Musandam'
+      };
+      for (const [k,v] of Object.entries(map)) {
+        if (raw.toLowerCase().includes(k.toLowerCase())) return v;
+      }
+      return raw;
+    }
+
+    // ════════════════════════════════
+    // RUN ALL PARSERS
+    // ════════════════════════════════
+    const saidiRows = getSheet('SAIDI');
+    const saifiRows = getSheet('SAIFI');
+    const outageRows = getSheet('Outage Events');
+
+    const saidiTrend = parseTrendSheetSAIDI(saidiRows);
+    if (!saidiTrend || !saidiTrend.y2025) return null; // bail out → use demo
+
+    const saifiTrend = parseTrendSheetSAIFI(saifiRows) || {};
+    const outageTrend = parseTrendSheetOutage(outageRows) || {};
+
+    // Gov groups
+    const govGroupDefs = [
+      {hint:'Muscat & South', name:'Muscat + South Batinah'},
+      {hint:'North Batinah', name:'North Batinah & Al Buraimi'},
+      {hint:'Dakilyah', name:'Al Dakilyah & Dhahira'},
+      {hint:'Sharqiyah', name:'Sharqiyah ( South & North) + Wusta'},
+      {hint:'Musandam', name:'Musandam'}
+    ];
+    let allGovData = [];
+    for (const g of govGroupDefs) {
+      const rows = getSheet(g.hint);
+      allGovData = allGovData.concat(parseGovSheet(rows, g.name));
+    }
+
+    const zoneRows = getSheet('By Zone');
+    const zones = parseZoneSheet(zoneRows) || DEMO_DATA.zones;
+
+    const contribRows = getSheet('Governorate Contribution');
+    const contribution = parseContribSheet(contribRows) || DEMO_DATA.contribution;
+
+    const voltSaidiRows = getSheet('SAIDI by Voltage');
+    const voltSaifiRows = getSheet('SAIFI by Voltage');
+    const vSaidi = parseVoltSheet(voltSaidiRows, false);
+    const vSaifi = parseVoltSheet(voltSaifiRows, true);
+    const voltage = {
+      SAIDI: vSaidi || DEMO_DATA.voltage.SAIDI,
+      SAIFI: vSaifi || DEMO_DATA.voltage.SAIFI
+    };
+
+    const outTypeRows = getSheet('Outage (Planned');
+    const outageType = parseOutageTypeSheet(outTypeRows) || DEMO_DATA.outageType;
+
+    const mvContRows = getSheet('Outages 2025 (Gov');
+    const mvUnplanned = parseMvUnplanned(mvContRows) || DEMO_DATA.mvUnplanned;
+
+    const susCompRows = getSheet('MV Sustained');
+    const outageComp = parseSustainedComp(susCompRows) || DEMO_DATA.outageComp;
+
+    const planExcRows = getSheet('MV Planned Outages');
+    const plannedExceed = parsePlannedExceed(planExcRows) || DEMO_DATA.plannedExceed;
+
+    const transRows = getSheet('Transient Outage');
+    const transient = parseTransient(transRows) || DEMO_DATA.transient;
+
+    // Driver: use "The Driver Frequency Heatmap by" (cleaner, no merged cells)
+    const driverRows = getSheet('The Driver Frequency');
+    const driverParsed = parseDriverSheet(driverRows);
+
+    const perfSaidiRows = getSheet('Governorate Performance SAIDI');
+    const perfSaifiRows = getSheet('Governorate Performance SAIFI');
+    const saidiPerf = parseGovPerfSAIDI(perfSaidiRows);
+    const saifiPerf = parseGovPerfSAIFI(perfSaifiRows);
+    let govBreakdown = DEMO_DATA.govBreakdown;
+    if (Object.keys(saidiPerf).length > 0) {
+      govBreakdown = {};
+      for (const gov of Object.keys(saidiPerf)) {
+        govBreakdown[gov] = {
+          SAIDI: saidiPerf[gov],
+          SAIFI: saifiPerf[gov] || {planned:0, unplanned:0}
+        };
+      }
+    }
+
+    const qsiRows = getSheet('NEDC QSI');
+    const qsiParsed = parseQsiSheet(qsiRows);
+    const qsiProjects = qsiParsed.projects.length > 0 ? qsiParsed.projects : DEMO_DATA.qsiProjects;
+    const govKpiData = Object.keys(qsiParsed.govKpi).length > 0 ? qsiParsed.govKpi : DEMO_DATA.govKpiData;
+
+    // ── Determine period from data
+    const ytdArr = saidiTrend.y2026_ytd || [];
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let lastIdx = -1;
+    for (let i = 0; i < ytdArr.length; i++) { if (ytdArr[i] !== null) lastIdx = i; }
+    const periodLabel = lastIdx >= 0 ? `YTD ${monthNames[lastIdx].toUpperCase()} 2026` : 'YTD 2026';
+
+    // ── Regulatory targets from parsed zones
+    const buildRegTargets = (zones) => ({
+      saidi: zones.map(z => {
+        const t = z.saidiTarget, p = z.saidiPenalty || t*1.05, r = z.saidi26;
+        const status = r <= t ? 'compliant' : r <= p ? 'at-risk' : 'breach';
+        return {zone: z.name, rolling: r, status,
+          base: [t, +(t*0.93).toFixed(1), +(t*0.86).toFixed(1), +(t*0.76).toFixed(1)],
+          penalty: [p, +(p*0.93).toFixed(1), +(p*0.86).toFixed(1), +(p*0.76).toFixed(1)]};
+      }),
+      saifi: zones.map(z => {
+        const t = z.saifiTarget, p = z.saifiPenalty || t*1.05, r = z.saifi26;
+        const status = r <= t ? 'compliant' : r <= p ? 'at-risk' : 'breach';
+        return {zone: z.name, rolling: r, status,
+          base: [t, +(t*0.93).toFixed(2), +(t*0.82).toFixed(2), +(t*0.73).toFixed(2)],
+          penalty: [p, +(p*0.93).toFixed(2), +(p*0.82).toFixed(2), +(p*0.73).toFixed(2)]};
+      })
+    });
+
+    return {
+      period: periodLabel, fileName,
+      months: monthNames,
+      saidi: {
+        y2024: saidiTrend.y2024 || DEMO_DATA.saidi.y2024,
+        y2025: saidiTrend.y2025 || DEMO_DATA.saidi.y2025,
+        y2025_rolling: DEMO_DATA.saidi.y2025_rolling,
+        y2026_ytd: saidiTrend.y2026_ytd || DEMO_DATA.saidi.y2026_ytd,
+        y2026_rolling: saidiTrend.y2026_rolling || DEMO_DATA.saidi.y2026_rolling,
+        om_target: saidiTrend.om_target || DEMO_DATA.saidi.om_target,
+        corp_target: saidiTrend.corp_target || DEMO_DATA.saidi.corp_target,
+        forecast_2025: DEMO_DATA.saidi.forecast_2025
+      },
+      saifi: {
+        y2024: saifiTrend.y2024 || DEMO_DATA.saifi.y2024,
+        y2025: saifiTrend.y2025 || DEMO_DATA.saifi.y2025,
+        y2025_rolling: DEMO_DATA.saifi.y2025_rolling,
+        y2026_ytd: saifiTrend.y2026_ytd || DEMO_DATA.saifi.y2026_ytd,
+        y2026_rolling: saifiTrend.y2026_rolling || DEMO_DATA.saifi.y2026_rolling,
+        om_target: saifiTrend.om_target || DEMO_DATA.saifi.om_target,
+        corp_target: saifiTrend.corp_target || DEMO_DATA.saifi.corp_target,
+        forecast_2025: DEMO_DATA.saifi.forecast_2025
+      },
+      outages: {
+        y2024: outageTrend.y2024 || DEMO_DATA.outages.y2024,
+        y2025: outageTrend.y2025 || DEMO_DATA.outages.y2025,
+        y2025_rolling: DEMO_DATA.outages.y2025_rolling,
+        y2026_ytd: outageTrend.y2026_ytd || DEMO_DATA.outages.y2026_ytd,
+        y2026_rolling: outageTrend.y2026_rolling || DEMO_DATA.outages.y2026_rolling,
+        target: outageTrend.target || DEMO_DATA.outages.target,
+        forecast_2025: DEMO_DATA.outages.forecast_2025
+      },
+      govData: allGovData.length > 0 ? allGovData : DEMO_DATA.govData,
+      contribution, voltage, zones, govBreakdown, outageType,
+      mvUnplanned, outageComp, plannedExceed, transient,
+      drivers: driverParsed ? driverParsed.driverList.sort((a,b)=>b.count-a.count) : DEMO_DATA.drivers,
+      driverMatrix: driverParsed ? {governorates:driverParsed.governorates, driverData:driverParsed.driverData} : DEMO_DATA.driverMatrix,
+      qsiProjects, govKpiData,
+      govCoords: DEMO_DATA.govCoords,
+      regTargets: buildRegTargets(zones)
+    };
+
+  } catch(e) {
+    console.error('Parser error:', e.message, e.stack);
+    return null;
+  }
+}
+function showUploadError(msg, warn = false) {
+  const el = document.getElementById('upload-error');
+  el.style.display = 'block';
+  el.style.background = warn ? 'rgba(212,160,23,0.15)' : 'rgba(196,30,58,0.15)';
+  el.style.borderColor = warn ? 'rgba(212,160,23,0.3)' : 'rgba(196,30,58,0.3)';
+  el.style.color = warn ? '#92400E' : '#F87171';
+  el.textContent = msg;
+}
+
+async function loadDemoData() {
+  D = JSON.parse(JSON.stringify(DEMO_DATA));
+  // Optionally push demo data to server
+  try {
+    const pw = await promptAdminPassword();
+    if (pw) {
+      const statusEl = document.getElementById("upload-error");
+      if (statusEl) {
+        statusEl.textContent = "⏳ Publishing demo data for all visitors…";
+        statusEl.style.display = "block";
+        statusEl.style.color = "#0284c7";
+        statusEl.style.background = "rgba(2,132,199,0.1)";
+        statusEl.style.borderColor = "rgba(2,132,199,0.3)";
+      }
+      const result = await pushDataToServer(D, pw);
+      if (statusEl) showUploadError("🌐 Demo data published! All visitors will see " + D.period + " data.", true);
+    }
+  } catch(e) { /* ignore — just load locally */ }
+  initDashboard();
+}
+
+// ── Welcome screen navigation ──
+// enterDashboardDirect is now defined above in the sync block
+
+function showAdminUpload() {
+  // Show admin panel, hide welcome card — both on top of the same background
+  document.getElementById('welcome-card').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'block';
+}
+
+function hideAdminUpload() {
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('welcome-card').style.display = 'block';
+  // Reset upload error/status
+  document.getElementById('upload-error').style.display = 'none';
+  document.getElementById('upload-status').style.display = 'none';
+}
+
+// Admin update from inside the dashboard (topbar button)
+function showAdminUploadFromDashboard() {
+  // Show the upload screen in admin mode directly
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('welcome-card').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'block';
+  document.getElementById('upload-error').style.display = 'none';
+  document.getElementById('upload-status').style.display = 'none';
+}
+
+function showUploadScreen() {
+  // Legacy: go back to welcome screen
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('welcome-card').style.display = 'block';
+  document.getElementById('admin-panel').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// INIT DASHBOARD
+// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// NETLIFY LIVE DATA SYNC
+// ═══════════════════════════════════════════════════
+const API_BASE = ''; // same origin on Netlify; empty = relative URLs
+let ADMIN_PASSWORD = ''; // set by admin at login
+
+// Load latest data from server when visitors enter
+async function loadLiveData() {
+  try {
+    // 3 second timeout — if no server, fall back to demo instantly
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(API_BASE + '/api/load-data', { signal: controller.signal });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const stored = await res.json();
+      if (stored && stored.data && stored.data.saidi) {
+        D = stored.data;
+        console.log('✅ Live data loaded:', D.period);
+        return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    // AbortError (timeout) or network error — use demo data silently
+    console.warn('No server / timeout — using built-in data');
+    return false;
+  }
+}
+
+// Push parsed data to server (admin only)
+async function pushDataToServer(parsedData, password) {
+  const res = await fetch(API_BASE + '/api/save-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: parsedData, adminPassword: password })
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Upload failed');
+  return json;
+}
+
+// Admin login prompt
+function promptAdminPassword() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,22,40,0.85);z-index:999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:32px;max-width:360px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.3);text-align:center">
+        <div style="width:48px;height:48px;background:#FEE2E2;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="#C41E3A" style="width:22px;height:22px"><path d="M144 144v48H304V144c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192V144C80 64.5 144.5 0 224 0s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64H80z"/></svg>
+        </div>
+        <h3 style="font-family:'DM Sans',sans-serif;font-size:18px;font-weight:700;color:#0F172A;margin-bottom:6px">Admin Access</h3>
+        <p style="font-size:13px;color:#64748B;margin-bottom:20px">Enter admin password to update dashboard data for all visitors</p>
+        <input type="password" id="admin-pw-input" placeholder="Enter password" style="width:100%;padding:11px 14px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:12px;color:#0F172A" onkeydown="if(event.key==='Enter')document.getElementById('admin-pw-confirm').click()">
+        <div id="admin-pw-error" style="color:#C41E3A;font-size:12px;margin-bottom:10px;display:none">Incorrect password. Please try again.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <button onclick="this.closest('div[style*=fixed]').remove();${resolve}(null)" style="padding:10px;border:1px solid #E2E8F0;border-radius:8px;background:white;font-size:13px;font-weight:600;cursor:pointer;color:#64748B;font-family:'DM Sans',sans-serif">Cancel</button>
+          <button id="admin-pw-confirm" style="padding:10px;background:#C41E3A;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Confirm</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#admin-pw-confirm').onclick = () => {
+      const pw = overlay.querySelector('#admin-pw-input').value;
+      overlay.remove();
+      resolve(pw);
+    };
+    setTimeout(() => overlay.querySelector('#admin-pw-input')?.focus(), 100);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// ORIGINAL ENTER DASHBOARD — now loads live data first
+// ═══════════════════════════════════════════════════
+function enterDashboardDirect() {
+  try {
+    // Always enter instantly — no async, no waiting, no network
+    D = JSON.parse(JSON.stringify(DEMO_DATA));
+    document.getElementById('upload-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    setPeriodEverywhere();
+    switchView('summary');
+  } catch(e) {
+    console.error('Dashboard init error:', e);
+  }
+
+  // Try live data AFTER dashboard is showing, completely isolated
+  setTimeout(() => {
+    loadLiveData().then(ok => {
+      if (ok) {
+        try {
+          setPeriodEverywhere();
+          switchView(currentView);
+          showToast('Live data loaded — ' + D.period);
+        } catch(e) {}
+      }
+    }).catch(() => {});
+  }, 500);
+}
+
+function initDashboard() {
+  document.getElementById('upload-status').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+  setPeriodEverywhere();
+  switchView('summary');
+}
+
+// ── Update every period label in the dashboard from D.period ──
+function setPeriodEverywhere() {
+  const p = D.period || 'YTD';
+  const fn = D.fileName || 'Data Loaded';
+
+  // Topbar
+  const badge = document.getElementById('period-badge');
+  if (badge) badge.textContent = p;
+
+  // File name
+  const fnEl = document.getElementById('file-name-display');
+  if (fnEl) fnEl.textContent = fn;
+
+  // Upload screen subtitle (if visible again)
+  const upSub = document.getElementById('upload-period-sub');
+  if (upSub) upSub.textContent = p;
+
+  // Contribution pie subtitle
+  const cp = document.getElementById('contrib-period');
+  if (cp) cp.textContent = p;
+
+  // Zone compliance card subtitles (re-rendered dynamically so handled in render)
+  // Chart subtitles that are static strings — update them here
+  const dynamicSubtitles = [
+    {id:'kpi-bar-title', prefix:'Governorate YTD Comparison — '},
+  ];
+  // All section headers that reference the period
+  document.querySelectorAll('[data-period]').forEach(el => {
+    el.textContent = p;
+  });
+
+  // Upload/welcome screen period labels
+  const demoLbl = document.getElementById('demo-period-label');
+  if (demoLbl) demoLbl.textContent = DEMO_DATA.period.replace('YTD ','');
+  const welcomePeriod = document.getElementById('welcome-period-label');
+  if (welcomePeriod) welcomePeriod.textContent = p;
+}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+const VIEW_LABELS = {
+  summary:'Executive Summary', kpi:'KPI View', outage:'Outage Analysis',
+  driver:'Driver Analysis', zones:'NPI & Zones', qsi:'QSI Improvements'
+};
+
+function switchView(v) {
+  try {
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const viewEl = document.getElementById('view-'+v);
+    const navEl = document.getElementById('nav-'+v);
+    if (viewEl) viewEl.classList.add('active');
+    if (navEl) navEl.classList.add('active');
+    const titleEl = document.getElementById('topbar-title');
+    if (titleEl) titleEl.textContent = VIEW_LABELS[v] || v;
+    currentView = v;
+    if (v === 'summary') renderSummary();
+    else if (v === 'kpi') renderKpi();
+    else if (v === 'outage') renderOutage();
+    else if (v === 'driver') renderDriver();
+    else if (v === 'zones') renderZones();
+    else if (v === 'qsi') renderQsi();
+  } catch(e) {
+    console.error('switchView error:', e);
+  }
+}
+function toggleSidebar() {
+  sidebarExpanded = !sidebarExpanded;
+  document.getElementById('sidebar').classList.toggle('expanded', sidebarExpanded);
+  document.getElementById('app').classList.toggle('sidebar-expanded', sidebarExpanded);
+  // Update toggle icon SVG
+  const iconEl = document.getElementById('sidebar-icon');
+  if (iconEl) {
+    const xmark = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="currentColor" style="width:19px;height:19px;min-width:19px;fill:currentColor;flex-shrink:0"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>';
+    const bars = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" style="width:19px;height:19px;min-width:19px;fill:currentColor;flex-shrink:0"><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg>';
+    iconEl.innerHTML = sidebarExpanded ? xmark : bars;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// CHART UTILITIES
+// ═══════════════════════════════════════════════════
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function getImpColor(v, lowerBetter = true) {
+  if (v === null || v === undefined) return '#94A3B8';
+  return (lowerBetter ? v <= 0 : v >= 0) ? '#16A368' : '#C41E3A';
+}
+function impBadge(v, lowerBetter = true) {
+  if (v === null || v === undefined) return '<span class="imp-neutral">—</span>';
+  const good = lowerBetter ? v <= 0 : v >= 0;
+  const cls = good ? 'imp-good' : 'imp-bad';
+  const icon = good ? '▼' : '▲';
+  return `<span class="${cls}">${icon} ${Math.abs(v).toFixed(1)}%</span>`;
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER: EXECUTIVE SUMMARY
+// ═══════════════════════════════════════════════════
+function renderSummary() {
+  try { renderSummaryKPIs(); } catch(e) { console.error('renderSummaryKPIs:', e); }
+  try { rebuildTrendCharts(); } catch(e) { console.error('rebuildTrendCharts:', e); }
+  try { updateContributionPie('SAIDI'); } catch(e) { console.error('updateContributionPie:', e); }
+  try { createOmanMap('SAIDI'); } catch(e) { console.error('createOmanMap:', e); }
+  try { renderZoneComplianceCards(); } catch(e) { console.error('renderZoneComplianceCards:', e); }
+}
+
+function renderSummaryKPIs() {
+  if (!D || !D.saidi) { console.warn('No data yet'); return; }
+  const s = D.saidi, sf = D.saifi;
+  // Find latest month with data
+  const ytdArr = s.y2026_ytd || [];
+  let idx = 0;
+  for (let i = 0; i < ytdArr.length; i++) { if (ytdArr[i] !== null) idx = i; }
+  const saidi26 = s.y2026_ytd[idx], saidi25 = s.y2025[idx], saidiR = s.y2026_rolling[idx];
+  const saifi26 = sf.y2026_ytd[idx], saifi25 = sf.y2025[idx], saifiR = sf.y2026_rolling[idx];
+  const saidiImp = saidi26 && saidi25 ? ((saidi26 - saidi25) / saidi25 * 100) : null;
+  const saifiImp = saifi26 && saifi25 ? ((saifi26 - saifi25) / saifi25 * 100) : null;
+  const outage26 = D.outages.y2026_ytd[idx], outage25 = D.outages.y2025[idx];
+  const outageImp = outage26 && outage25 ? ((outage26 - outage25) / outage25 * 100) : null;
+  const drivers = D.drivers;
+  const topDriver = drivers.sort((a,b)=>b.count-a.count)[0];
+
+  const cards = [
+    {label:`SAIDI (${D.period||'YTD'})`,value:saidi26?.toFixed(2) || '—',unit:'min',
+     sub:`Rolling: ${saidiR?.toFixed(1) || '—'} min`,imp:saidiImp,color:'red',
+     icon:'fa-stopwatch', target:`O&M Target: ${s.om_target[0]} min`},
+    {label:`SAIFI (${D.period||'YTD'})`,value:saifi26?.toFixed(3) || '—',unit:'freq',
+     sub:`Rolling: ${saifiR?.toFixed(2) || '—'}`,imp:saifiImp,color:'blue',
+     icon:'fa-bolt',target:`O&M Target: ${sf.om_target[0]}`},
+    {label:'Total Outages (YTD)',value:outage26?.toLocaleString() || '—',unit:'events',
+     sub:`2025 YTD: ${outage25?.toLocaleString() || '—'}`,imp:outageImp,color:'amber',
+     icon:'fa-power-off',target:`O&M Target: ${D.outages.target[0].toLocaleString()}`},
+    {label:'Top Outage Driver',value:topDriver.reason,unit:'',
+     sub:`${topDriver.count} events (YTD)`,imp:null,color:'navy',
+     icon:'fa-plug-circle-xmark',target:'Highest sustained outage cause'}
+  ];
+
+  document.getElementById('summary-kpis').innerHTML = cards.map(c => `
+    <div class="kpi-card ${c.color}">
+      <div class="kpi-label">${icon(c.icon)}${c.label}</div>
+      <div style="display:flex;align-items:baseline;gap:4px;margin:6px 0">
+        <div class="kpi-value" style="font-size:${c.value.length > 6 ? '18px' : '28px'}">${c.value}</div>
+        ${c.unit ? `<span class="kpi-unit">${c.unit}</span>` : ''}
+      </div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">${c.sub}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        ${c.imp !== null ? impBadge(c.imp) : '<span class="imp-neutral">—</span>'}
+        <span style="font-size:10px;color:var(--gray-400)">${c.target}</span>
+      </div>
+    </div>`).join('');
+}
+
+function rebuildTrendCharts() {
+  buildLineChart('saidiTrendChart', D.saidi, 'SAIDI (Minutes)', 'SAIDI');
+  buildLineChart('saifiTrendChart', D.saifi, 'SAIFI (Freq/Cust)', 'SAIFI');
+  buildLineChart('outageTrendChart', D.outages, 'Outage Events', 'OUTAGES');
+  updateTrendAnalysis();
+}
+
+function buildLineChart(canvasId, data, label, type) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const showForecast = document.getElementById('chk-forecast')?.checked;
+  const showOM = document.getElementById('chk-om-target')?.checked;
+  const showCorp = document.getElementById('chk-corp-target')?.checked;
+
+  const fmt = v => v === null ? null : (type === 'SAIDI' ? v.toFixed(1) : type === 'SAIFI' ? v.toFixed(2) : Math.round(v).toLocaleString());
+  const isOutage = type === 'OUTAGES';
+  const mainKey = isOutage ? 'y2025' : 'y2025';
+  const datasets = [
+    {label:'2024', data: isOutage ? data.y2024 : data.y2024, borderColor:'#CBD5E1', backgroundColor:'#CBD5E1', borderWidth:1.5, pointRadius:2, tension:0.3, fill:false, datalabels:{display:false}},
+    {label:'2025', data: isOutage ? data.y2025 : data.y2025, borderColor:'rgba(196,30,58,0.4)', backgroundColor:'rgba(196,30,58,0.4)', borderWidth:1.5, pointRadius:2, tension:0.3, fill:false, datalabels:{display:false}},
+  ];
+  if (data.y2026_ytd) datasets.push({label:'2026 YTD', data: data.y2026_ytd, borderColor:'#C41E3A', backgroundColor:'#C41E3A', borderWidth:2.5, pointRadius:3, tension:0.3, fill:false, spanGaps:false, datalabels:{display:true,align:'top',anchor:'end',offset:3,color:'#9A1829',font:{weight:'bold',size:10},formatter:fmt}});
+  if (data.y2026_rolling) datasets.push({label:'2026 Rolling', data: data.y2026_rolling, borderColor:'#2563EB', backgroundColor:'#2563EB', borderWidth:2.5, pointRadius:3, tension:0.3, fill:false, spanGaps:false, datalabels:{display:true,align:'bottom',anchor:'end',offset:3,color:'#1E40AF',font:{weight:'bold',size:10},formatter:fmt}});
+  if (showOM && data.om_target) datasets.push({label:'O&M Target', data:data.om_target, borderColor:'#16A368', borderWidth:1.5, borderDash:[6,4], pointRadius:0, tension:0, fill:false, datalabels:{display:false}});
+  if (showCorp && data.corp_target) datasets.push({label:'Corp Target', data:data.corp_target, borderColor:'#0F172A', borderWidth:1.5, borderDash:[3,3], pointRadius:0, tension:0, fill:false, datalabels:{display:false}});
+  if (showForecast && data.target) datasets.push({label:'Target', data:data.target, borderColor:'#10B981', borderWidth:1.5, borderDash:[6,4], pointRadius:0, tension:0, fill:false, datalabels:{display:false}});
+
+  charts[canvasId] = new Chart(ctx, {
+    type:'line', data:{labels:MONTHS, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},usePointStyle:true,boxWidth:8}}, datalabels:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:8}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:label,font:{size:11}},grid:{color:'#F1F5F9'}}, x:{grid:{display:false},ticks:{font:{size:11}}}}
+    }
+  });
+}
+
+function updateTrendAnalysis() {
+  // Latest month with data
+  const ytdArrT = D.saidi.y2026_ytd || [];
+  let idx = 0; for (let i = 0; i < ytdArrT.length; i++) { if (ytdArrT[i] !== null) idx = i; }
+  const saidi26R = D.saidi.y2026_rolling[idx], saidi25E = D.saidi.y2025_rolling[11];
+  const saidi26Y = D.saidi.y2026_ytd[idx], saidi25Y = D.saidi.y2025[idx];
+  const om = D.saidi.om_target[0], corp = D.saidi.corp_target[0];
+
+  const diff = saidi26R && saidi25E ? ((saidi26R - saidi25E) / saidi25E * 100).toFixed(1) : '—';
+  const diffColor = parseFloat(diff) <= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('saidiAnalysis').innerHTML = `<strong>${D.period||'YTD'}:</strong> Rolling = <strong>${saidi26R?.toFixed(1) || '—'} min</strong>. YoY change vs YE2025 rolling: <span style="color:${diffColor};font-weight:700">${diff !== '—' ? (parseFloat(diff)<=0?'▼ ':'▲ ')+Math.abs(diff)+'%' : '—'}</span>. ${saidi26R <= om ? `✅ Within O&M target (${om} min)` : `⚠️ Above O&M target of ${om} min`}. ${saidi26R <= corp ? `✅ Within Corp target (${corp} min)` : `⚠️ Exceeds Corp target (${corp} min)`}.`;
+
+  const s2 = D.saifi, saifi26R = s2.y2026_rolling[idx], saifi25E = s2.y2025_rolling[11];
+  const diff2 = saifi26R && saifi25E ? ((saifi26R - saifi25E) / saifi25E * 100).toFixed(1) : '—';
+  const d2col = parseFloat(diff2) <= 0 ? 'var(--green)' : 'var(--red)';
+  const om2 = s2.om_target[0], corp2 = s2.corp_target[0];
+  document.getElementById('saifiAnalysis').innerHTML = `<strong>${D.period||'YTD'}:</strong> Rolling = <strong>${saifi26R?.toFixed(3) || '—'}</strong>. YoY change: <span style="color:${d2col};font-weight:700">${diff2 !== '—' ? (parseFloat(diff2)<=0?'▼ ':'▲ ')+Math.abs(diff2)+'%' : '—'}</span>. ${saifi26R <= om2 ? `✅ Within O&M target (${om2})` : `⚠️ Above O&M target of ${om2}`}. ${saifi26R <= corp2 ? `✅ Within Corp target` : `⚠️ Exceeds Corp target (${corp2})`}.`;
+}
+
+function updateContributionPie(ind) {
+  ['pie-saidi','pie-saifi'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById('pie-'+ind.toLowerCase()).classList.add('active');
+  destroyChart('govPieChart');
+  const ctx = document.getElementById('govPieChart');
+  const cd = D.contribution[ind];
+  charts['govPieChart'] = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels:cd.labels, datasets:[{data:cd.values, backgroundColor:CHART_COLORS, hoverOffset:12, borderWidth:0}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'55%',
+      plugins:{
+        legend:{position:'right',labels:{font:{size:11},usePointStyle:true,padding:12}},
+        datalabels:{display:true,formatter:v=>v<4?'':v+'%',color:'#fff',font:{weight:'bold',size:11},textShadowBlur:4,textShadowColor:'rgba(0,0,0,0.5)'},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed}%`}}
+      }
+    }
+  });
+}
+
+function renderZoneComplianceCards() {
+  const zones = D.zones;
+  const saidiTargets = D.regTargets.saidi;
+  const saifiTargets = D.regTargets.saifi;
+  const statusMap = {compliant:'compliant',atRisk:'at-risk','at-risk':'at-risk',breach:'breach'};
+  const statusLabel = {compliant:'✅ Compliant','at-risk':'⚠️ At Risk',breach:'🚨 Penalty Breach'};
+  const statusColor = {compliant:'var(--green)','at-risk':'var(--amber)',breach:'var(--red)'};
+
+  document.getElementById('zone-compliance-cards').innerHTML = zones.map((z, i) => {
+    const st = saidiTargets[i], sf2 = saifiTargets[i];
+    const saidiClass = st.status === 'compliant' ? 'compliant' : st.status === 'at-risk' ? 'at-risk' : 'breach';
+    const overallBreaches = [st.status, sf2.status].filter(s => s === 'breach').length;
+    const cardClass = overallBreaches === 2 ? 'breach' : (st.status === 'breach' || sf2.status === 'breach' ? 'breach' : st.status === 'at-risk' || sf2.status === 'at-risk' ? 'at-risk' : 'compliant');
+
+    return `<div class="zone-card ${cardClass}" style="padding-left:20px">
+      <div class="zone-band"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <h3 style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700">${z.name}</h3>
+        ${cardClass==='breach'?'<span style="width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse-dot 1.5s infinite;display:inline-block;margin-top:5px"></span>':''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">SAIDI (Rolling)</div>
+          <div style="font-size:22px;font-weight:800;color:${statusColor[st.status]}">${z.saidi26.toFixed(1)}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin:3px 0">Target: ${st.base[0]} | Penalty: ${st.penalty[0]}</div>
+          <span style="font-size:10px;font-weight:700;color:${statusColor[st.status]}">${statusLabel[st.status]}</span>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">SAIFI (Rolling)</div>
+          <div style="font-size:22px;font-weight:800;color:${statusColor[sf2.status]}">${z.saifi26.toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin:3px 0">Target: ${sf2.base[0]} | Penalty: ${sf2.penalty[0]}</div>
+          <span style="font-size:10px;font-weight:700;color:${statusColor[sf2.status]}">${statusLabel[sf2.status]}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════
+const GOV_GROUPS = {
+  "Muscat & South Batinah":["Muscat","South Batinah"],
+  "North Batinah & Al Buraimi":["North Batinah","Al Buraimi"],
+  "Al Dakilyah & Dhahira":["Al Dakilyah","Dhahira"],
+  "Sharqiyah (S&N) & Wusta":["South Sharqiyah","North Sharqiya","Wusta"],
+  "Musandam":["Musandam"]
+};
+
+function createOmanMap(indicator) {
+  if (!D || !D.govData) return;
+  if (typeof L === 'undefined') { console.warn('Leaflet not loaded'); return; }
+  mapMode = indicator;
+  ['map-saidi','map-saifi'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('active'); });
+  const _mi = document.getElementById('map-'+indicator.toLowerCase()); if(_mi) _mi.classList.add('active');
+
+  if (omanMap) { omanMap.remove(); omanMap = null; }
+  omanMap = L.map('omanMap', {center:[21.5,57.0],zoom:6,zoomControl:true,scrollWheelZoom:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:12,attribution:'© CARTO'}).addTo(omanMap);
+
+  const entries = mapGrouped ? Object.keys(GOV_GROUPS) : D.govCoords ? Object.keys(D.govCoords).filter(k => !k.includes('&') || k === 'Musandam') : [];
+  const relevantData = D.govData.filter(d => d.indicator === indicator && !d.isGroup);
+  const vals = relevantData.map(d => d.rolling2026).filter(Boolean);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+
+  const getColor = v => {
+    const n = (v - minV) / (maxV - minV || 1);
+    if (n > 0.65) return '#DC2626';
+    if (n > 0.35) return '#F59E0B';
+    return '#10B981';
+  };
+  const getR = v => 12 + ((v - minV) / (maxV - minV || 1)) * 28;
+
+  const names = mapGrouped ? Object.keys(GOV_GROUPS) : relevantData.map(d => d.governorate);
+
+  names.forEach(name => {
+    const coords = D.govCoords[name];
+    if (!coords) return;
+    let govRow;
+    if (mapGrouped) {
+      const members = GOV_GROUPS[name];
+      const rows = relevantData.filter(d => members.includes(d.governorate));
+      if (!rows.length) return;
+      govRow = {rolling2026: rows.reduce((s,r)=>s+r.rolling2026,0)/rows.length, governorate: name, improvement: rows.reduce((s,r)=>s+r.improvement,0)/rows.length};
+    } else {
+      govRow = relevantData.find(d => d.governorate === name);
+    }
+    if (!govRow) return;
+
+    const col = getColor(govRow.rolling2026);
+    const r = getR(govRow.rolling2026);
+    const circle = L.circleMarker([coords.lat, coords.lng], {color:col, weight:2, opacity:0.9, fillColor:col, fillOpacity:0.3, radius:r}).addTo(omanMap);
+    const label = indicator === 'SAIDI' ? govRow.rolling2026.toFixed(1) : govRow.rolling2026.toFixed(2);
+    circle.bindTooltip(`<strong>${name}</strong><br>${indicator}: <strong>${label}</strong><br>YoY: ${govRow.improvement?.toFixed(1) || '—'}%${mapGrouped?'<br><em style="color:#64748B">Click to drill down</em>':''}`, {sticky:true});
+    circle.on('mouseover', function(){this.openTooltip()});
+    if (mapGrouped) {
+      circle.on('click', () => {
+        mapGrouped = false;
+        createOmanMap(mapMode);
+        omanMap.setView([coords.lat, coords.lng], 8);
+      });
+    }
+  });
+
+  if (!mapGrouped) {
+    const backBtn = L.control({position:'topleft'});
+    backBtn.onAdd = () => {
+      const d = L.DomUtil.create('div');
+      d.innerHTML = '<button style="background:white;border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.1)" onclick="mapGrouped=true;createOmanMap(mapMode)">← Back to Groups</button>';
+      return d;
+    };
+    backBtn.addTo(omanMap);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER: KPI VIEW
+// ═══════════════════════════════════════════════════
+function renderKpi() {
+  switchKpiView(kpiMode);
+}
+
+function switchKpiView(ind) {
+  kpiMode = ind;
+  ['kpi-saidi-btn','kpi-saifi-btn'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById('kpi-'+ind.toLowerCase()+'-btn').classList.add('active');
+  document.getElementById('kpi-bar-title').textContent = `${ind} — Governorate YTD Comparison`;
+  renderKpiSummaryCards();
+  renderGovBarChart();
+  renderVoltageDonut();
+  renderKpiTable();
+}
+
+function renderKpiSummaryCards() {
+  // Find latest month with data
+  const ytdArrK = D.saidi.y2026_ytd || [];
+  let idx = 0;
+  for (let i = 0; i < ytdArrK.length; i++) { if (ytdArrK[i] !== null) idx = i; }
+  const d = kpiMode === 'SAIDI' ? D.saidi : D.saifi;
+  const govs = D.govData.filter(g => g.indicator === kpiMode && !g.isGroup);
+  const best = [...govs].sort((a,b)=>a.improvement-b.improvement)[0];
+  const worst = [...govs].sort((a,b)=>b.rolling2026-a.rolling2026)[0];
+  const highCont = [...govs].sort((a,b)=>b.contribution-a.contribution)[0];
+
+  const cards = [
+    {label:`Network ${kpiMode} (YTD)`,value:(d.y2026_ytd[idx]||0).toFixed(kpiMode==='SAIDI'?2:3),unit:kpiMode==='SAIDI'?'min':'freq',imp:d.y2026_ytd[idx]&&d.y2025[idx]?((d.y2026_ytd[idx]-d.y2025[idx])/d.y2025[idx]*100):null,color:'red',icon:'fa-stopwatch'},
+    {label:'Best Improver',value:best?.governorate||'—',unit:'',imp:best?.improvement,color:'green',icon:'fa-trophy'},
+    {label:'Highest Impact Gov.',value:highCont?.governorate||'—',unit:`${highCont?.contribution||0}% of total`,imp:null,color:'amber',icon:'fa-chart-pie'},
+    {label:'Worst Performing',value:worst?.governorate||'—',unit:`Rolling: ${worst?.rolling2026?.toFixed(1)||'—'}`,imp:null,color:'navy',icon:'fa-triangle-exclamation'}
+  ];
+
+  document.getElementById('kpi-summary-cards').innerHTML = cards.map(c=>`
+    <div class="kpi-card ${c.color}">
+      <div class="kpi-label">${icon(c.icon)}${c.label}</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:${c.value.length>8?'15px':'22px'};font-weight:700;color:var(--gray-900);margin:8px 0;line-height:1.2">${c.value}</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${c.unit}</div>
+      ${c.imp !== null ? impBadge(c.imp) : '<span class="imp-neutral">—</span>'}
+    </div>`).join('');
+}
+
+function renderGovBarChart() {
+  destroyChart('govBarChart');
+  const ctx = document.getElementById('govBarChart');
+  const govs = D.govData.filter(d => d.indicator === kpiMode && !d.isGroup);
+  charts['govBarChart'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:govs.map(d=>d.governorate), datasets:[
+      {label:'2026 YTD', data:govs.map(d=>d.ytd2025), backgroundColor:'#C41E3A', borderRadius:4},
+      {label:'2025 YTD', data:govs.map(d=>d.ytd2024), backgroundColor:'#CBD5E1', borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{position:'bottom',labels:{font:{size:11}}}, datalabels:{display:false}},
+      scales:{x:{beginAtZero:true,title:{display:true,text:kpiMode==='SAIDI'?'Minutes':'Frequency'}}, y:{grid:{display:false}}}}
+  });
+}
+
+function renderVoltageDonut() {
+  destroyChart('voltageDonut');
+  const ctx = document.getElementById('voltageDonut');
+  const vd = D.voltage[kpiMode];
+  charts['voltageDonut'] = new Chart(ctx, {
+    type:'doughnut', data:{labels:vd.labels, datasets:[{data:vd.values, backgroundColor:['#1E3A8A','#C41E3A','#16A368'], borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{legend:{position:'bottom'},datalabels:{formatter:v=>{const t=vd.values.reduce((a,b)=>a+b,0);return ((v/t)*100).toFixed(0)+'%'},color:'#fff',font:{weight:'bold',size:12}},
+      tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.toFixed(2)}`}}}}
+  });
+}
+
+function renderKpiTable() {
+  const filter = document.getElementById('kpi-gov-filter')?.value || 'All';
+  const govs = D.govData.filter(d => d.indicator === kpiMode && (filter === 'All' || d.group === filter));
+  const tbody = document.getElementById('kpi-table-body');
+  tbody.innerHTML = govs.map(d => {
+    const rowClass = d.isGroup ? 'group-total' : '';
+    const targetBad = d.target2026 > 0 && d.rolling2026 > d.target2026;
+    const statusDot = d.target2026 > 0 ? (targetBad ? '<span class="status-dot red"></span>' : '<span class="status-dot green"></span>') : '<span class="status-dot" style="background:#CBD5E1"></span>';
+    return `<tr class="${rowClass}">
+      <td>${d.governorate}</td>
+      <td>${d.ytd2024.toFixed(2)}</td>
+      <td>${d.ytd2025.toFixed(2)}</td>
+      <td style="color:#2563EB;font-weight:700">${d.rolling2026.toFixed(2)}</td>
+      <td style="color:${targetBad?'var(--red)':'var(--green)'};font-weight:600">${d.target2026 || '—'}</td>
+      <td>${impBadge(d.improvement)}</td>
+      <td style="display:flex;align-items:center;gap:6px;padding-top:14px">${statusDot} ${d.target2026>0?(targetBad?'Above target':'On track'):'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER: OUTAGE ANALYSIS
+// ═══════════════════════════════════════════════════
+function renderOutage() {
+  renderOutageKpiCards();
+  switchOutageView('SAIDI');
+  rebuildOutageCompChart();
+  buildPlannedExceedChart();
+  buildTransientChart();
+  buildMvUnplannedPie();
+}
+
+function renderOutageKpiCards() {
+  const idx = 1;
+  const total26 = D.outages.y2026_ytd[idx], total25 = D.outages.y2025[idx];
+  const drivers = [...D.drivers].sort((a,b)=>b.count-a.count);
+  const totalMV = drivers.reduce((s,d)=>s+d.count,0);
+  const transient = D.drivers.find(d=>d.reason==='Transient')?.count || 0;
+  const cableDmg = D.drivers.find(d=>d.reason==='Cable damaged')?.count || 0;
+  const imp = total26 && total25 ? ((total26-total25)/total25*100).toFixed(1) : null;
+
+  document.getElementById('outage-kpi-cards').innerHTML = [
+    {label:'Total Outage Events',value:total26?.toLocaleString()||'—',unit:'events YTD',badge:imp?impBadge(parseFloat(imp)):'',color:'red',icon:'fa-power-off'},
+    {label:'MV Unplanned Sustained',value:totalMV.toLocaleString(),unit:'events YTD',badge:'',color:'amber',icon:'fa-triangle-exclamation'},
+    {label:'Transient Outages',value:transient,unit:'events YTD',badge:'',color:'blue',icon:'fa-bolt-lightning'},
+    {label:'Cable Damage Events',value:cableDmg,unit:'events YTD',badge:'',color:'navy',icon:'fa-cable-car'}
+  ].map(c=>`
+    <div class="kpi-card ${c.color}">
+      <div class="kpi-label">${icon(c.icon)}${c.label}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin:8px 0">${c.value}</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${c.unit}</div>
+      ${c.badge}
+    </div>`).join('');
+}
+
+function switchOutageView(ind) {
+  outageMode = ind;
+  ['out-saidi-btn','out-saifi-btn'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById('out-'+ind.toLowerCase()+'-btn').classList.add('active');
+  document.getElementById('stacked-chart-title').textContent = `Governorate Breakdown: Planned vs Unplanned ${ind}`;
+  buildGovStackedChart(ind);
+  buildOutageTypeChart(ind);
+}
+
+function buildGovStackedChart(ind) {
+  destroyChart('govStackedChart');
+  const ctx = document.getElementById('govStackedChart');
+  const bd = D.govBreakdown;
+  const govs = Object.keys(bd);
+  charts['govStackedChart'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:govs, datasets:[
+      {label:'Planned', data:govs.map(g=>bd[g][ind].planned), backgroundColor:'#3B82F6', borderRadius:4, stack:'s'},
+      {label:'Unplanned', data:govs.map(g=>bd[g][ind].unplanned), backgroundColor:'#EF4444', borderRadius:4, stack:'s'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{position:'bottom'},datalabels:{color:'white',font:{weight:'bold',size:10},formatter:v=>v>0?v.toFixed(2):''}},
+      scales:{x:{stacked:true,title:{display:true,text:ind==='SAIDI'?'Minutes':'Frequency'}},y:{stacked:true}}}
+  });
+}
+
+function buildOutageTypeChart(ind) {
+  destroyChart('outageTypeChart');
+  const ctx = document.getElementById('outageTypeChart');
+  const d = D.outageType[ind];
+  charts['outageTypeChart'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:d.years, datasets:[
+      {label:'Planned', data:d.planned, backgroundColor:'#3B82F6', stack:'s'},
+      {label:'Unplanned', data:d.unplanned, backgroundColor:'#EF4444', stack:'s'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom'},datalabels:{color:'white',font:{weight:'bold',size:10},formatter:v=>v}},
+      scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:ind==='SAIDI'?'Minutes':'Frequency'}}}}
+  });
+  const p0=d.planned[0],p1=d.planned[1],u0=d.unplanned[0],u1=d.unplanned[1];
+  const pImp=((p1-p0)/p0*100).toFixed(1), uImp=((u1-u0)/u0*100).toFixed(1);
+  document.getElementById('outage-type-analysis').innerHTML = `<strong>2024→2025:</strong> Planned ${pImp<=0?'▼ improved':'▲ increased'} ${Math.abs(pImp)}%. Unplanned ${uImp<=0?'▼ improved':'▲ increased'} ${Math.abs(uImp)}%.`;
+}
+
+function buildMvUnplannedPie() {
+  destroyChart('mvUnplannedPie');
+  const ctx = document.getElementById('mvUnplannedPie');
+  const d = D.mvUnplanned;
+  charts['mvUnplannedPie'] = new Chart(ctx, {
+    type:'pie', data:{labels:d.labels, datasets:[{data:d.values, backgroundColor:CHART_COLORS, borderWidth:2, borderColor:'white'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{font:{size:10},padding:8}},
+      datalabels:{formatter:v=>v<4?'':v+'%',color:'white',font:{weight:'bold',size:11},textShadowBlur:4,textShadowColor:'rgba(0,0,0,0.5)'},
+      tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed}%`}}}}
+  });
+}
+
+function rebuildOutageCompChart() {
+  destroyChart('govOutageCompChart');
+  const ctx = document.getElementById('govOutageCompChart');
+  const filter = document.getElementById('outage-gov-filter')?.value || 'All';
+  let labels = D.outageComp.labels, y26 = D.outageComp.y2026, y25 = D.outageComp.y2025, y24 = D.outageComp.y2024;
+  if (filter !== 'All') {
+    const i = labels.indexOf(filter);
+    if (i >= 0) { labels=[labels[i]]; y26=[y26[i]]; y25=[y25[i]]; y24=[y24[i]]; }
+  }
+  charts['govOutageCompChart'] = new Chart(ctx, {
+    type:'bar', data:{labels, datasets:[
+      {label:'2026 YTD', data:y26, backgroundColor:'#C41E3A', borderRadius:4},
+      {label:'2025', data:y25, backgroundColor:'#3B82F6', borderRadius:4},
+      {label:'2024', data:y24, backgroundColor:'#CBD5E1', borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:v=>v,font:{weight:'bold',size:10}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'No. of MV Sustained Outages'}}}}
+  });
+}
+
+function buildPlannedExceedChart() {
+  destroyChart('plannedExceedChart');
+  const ctx = document.getElementById('plannedExceedChart');
+  const d = D.plannedExceed;
+  charts['plannedExceedChart'] = new Chart(ctx, {
+    type:'bar', data:{labels:d.labels, datasets:[
+      {label:'2026 YTD', data:d.y2026, backgroundColor:'#C41E3A', borderRadius:3},
+      {label:'2025', data:d.y2025, backgroundColor:'#3B82F6', borderRadius:3},
+      {label:'2024', data:d.y2024, backgroundColor:'#CBD5E1', borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:v=>v>0?v:'',font:{size:9}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'>5 Hour Planned Outages'}}}}
+  });
+}
+
+function buildTransientChart() {
+  destroyChart('transientChart');
+  const ctx = document.getElementById('transientChart');
+  const d = D.transient;
+  const minuteVals = d.times.map(t => { const p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); });
+  const threshold = new Array(d.labels.length).fill(60);
+  charts['transientChart'] = new Chart(ctx, {
+    type:'bar', data:{labels:d.labels, datasets:[
+      {label:'Duration (H:MM)', data:minuteVals, backgroundColor:d.labels.map(l=>l==='NEDC'?'#0F172A':'#F97316'), borderRadius:3},
+      {type:'line', label:'1 Hr Threshold', data:threshold, borderColor:'#DC2626', borderDash:[5,4], pointRadius:0, fill:false, datalabels:{display:false}}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom'},datalabels:{color:'#000',anchor:'end',align:'top',formatter:(v,c)=>c.datasetIndex===0?d.times[c.dataIndex]:'',font:{weight:'bold',size:9}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'Minutes'}}}}
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER: DRIVER ANALYSIS
+// ═══════════════════════════════════════════════════
+function renderDriver() {
+  renderDriverKpiCards();
+  renderHeatmap('6');
+  filterDriverChart('All');
+}
+
+function renderDriverKpiCards() {
+  const drivers = [...D.drivers].sort((a,b)=>b.count-a.count);
+  const total = drivers.reduce((s,d)=>s+d.count,0);
+  const top1 = drivers[0];
+  const top5 = drivers.slice(0,5).reduce((s,d)=>s+d.count,0);
+  const top5pct = (top5/total*100).toFixed(1);
+
+  document.getElementById('driver-kpi-cards').innerHTML = [
+    {label:'Total Sustained Events',value:total.toLocaleString(),unit:'MV unplanned YTD',color:'red',icon:'fa-chart-line'},
+    {label:'Top Driver',value:top1.reason,unit:`${top1.count} events`,color:'amber',icon:'fa-plug-circle-xmark'},
+    {label:'Top 5 Concentration',value:top5pct+'%',unit:`${top5.toLocaleString()} events`,color:'blue',icon:'fa-bullseye'},
+    {label:'High Impact Drivers',value:drivers.filter(d=>d.category==='High').length,unit:'categories',color:'navy',icon:'fa-gears'}
+  ].map(c=>`
+    <div class="kpi-card ${c.color}">
+      <div class="kpi-label">${icon(c.icon)}${c.label}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:${c.value.length>8?'16px':'26px'};font-weight:800;margin:8px 0;line-height:1.2">${c.value}</div>
+      <div style="font-size:12px;color:var(--gray-500)">${c.unit}</div>
+    </div>`).join('');
+}
+
+function renderHeatmap(filterVal) {
+  const matrix = D.driverMatrix;
+  const govs = matrix.governorates;
+  let data = filterVal === 'All' ? matrix.driverData : matrix.driverData.slice(0, parseInt(filterVal));
+  const maxVal = Math.max(...data.flatMap(d=>d.counts));
+
+  const getHeatBg = v => {
+    if (v === 0) return '#F8FAFC';
+    const n = v / maxVal;
+    if (n >= 0.75) return '#9A1829';
+    if (n >= 0.5) return '#C41E3A';
+    if (n >= 0.25) return '#FB7185';
+    return '#FECdD3';
+  };
+  const getHeatText = v => {
+    if (v === 0) return '#CBD5E1';
+    const n = v / maxVal;
+    return n >= 0.25 ? '#fff' : '#9A1829';
+  };
+
+  let html = `<table style="border-collapse:collapse;width:100%;font-size:12px">
+    <thead><tr>
+      <th style="text-align:left;padding:8px 10px;background:var(--navy);color:white;border-radius:6px 0 0 0;min-width:180px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Outage Reason</th>
+      ${govs.map(g=>`<th style="text-align:center;padding:8px 6px;background:var(--navy);color:white;font-size:10px;min-width:72px;writing-mode:${window.innerWidth<800?'vertical-rl':'horizontal-tb'}">${g}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+  data.forEach(item => {
+    const total = item.counts.reduce((a,b)=>a+b,0);
+    html += `<tr>
+      <td style="padding:7px 10px;font-weight:600;color:var(--gray-800);border-bottom:1px solid var(--gray-100);background:var(--gray-50)">${item.driver}</td>
+      ${item.counts.map(v => `<td style="padding:6px;text-align:center;border-bottom:1px solid var(--gray-100)">
+        <div class="heatmap-cell" style="background:${getHeatBg(v)};color:${getHeatText(v)};border-radius:4px;min-height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
+          ${v > 0 ? `<div style="font-size:13px;font-weight:800">${v}</div><div style="font-size:9px;opacity:0.8">${total>0?((v/total)*100).toFixed(0)+'%':''}</div>` : '<div style="color:#CBD5E1;font-size:18px">·</div>'}
+        </div>
+      </td>`).join('')}
+    </tr>`;
+  });
+
+  document.getElementById('heatmapContainer').innerHTML = html + '</tbody></table>';
+}
+
+function filterDriverChart(cat) {
+  let data = cat === 'All' ? [...D.drivers] : D.drivers.filter(d=>d.category===cat);
+  data = data.sort((a,b)=>b.count-a.count);
+  destroyChart('driverBarChart');
+  const ctx = document.getElementById('driverBarChart');
+  const catColor = {High:'#C41E3A', Medium:'#F97316', Low:'#3B82F6'};
+  charts['driverBarChart'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:data.map(d=>d.reason), datasets:[{
+      label:'Events', data:data.map(d=>d.count),
+      backgroundColor:data.map(d=>catColor[d.category]||'#94A3B8'), borderRadius:4
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},datalabels:{align:'right',anchor:'end',offset:4,color:'#334155',font:{weight:'bold',size:11},formatter:v=>v}},
+      scales:{x:{beginAtZero:true,title:{display:true,text:'Number of Events'}},y:{grid:{display:false}}}}
+  });
+  ctx.style.height = (data.length * 32 + 80) + 'px';
+
+  const total = D.drivers.reduce((s,d)=>s+d.count,0);
+  const filtTotal = data.reduce((s,d)=>s+d.count,0);
+  const panel = document.getElementById('driver-insight-panel');
+  panel.innerHTML = `
+    <h4 style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:12px;border-bottom:1px solid var(--gray-200);padding-bottom:8px">${cat} Impact Summary</h4>
+    <div style="font-size:13px;color:var(--gray-700);margin-bottom:12px">Showing <strong>${data.length}</strong> drivers accounting for <strong>${filtTotal}</strong> events (<strong>${(filtTotal/total*100).toFixed(1)}%</strong> of total).</div>
+    <div style="space-y:8px">
+      ${data.slice(0,5).map(d=>`
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:12px;font-weight:600;color:var(--gray-700)">${d.reason}</span>
+            <span style="font-size:12px;font-weight:700;color:${catColor[d.category]||'#64748B'}">${d.count}</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill ${d.category==='High'?'bad':d.category==='Medium'?'warn':'good'}" style="width:${(d.count/data[0].count*100).toFixed(0)}%"></div></div>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:16px;padding:10px;background:var(--gray-100);border-radius:8px;font-size:11px;color:var(--gray-600)">
+      <strong style="color:var(--red)">High:</strong> Termination, Conductors, Transient, Cable Damage — primary targets for 2026 reduction programs.
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER: NPI & ZONES
+// ═══════════════════════════════════════════════════
+function renderZones() {
+  renderZoneKpiCards();
+  renderZoneTable();
+  rebuildZoneCharts();
+  renderRegDrawerContent();
+}
+
+function renderZoneKpiCards() {
+  const zones = D.zones;
+  const bestSaidi = zones.reduce((a,b)=>a.saidi26<b.saidi26?a:b);
+  const bestSaifi = zones.reduce((a,b)=>a.saifi26<b.saifi26?a:b);
+  const bigImpSaidi = zones.reduce((a,b)=>((a.saidi26-a.saidi25)/a.saidi25)<((b.saidi26-b.saidi25)/b.saidi25)?a:b);
+  const bigImpSaifi = zones.reduce((a,b)=>((a.saifi26-a.saifi25)/a.saifi25)<((b.saifi26-b.saifi25)/b.saifi25)?a:b);
+
+  document.getElementById('zone-kpi-cards').innerHTML = [
+    {label:'Best SAIDI Zone',value:bestSaidi.name,unit:`${bestSaidi.saidi26.toFixed(1)} min rolling`,color:'red',icon:'fa-stopwatch'},
+    {label:'Top SAIDI Improver',value:bigImpSaidi.name,unit:`${(((bigImpSaidi.saidi26-bigImpSaidi.saidi25)/bigImpSaidi.saidi25)*100).toFixed(1)}% vs '25`,color:'green',icon:'fa-arrow-trend-down'},
+    {label:'Best SAIFI Zone',value:bestSaifi.name,unit:`${bestSaifi.saifi26.toFixed(2)} rolling`,color:'blue',icon:'fa-bolt'},
+    {label:'Top SAIFI Improver',value:bigImpSaifi.name,unit:`${(((bigImpSaifi.saifi26-bigImpSaifi.saifi25)/bigImpSaifi.saifi25)*100).toFixed(1)}% vs '25`,color:'amber',icon:'fa-arrow-trend-down'}
+  ].map(c=>`
+    <div class="kpi-card ${c.color}">
+      <div class="kpi-label">${icon(c.icon)}${c.label}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin:8px 0">${c.value}</div>
+      <div style="font-size:12px;color:var(--gray-500)">${c.unit}</div>
+    </div>`).join('');
+}
+
+function renderZoneTable() {
+  const zones = D.zones;
+  document.getElementById('zone-table-body').innerHTML = zones.map(z => {
+    const saidiImp = ((z.saidi26 - z.saidi25) / z.saidi25 * 100);
+    const saifiImp = ((z.saifi26 - z.saifi25) / z.saifi25 * 100);
+    const st = saidiImp <= 0 && saifiImp <= 0 ? 'Overall ✅' : saidiImp <= 0 ? 'SAIDI ✅ / SAIFI ⚠️' : saidiImp > 0 && saifiImp <= 0 ? 'SAIFI ✅ / SAIDI ⚠️' : '⚠️ Both Declined';
+    const stColor = st.includes('Overall ✅') ? 'var(--green)' : st.includes('⚠️ Both') ? 'var(--red)' : 'var(--amber)';
+    return `<tr>
+      <td style="font-weight:700;color:var(--navy)">${z.name}</td>
+      <td style="text-align:center">${z.saidi24.toFixed(1)}</td>
+      <td style="text-align:center">${z.saifi24.toFixed(2)}</td>
+      <td style="text-align:center;font-weight:700">${z.saidi25.toFixed(1)}</td>
+      <td style="text-align:center;font-weight:700">${z.saifi25.toFixed(2)}</td>
+      <td style="text-align:center;font-weight:700;color:#2563EB;background:#EFF6FF">${z.saidi26.toFixed(1)}</td>
+      <td style="text-align:center;font-weight:700;color:#2563EB;background:#EFF6FF">${z.saifi26.toFixed(2)}</td>
+      <td style="text-align:center">${impBadge(saidiImp)}</td>
+      <td style="text-align:center">${impBadge(saifiImp)}</td>
+      <td style="text-align:center;font-size:11px;font-weight:700;color:${stColor}">${st}</td>
+    </tr>`;
+  }).join('');
+}
+
+let zoneSaidiChart = null, zoneSaifiChart = null;
+function rebuildZoneCharts() {
+  const show24 = document.getElementById('zone-2024')?.checked;
+  const show25 = document.getElementById('zone-2025')?.checked;
+  const show26 = document.getElementById('zone-2026')?.checked;
+  const zones = D.zones;
+  const names = zones.map(z=>z.name);
+  const pts = [];
+  if (show24) pts.push({label:'2024',saidiKey:'saidi24',saifiKey:'saifi24',color:'#94A3B8'});
+  if (show25) pts.push({label:'2025',saidiKey:'saidi25',saifiKey:'saifi25',color:'#C41E3A'});
+  if (show26) pts.push({label:'2026 Rolling',saidiKey:'saidi26',saifiKey:'saifi26',color:'#2563EB'});
+
+  const zoneColors = ['#059669','#2563EB','#DC2626'];
+  const buildSets = (key) => zones.map((z,i) => ({
+    label: z.name,
+    data: pts.map(p => z[key==='saidi'?p.saidiKey:p.saifiKey]),
+    borderColor: zoneColors[i], backgroundColor: zoneColors[i],
+    borderWidth:2, tension:0.3, pointRadius:4, fill:false,
+    datalabels:{align:'top',anchor:'center',offset:4,color:zoneColors[i],font:{weight:'bold',size:10},formatter:(v)=>v.toFixed(key==='saidi'?1:2)}
+  }));
+
+  destroyChart('zoneSaidiChart'); destroyChart('zoneSaifiChart');
+  const makeCfg = (key, label) => ({
+    type:'line', data:{labels:pts.map(p=>p.label), datasets:buildSets(key)},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},usePointStyle:true}},datalabels:{display:true}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:label},grid:{color:'#F1F5F9'}},x:{grid:{display:false}}}}
+  });
+  charts['zoneSaidiChart'] = new Chart(document.getElementById('zoneSaidiChart'), makeCfg('saidi','Minutes'));
+  charts['zoneSaifiChart'] = new Chart(document.getElementById('zoneSaifiChart'), makeCfg('saifi','Frequency'));
+}
+
+function renderRegDrawerContent() {
+  const st = D.regTargets;
+  const years = [2026,2027,2028,2029];
+  const statusClass = {compliant:'color:var(--green)',breach:'color:var(--red)','at-risk':'color:var(--amber)'};
+  const statusLabel = {compliant:'✅ Compliant',breach:'🚨 Exceeds Penalty','at-risk':'⚠️ At Risk'};
+
+  let html = `<h4 style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--red);margin-bottom:12px">SAIDI Targets <span style="font-size:11px;color:var(--gray-500);font-weight:400">(min/customer/year)</span></h4>`;
+  st.saidi.forEach(z => {
+    html += `<div style="margin-bottom:16px;padding:14px;border-radius:10px;border:1px solid var(--gray-200)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:14px">${z.zone}</strong>
+        <span style="font-size:12px;font-weight:700;${statusClass[z.status]}">${statusLabel[z.status]}</span>
+      </div>
+      <div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;${statusClass[z.status]};margin-bottom:8px">${z.rolling}</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        <tr style="background:var(--gray-50)">${years.map(y=>`<th style="padding:5px 8px;text-align:center;font-weight:700;color:var(--gray-500)">${y}</th>`).join('')}</tr>
+        <tr>${z.base.map(v=>`<td style="padding:5px 8px;text-align:center;font-weight:600">${v}</td>`).join('')}</tr>
+        <tr style="color:var(--red)">${z.penalty.map(v=>`<td style="padding:5px 8px;text-align:center;font-size:10px">⚠️ ${v}</td>`).join('')}</tr>
+      </table>
+    </div>`;
+  });
+
+  html += `<h4 style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#2563EB;margin:20px 0 12px">SAIFI Targets <span style="font-size:11px;color:var(--gray-500);font-weight:400">(int/customer/year)</span></h4>`;
+  st.saifi.forEach(z => {
+    html += `<div style="margin-bottom:16px;padding:14px;border-radius:10px;border:1px solid var(--gray-200)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:14px">${z.zone}</strong>
+        <span style="font-size:12px;font-weight:700;${statusClass[z.status]}">${statusLabel[z.status]}</span>
+      </div>
+      <div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;${statusClass[z.status]};margin-bottom:8px">${z.rolling}</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        <tr style="background:var(--gray-50)">${years.map(y=>`<th style="padding:5px 8px;text-align:center;font-weight:700;color:var(--gray-500)">${y}</th>`).join('')}</tr>
+        <tr>${z.base.map(v=>`<td style="padding:5px 8px;text-align:center;font-weight:600">${v}</td>`).join('')}</tr>
+        <tr style="color:var(--red)">${z.penalty.map(v=>`<td style="padding:5px 8px;text-align:center;font-size:10px">⚠️ ${v}</td>`).join('')}</tr>
+      </table>
+    </div>`;
+  });
+  document.getElementById('reg-drawer-content').innerHTML = html;
+}
+
+function openRegDrawer() {
+  document.getElementById('reg-drawer').classList.add('open');
+  document.getElementById('reg-overlay').classList.add('open');
+}
+function closeRegDrawer() {
+  document.getElementById('reg-drawer').classList.remove('open');
+  document.getElementById('reg-overlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER: QSI IMPROVEMENTS
+// ═══════════════════════════════════════════════════
+function renderQsi() {
+  switchQsiTab('projects');
+}
+
+function switchQsiTab(tab) {
+  document.getElementById('qsi-projects-panel').style.display = tab === 'projects' ? 'block' : 'none';
+  document.getElementById('qsi-govkpi-panel').style.display = tab === 'govkpi' ? 'block' : 'none';
+  ['qsi-proj-btn','qsi-kpi-btn'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(tab === 'projects' ? 'qsi-proj-btn' : 'qsi-kpi-btn').classList.add('active');
+  if (tab === 'projects') { renderQsiProjectsTable(); renderQsiChart(); renderQsiInsights(); }
+  else { renderGovKpiTable(); }
+}
+
+function renderQsiProjectsTable() {
+  document.getElementById('qsi-table-body').innerHTML = D.qsiProjects.map(r => `
+    <tr>
+      <td style="font-weight:600">${r.indicator}</td>
+      <td style="text-align:center">${r.y2025}</td>
+      <td style="text-align:center;font-weight:700">${r.y2026}</td>
+      <td style="text-align:center">${impBadge(r.improvement)}</td>
+    </tr>`).join('');
+}
+
+function renderQsiChart() {
+  destroyChart('qsiCompChart');
+  const ctx = document.getElementById('qsiCompChart');
+  charts['qsiCompChart'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:D.qsiProjects.map(d=>d.indicator), datasets:[
+      {label:'2025 YTD', data:D.qsiProjects.map(d=>d.y2025), backgroundColor:'#94A3B8', borderRadius:4},
+      {label:'2026 YTD', data:D.qsiProjects.map(d=>d.y2026), backgroundColor:'#C41E3A', borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:v=>v,font:{weight:'bold',size:11}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'Number of Events'}}}}
+  });
+}
+
+function renderQsiInsights() {
+  document.getElementById('qsi-insights').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${D.qsiProjects.map(p => {
+        const good = p.improvement < 0;
+        return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:8px;background:${good?'#F0FDF4':'#FEF2F2'};border:1px solid ${good?'#BBF7D0':'#FECACA'}">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;color:${good?'var(--green)':'var(--red)'};margin-top:2px;font-size:16px"><path d="M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7 .2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8 .2-40.1l216-368C228.7 39.5 241.8 32 256 32zm0 128c-13.3 0-24 10.7-24 24V296c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24zm32 224a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/></svg>
+          <div>
+            <div style="font-weight:700;color:${good?'var(--green-dark,#166534)':'var(--red)'};margin-bottom:3px">${p.indicator}</div>
+            <div style="font-size:13px;color:var(--gray-700)">
+              ${good
+                ? `Improved by <strong>${Math.abs(p.improvement)}%</strong> (${p.y2025} → ${p.y2026} events). Reflecting positive outcomes from targeted maintenance programs.`
+                : `Increased by <strong>${p.improvement}%</strong> (${p.y2025} → ${p.y2026} events). Requires immediate review of protection schemes and maintenance practices.`
+              }
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function renderGovKpiTable() {
+  const gov = document.getElementById('gov-kpi-select')?.value || 'Muscat';
+  const data = D.govKpiData[gov] || [];
+  document.getElementById('gov-kpi-table-body').innerHTML = data.map(item => {
+    const t26Num = parseFloat(item.target26.toString().replace(/[^\d.-]/g,''));
+    const ytd26Num = parseFloat(item.ytd26.toString().replace(/[^\d.-]/g,''));
+    const ytd25Num = parseFloat(item.ytd25.toString().replace(/[^\d.-]/g,''));
+    const isExceeding = !isNaN(ytd26Num) && !isNaN(t26Num) && ytd26Num > t26Num;
+    const ytdImp = !isNaN(ytd25Num) && !isNaN(ytd26Num) && ytd25Num !== 0 ? ((ytd26Num - ytd25Num) / ytd25Num * 100) : null;
+    const typeColor = item.type === 'Planned' ? '#2563EB' : '#C41E3A';
+    const typeBg = item.type === 'Planned' ? '#EFF6FF' : '#FEF2F2';
+    return `<tr style="${isExceeding?'background:#FEF2F2':''}">
+      <td><span style="background:${typeBg};color:${typeColor};padding:3px 8px;border-radius:50px;font-size:11px;font-weight:700">${item.type}</span></td>
+      <td style="font-size:12px;color:var(--gray-700)">${item.action}</td>
+      <td style="text-align:center;font-size:12px;color:var(--gray-600)">${item.record25}</td>
+      <td style="text-align:center;font-weight:700;color:var(--green)">↓ ${item.imp}</td>
+      <td style="text-align:center;font-size:12px;color:var(--gray-500)">${item.weight}</td>
+      <td style="text-align:center;font-weight:800;color:#2563EB;background:#EFF6FF">${item.target26}</td>
+      <td style="text-align:center;font-weight:600;background:var(--gray-50)">${item.ytd25}</td>
+      <td style="text-align:center;font-weight:700;${isExceeding?'color:var(--red)':''};background:${isExceeding?'#FEE2E2':'var(--gray-50)'}">
+        ${isExceeding?'⚠️ ':''} ${item.ytd26}
+      </td>
+      <td style="text-align:center">${ytdImp !== null ? impBadge(ytdImp) : '<span class="imp-neutral">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// TREND MODAL
+// ═══════════════════════════════════════════════════
+function openTrendModal(type) {
+  modalTrendType = type;
+  const titles = {SAIDI:'SAIDI Performance Trends',SAIFI:'SAIFI Performance Trends',OUTAGES:'Total Outage Events Trends'};
+  document.getElementById('modal-trend-title').textContent = titles[type];
+  document.getElementById('trend-modal').classList.add('open');
+  setTimeout(() => rebuildModalChart(), 100);
+}
+function closeTrendModal() {
+  document.getElementById('trend-modal').classList.remove('open');
+  destroyChart('modal-trend-canvas');
+  modalTrendType = null;
+}
+function rebuildModalChart() {
+  if (!modalTrendType) return;
+  destroyChart('modal-trend-canvas');
+  const dataMap = {SAIDI:D.saidi, SAIFI:D.saifi, OUTAGES:D.outages};
+  const labelMap = {SAIDI:'SAIDI (Minutes)',SAIFI:'SAIFI (Freq/Cust)',OUTAGES:'Outage Events'};
+  const prevForecast = document.getElementById('chk-forecast')?.checked;
+  const prevOM = document.getElementById('chk-om-target')?.checked;
+  const prevCorp = document.getElementById('chk-corp-target')?.checked;
+  document.getElementById('modal-forecast').checked = prevForecast || false;
+  document.getElementById('modal-om').checked = prevOM || false;
+  document.getElementById('modal-corp').checked = prevCorp || false;
+
+  // Temporarily swap checkboxes
+  const origForecast = document.getElementById('chk-forecast');
+  const origOM = document.getElementById('chk-om-target');
+  const origCorp = document.getElementById('chk-corp-target');
+  if (origForecast) origForecast.id = 'chk-forecast-orig';
+  if (origOM) origOM.id = 'chk-om-target-orig';
+  if (origCorp) origCorp.id = 'chk-corp-target-orig';
+  document.getElementById('modal-forecast').id = 'chk-forecast';
+  document.getElementById('modal-om').id = 'chk-om-target';
+  document.getElementById('modal-corp').id = 'chk-corp-target';
+
+  buildLineChart('modal-trend-canvas', dataMap[modalTrendType], labelMap[modalTrendType], modalTrendType);
+
+  // Restore IDs
+  document.getElementById('chk-forecast').id = 'modal-forecast';
+  document.getElementById('chk-om-target').id = 'modal-om';
+  document.getElementById('chk-corp-target').id = 'modal-corp';
+  if (origForecast) origForecast.id = 'chk-forecast';
+  if (origOM) origOM.id = 'chk-om-target';
+  if (origCorp) origCorp.id = 'chk-corp-target';
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  Chart.register(ChartDataLabels);
+  setupDropZone();
+});
+</script>
+</body>
+</html>
