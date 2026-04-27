@@ -1156,307 +1156,250 @@ function parseWorkbook(wb,fileName){
       var m=sn.find(function(s){return s.trim().toLowerCase().indexOf(hint.toLowerCase())>=0;});
       return m?XLSX.utils.sheet_to_json(wb.Sheets[m],{header:1,defval:null}):null;
     }
+    function cl(v){return v===null||v===undefined?'':String(v).replace(/^'+|'+$/g,'').replace(/\xa0/g,'').trim();}
+    function num(v){var n=parseFloat(v);return isNaN(n)?null:n;}
+
+    // ── TREND PARSER (SAIDI/SAIFI/Outages) ──
     function parseTrend(rows){
       if(!rows||rows.length<2)return null;
       var r={};
       rows.forEach(function(row){
         if(!row)return;
-        // Find first non-empty cell — could be at col 0, 1, or 2 depending on sheet
         var li=-1;
-        for(var j=0;j<row.length;j++){
-          if(row[j]!==null&&row[j]!==undefined&&row[j]!==''){li=j;break;}
-        }
+        for(var j=0;j<row.length;j++){if(row[j]!==null&&row[j]!==undefined&&row[j]!==''){li=j;break;}}
         if(li<0)return;
-        // Clean label: remove surrounding quotes, trim whitespace
-        var raw=String(row[li]).replace(/^'+|'+$/g,'').trim().toLowerCase();
+        var lbl=cl(row[li]).toLowerCase();
         var key=null;
-        // Match year labels: 2024, 2025, 2024(ytd), 2025 (ytd)
-        if(raw==='2024'||raw==='2024(ytd)'||raw==='2024 (ytd)')key='y2024';
-        else if(raw==='2025'||raw==='2025(ytd)'||raw==='2025 (ytd)')key='y2025';
-        else if(raw.indexOf('2026')>=0&&(raw.indexOf('ytd')>=0))key='y2026_ytd';
-        else if(raw.indexOf('2026')>=0&&(raw.indexOf('rolling')>=0||raw.indexOf('(r)')>=0||raw.indexOf('(r) ')>=0))key='y2026_rolling';
-        else if(raw.indexOf('corp')>=0)key='corp_target';
-        else if(raw.indexOf('o&m')>=0||(raw.indexOf('target')>=0&&raw.indexOf('corp')<0))key='om_target';
+        if(lbl==='2024'||lbl==='2024(ytd)'||lbl==='2024 (ytd)')key='y2024';
+        else if(lbl==='2025'||lbl==='2025(ytd)'||lbl==='2025 (ytd)')key='y2025';
+        else if(lbl.indexOf('2026')>=0&&lbl.indexOf('ytd')>=0)key='y2026_ytd';
+        else if(lbl.indexOf('2026')>=0&&(lbl.indexOf('rolling')>=0||lbl.indexOf('(r)')>=0))key='y2026_rolling';
+        else if(lbl.indexOf('corp')>=0)key='corp_target';
+        else if(lbl.indexOf('o&m')>=0||(lbl.indexOf('target')>=0&&lbl.indexOf('corp')<0))key='om_target';
         if(!key)return;
         var vals=[];
-        for(var k=li+1;k<=li+12;k++){ 
-          var v=row[k];
-          vals.push((v!==null&&v!==undefined&&v!=='')?parseFloat(v):null);
-        }
+        for(var k=li+1;k<=li+12;k++){var v=row[k];vals.push((v!==null&&v!==undefined&&v!=='')?num(v):null);}
         r[key]=vals;
       });
       return Object.keys(r).length>0?r:null;
     }
+
     var saidiRows=getSheet('SAIDI');
-    var saidiT=parseTrend(saidiRows);
-    if(!saidiT||!saidiT.y2025)return null;
+    var saidiT=parseTrend(saidiRows)||{};
+    if(!saidiT.y2025)return null;
     var saifiT=parseTrend(getSheet('SAIFI'))||{};
     var outageT=parseTrend(getSheet('Outage Events'))||{};
+
+    // Period detection
     var ytdArr=saidiT.y2026_ytd||[];
     var li=0;ytdArr.forEach(function(v,i){if(v!==null)li=i;});
     var period='YTD '+MO[li].toUpperCase()+' 2026';
     var mon=MO[li].charAt(0)+MO[li].slice(1).toLowerCase();
     var generatedName='NEDC_Network_Performance_'+mon+'2026.xlsx';
-    // ── Parse By Zone sheet
-    // Row 6: headers [Zone, 2024, 2025, 2026]
-    // Row 8: sub-headers [SAIDI, SAIFI, SAIDI, SAIFI, SAIDI(Rolling), SAIFI(Rolling)]
-    // Row 9-11: [zone name, saidi24, saifi24, saidi25, saifi25, saidi26r, saifi26r]
-    var zoneSheet = getSheet('By Zone');
-    var parsedZones = D.zones; // fallback
-    if(zoneSheet){
-      var zRows = zoneSheet;
-      var newZones = [];
-      var ZONE_REG = {
-        'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},
-        'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},
-        'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}
-      };
-      for(var zi=0;zi<zRows.length;zi++){
-        var zr=zRows[zi];
-        if(!zr||!zr[0])continue;
-        var zname=String(zr[3]||zr[0]||'').replace(/^'+|'+$/g,'').trim().toLowerCase();
-        if(zname.indexOf('zone')>=0&&(zname.indexOf('1')>=0||zname.indexOf('2')>=0||zname.indexOf('3')>=0)){
-          var reg=ZONE_REG[zname]||{st:0,sp:0,sft:0,sfp:0};
-          var displayName=zname.replace('zone','Zone').trim();
-          newZones.push({
-            name:displayName,
-            s24:parseFloat(zr[4])||0, sf24:parseFloat(zr[5])||0,
-            s25:parseFloat(zr[6])||0, sf25:parseFloat(zr[7])||0,
-            s26:parseFloat(zr[8])||0, sf26:parseFloat(zr[9])||0,
-            st:reg.st, sp:reg.sp, sft:reg.sft, sfp:reg.sfp
-          });
+
+    // ── BY ZONE — nameCol=3, data cols 4-9 ──
+    var zoneRows=getSheet('By Zone');
+    var parsedZones=D.zones;
+    if(zoneRows){
+      var ZREG={'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}};
+      var nz=[];
+      zoneRows.forEach(function(row){
+        if(!row||!row[3])return;
+        var zn=cl(row[3]).toLowerCase();
+        if(zn.indexOf('zone')>=0&&(zn.indexOf('1')>=0||zn.indexOf('2')>=0||zn.indexOf('3')>=0)){
+          var reg=ZREG[zn]||{st:0,sp:0,sft:0,sfp:0};
+          nz.push({name:zn.replace('zone','Zone').trim(),
+            s24:num(row[4])||0,sf24:num(row[5])||0,
+            s25:num(row[6])||0,sf25:num(row[7])||0,
+            s26:num(row[8])||0,sf26:num(row[9])||0,
+            st:reg.st,sp:reg.sp,sft:reg.sft,sfp:reg.sfp});
         }
-      }
-      if(newZones.length>=3) parsedZones=newZones;
+      });
+      if(nz.length>=3)parsedZones=nz;
     }
 
-
-    // ── Governorate Contribution % — col5=gov, col6=value(decimal), SAIDI then SAIFI sections
-    var contribSheet = getSheet('Governorate Contribution');
-    var parsedContrib = D.contrib;
-    if(contribSheet){
-      var saidiC={labels:[],values:[]}, saifiC={labels:[],values:[]}, sec=null;
-      contribSheet.forEach(function(row){
-        if(!row||!row[5])return;
-        var c=String(row[5]).replace(/^'+|'+$/g,'').trim();
-        if(c.toUpperCase().indexOf('SAIDI')>=0){sec='saidi';return;}
-        if(c.toUpperCase().indexOf('SAIFI')>=0){sec='saifi';return;}
-        if(!sec||row[6]===null||row[6]===undefined)return;
-        var pct=Math.round(parseFloat(row[6])*100);
-        if(isNaN(pct))return;
-        if(sec==='saidi'){saidiC.labels.push(c);saidiC.values.push(pct);}
-        else{saifiC.labels.push(c);saifiC.values.push(pct);}
+    // ── GOVERNORATE CONTRIBUTION % — SAIDI: col5=gov,col6=pct; then SAIFI section ──
+    var contRows=getSheet('Governorate Contribution');
+    var parsedContrib=D.contrib;
+    if(contRows){
+      var saidiC={labels:[],values:[]},saifiC={labels:[],values:[]},csec=null;
+      contRows.forEach(function(row){
+        if(!row)return;
+        var c5=cl(row[5]);
+        if(c5.toUpperCase().indexOf('SAIDI')>=0){csec='saidi';return;}
+        if(c5.toUpperCase().indexOf('SAIFI')>=0){csec='saifi';return;}
+        if(!csec||!c5||row[6]===null)return;
+        var pct=Math.round(num(row[6])*100);
+        if(isNaN(pct)||pct<=0)return;
+        if(csec==='saidi'){saidiC.labels.push(c5);saidiC.values.push(pct);}
+        else{saifiC.labels.push(c5);saifiC.values.push(pct);}
       });
       if(saidiC.labels.length>0)parsedContrib={SAIDI:saidiC,SAIFI:saifiC};
     }
 
-    // ── Voltage Level — SAIDI: col6=label,col7=LV,col8=11kV,col9=33kV (row4=values)
-    var voltSaidiSheet = getSheet('SAIDI by Voltage');
-    var voltSaifiSheet = getSheet('SAIFI by Voltage');
-    var parsedVoltage = D.voltage;
-    function parseVolt(rows, startCol){
+    // ── VOLTAGE LEVEL — row with LV/11K/33K headers, next row = values ──
+    function parseVolt(rows){
       if(!rows)return null;
       var labels=[],values=[];
       for(var i=0;i<rows.length;i++){
-        var row=rows[i];
-        if(!row)continue;
-        var c=row[startCol];
-        if(!c||String(c).indexOf('Voltage')>=0||String(c).indexOf('Contribution')>=0)continue;
-        // Data row: label at startCol, values at startCol+1..
-        if(String(c).replace(/^'+|'+$/g,'').trim().toLowerCase().indexOf('contribution')>=0){
-          // next row has values
-          var vrow=rows[i+1];
-          if(vrow){
-            for(var j=startCol+1;j<vrow.length;j++){
-              if(vrow[j]!==null&&vrow[j]!==undefined){values.push(parseFloat(vrow[j])||0);}
-            }
-            // labels from this row
-            for(var j=startCol+1;j<row.length;j++){
-              if(row[j]!==null&&row[j]!==undefined){labels.push(String(row[j]).replace(/^'+|'+$/g,'').trim());}
-            }
-            break;
+        var row=rows[i];if(!row)continue;
+        var hasVolt=row.some(function(c){return c&&cl(c).match(/^(LV|11|33)/i);});
+        if(!hasVolt)continue;
+        var vrow=rows[i+1]||[];
+        row.forEach(function(c,j){
+          if(c!==null&&cl(c).match(/^(LV|11|33)/i)){
+            labels.push(cl(c));values.push(num(vrow[j])||0);
           }
-        }
+        });
+        break;
       }
       return labels.length>0?{labels:labels,values:values}:null;
     }
-    // Simpler: find the row with LV/11Kv/33Kv headers and the values row below
-    function parseVoltSimple(rows, nameCol){
-      if(!rows)return null;
-      var labelRow=null,valueRow=null;
-      for(var i=0;i<rows.length;i++){
-        var row=rows[i];
-        if(!row)continue;
-        var hasVoltLabel=false;
-        for(var j=0;j<row.length;j++){
-          if(row[j]&&String(row[j]).replace(/^'+|'+$/g,'').trim().match(/^(LV|11|33)/i)){hasVoltLabel=true;break;}
-        }
-        if(hasVoltLabel){labelRow=i;valueRow=i+1;break;}
-      }
-      if(labelRow===null)return null;
-      var labels=[],values=[];
-      var lr=rows[labelRow],vr=rows[valueRow]||[];
-      for(var j=nameCol+1;j<lr.length;j++){
-        if(lr[j]!==null&&lr[j]!==undefined){
-          labels.push(String(lr[j]).replace(/^'+|'+$/g,'').trim());
-          values.push(parseFloat(vr[j])||0);
-        }
-      }
-      return labels.length>0?{labels:labels,values:values}:null;
-    }
-    var vs=parseVoltSimple(voltSaidiSheet,6);
-    var vsf=parseVoltSimple(voltSaifiSheet,4);
+    var parsedVoltage=D.voltage;
+    var vs=parseVolt(getSheet('SAIDI by Voltage'));
+    var vsf=parseVolt(getSheet('SAIFI by Voltage'));
     if(vs||vsf)parsedVoltage={SAIDI:vs||D.voltage.SAIDI,SAIFI:vsf||D.voltage.SAIFI};
 
-    // ── Outage Planned/Unplanned — col3=label/year, col4=planned, col5=unplanned
-    // SAIDI: rows 3-7, SAIFI: rows 8-12
-    var outTypeSheet = getSheet('Outage (Planned');
-    var parsedOutageType = D.outageType;
-    if(outTypeSheet){
-      var st={SAIDI:{years:[],planned:[],unplanned:[]},SAIFI:{years:[],planned:[],unplanned:[]}};
-      var sec2=null;
-      outTypeSheet.forEach(function(row){
-        if(!row||!row[3])return;
-        var c3=String(row[3]).replace(/^'+|'+$/g,'').trim();
-        if(c3.toUpperCase()==='SAIDI:')  {sec2='SAIDI';return;}
-        if(c3.toUpperCase()==='SAIFI:')  {sec2='SAIFI';return;}
-        if(!sec2)return;
-        if(c3.toLowerCase().indexOf('outage')>=0||c3.toLowerCase().indexOf('type')>=0)return;
-        var p=parseFloat(row[4]),u=parseFloat(row[5]);
-        if(isNaN(p)||isNaN(u))return;
-        st[sec2].years.push(c3);st[sec2].planned.push(p);st[sec2].unplanned.push(u);
+    // ── OUTAGE PLANNED/UNPLANNED — col3=label, col4=planned, col5=unplanned ──
+    var outTypeRows=getSheet('Outage (Planned');
+    var parsedOutageType=D.outageType;
+    if(outTypeRows){
+      var ot={SAIDI:{years:[],planned:[],unplanned:[]},SAIFI:{years:[],planned:[],unplanned:[]}};
+      var otsec=null;
+      outTypeRows.forEach(function(row){
+        if(!row||row[3]===null)return;
+        var c=cl(row[3]).toUpperCase();
+        if(c==='SAIDI:'){otsec='SAIDI';return;}
+        if(c==='SAIFI:'){otsec='SAIFI';return;}
+        if(!otsec||c.indexOf('TYPE')>=0||c.indexOf('OUTAGE')>=0||c.indexOf('CONTRIBUTION')>=0)return;
+        var p=num(row[4]),u=num(row[5]);
+        if(p===null||u===null)return;
+        var yr=cl(row[3]);
+        ot[otsec].years.push(yr);ot[otsec].planned.push(p);ot[otsec].unplanned.push(u);
       });
-      if(st.SAIDI.years.length>0)parsedOutageType=st;
+      if(ot.SAIDI.years.length>0)parsedOutageType=ot;
     }
 
-    // ── MV Unplanned Contribution — col4=gov, col5=% (decimal)
-    var mvSheet = getSheet('Outages 2025 (Gov');
-    var parsedMvUnplanned = D.mvUnplanned;
-    if(mvSheet){
+    // ── MV UNPLANNED % — col4=gov, col5=decimal% ──
+    var mvRows=getSheet('Outages 2025');
+    var parsedMvUnplanned=D.mvUnplanned;
+    if(mvRows){
       var ml=[],mv=[];
-      mvSheet.forEach(function(row){
+      mvRows.forEach(function(row){
         if(!row||!row[4])return;
-        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
+        var g=cl(row[4]);
         if(!g||g.toLowerCase().indexOf('outage')>=0)return;
-        var v=parseFloat(row[5]);
-        if(isNaN(v))return;
+        var v=num(row[5]);
+        if(v===null)return;
         ml.push(g);mv.push(Math.round(v*100));
       });
       if(ml.length>0)parsedMvUnplanned={labels:ml,values:mv};
     }
 
-    // ── Gov Performance SAIDI — col5=gov, col6=planned, col7=unplanned
-    var perfSaidiSheet = getSheet('Governorate Performance SAIDI');
-    var perfSaifiSheet = getSheet('Governorate Performance SAIFI');
-    var parsedBreakdown = D.breakdown;
-    function parsePerfSheet(rows, nameCol, pCol, uCol){
+    // ── GOV BREAKDOWN SAIDI — col5=gov, col6=planned, col7=unplanned ──
+    // ── GOV BREAKDOWN SAIFI — col6=gov, col7=planned, col8=unplanned ──
+    var bdSaidiRows=getSheet('Governorate Performance SAIDI');
+    var bdSaifiRows=getSheet('Governorate Performance SAIFI');
+    var parsedBreakdown=D.breakdown;
+    function parseBD(rows,gc,pc,uc){
       var r={};
       if(!rows)return r;
       rows.forEach(function(row){
-        if(!row||!row[nameCol])return;
-        var g=String(row[nameCol]).replace(/^'+|'+$/g,'').trim();
-        if(!g||g.toLowerCase().indexOf('perf')>=0||g.toLowerCase().indexOf('breakdown')>=0)return;
-        var p=parseFloat(row[pCol]),u=parseFloat(row[uCol]);
-        if(!isNaN(p)&&!isNaN(u))r[g]={p:p,u:u};
+        if(!row||!row[gc])return;
+        var g=cl(row[gc]);
+        if(!g||g.toLowerCase().indexOf('perform')>=0||g.toLowerCase().indexOf('breakdown')>=0||g.toLowerCase().indexOf('planned')>=0)return;
+        var p=num(row[pc]),u=num(row[uc]);
+        if(p===null||u===null)return;
+        r[g]={p:p,u:u};
       });
       return r;
     }
-    var saidiPerf=parsePerfSheet(perfSaidiSheet,5,6,7);
-    var saifiPerf=parsePerfSheet(perfSaifiSheet,6,7,8);
-    if(Object.keys(saidiPerf).length>0){
+    var bdS=parseBD(bdSaidiRows,5,6,7);
+    var bdSf=parseBD(bdSaifiRows,6,7,8);
+    if(Object.keys(bdS).length>0){
       parsedBreakdown={};
-      Object.keys(saidiPerf).forEach(function(g){
-        parsedBreakdown[g]={SAIDI:saidiPerf[g],SAIFI:saifiPerf[g]||{p:0,u:0}};
-      });
+      Object.keys(bdS).forEach(function(g){parsedBreakdown[g]={SAIDI:bdS[g],SAIFI:bdSf[g]||{p:0,u:0}};});
     }
 
-    // ── MV Sustained Comparison — col4=gov, col5=2026YTD, col6=2025YTD, col7=2024YTD
-    var susSheet = getSheet('MV Sustained');
-    var parsedOutageComp = D.outageComp;
-    if(susSheet){
+    // ── MV SUSTAINED COMPARISON — col4=gov, col5=2026, col6=2025, col7=2024 ──
+    var susRows=getSheet('MV Sustained');
+    var parsedOutageComp=D.outageComp;
+    if(susRows){
       var sl=[],sy26=[],sy25=[],sy24=[];
-      susSheet.forEach(function(row){
+      susRows.forEach(function(row){
         if(!row||!row[4])return;
-        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
-        if(!g||g.toLowerCase().indexOf('mv sustained')>=0||g.toLowerCase().indexOf('2026')>=0)return;
-        var v5=parseFloat(row[5]),v6=parseFloat(row[6]),v7=parseFloat(row[7]);
-        if(isNaN(v5)&&isNaN(v6))return;
+        var g=cl(row[4]);
+        if(!g||g.toLowerCase().indexOf('mv sustained')>=0||g.match(/^20\d\d/))return;
+        var v5=num(row[5]),v6=num(row[6]),v7=num(row[7]);
+        if(v5===null&&v6===null)return;
         sl.push(g);sy26.push(v5||0);sy25.push(v6||0);sy24.push(v7||0);
       });
       if(sl.length>0)parsedOutageComp={labels:sl,y2026:sy26,y2025:sy25,y2024:sy24};
     }
 
-    // ── MV Planned >5h — col4=gov, col5=2024, col6=2025, col7=2026
-    var planSheet = getSheet('MV Planned Outages');
-    var parsedPlannedExceed = D.plannedExceed;
-    if(planSheet){
+    // ── PLANNED EXCEED >5H — col4=gov, col5=2024, col6=2025, col7=2026 ──
+    var planRows=getSheet('MV Planned Outages');
+    var parsedPlannedExceed=D.plannedExceed;
+    if(planRows){
       var pl=[],p24=[],p25=[],p26=[];
-      planSheet.forEach(function(row){
+      planRows.forEach(function(row){
         if(!row||!row[4])return;
-        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
-        if(!g||g.toLowerCase().indexOf('mv planned')>=0||!isNaN(parseFloat(g)))return;
-        var v5=parseFloat(row[5]),v6=parseFloat(row[6]),v7=parseFloat(row[7]);
-        if(isNaN(v5)&&isNaN(v6))return;
+        var g=cl(row[4]);
+        if(!g||g.toLowerCase().indexOf('mv planned')>=0||g.match(/^20\d\d/))return;
+        var v5=num(row[5]),v6=num(row[6]),v7=num(row[7]);
+        if(v5===null&&v6===null)return;
         pl.push(g);p24.push(v5||0);p25.push(v6||0);p26.push(v7||0);
       });
       if(pl.length>0)parsedPlannedExceed={labels:pl,y2024:p24,y2025:p25,y2026:p26};
     }
 
-    // ── Transient Outage — col4=gov, col5=time (stored as datetime.time in openpyxl, as fraction in XLSX.js)
-    var transSheet = getSheet('Transient Outage');
-    var parsedTransient = D.transient;
-    if(transSheet){
+    // ── TRANSIENT — col4=gov, col5=time fraction ──
+    var transRows=getSheet('Transient Outage')||getSheet('2026 (Transient');
+    var parsedTransient=D.transient;
+    if(transRows){
       var tl=[],tt=[];
-      transSheet.forEach(function(row){
+      transRows.forEach(function(row){
         if(!row||!row[4])return;
-        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
+        var g=cl(row[4]);
         if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0)return;
-        var v=row[5];
-        var timeStr='0:00';
+        var v=row[5],timeStr='0:00';
         if(v!==null&&v!==undefined){
-          if(typeof v==='number'){
-            // Excel time fraction: 0.5=12:00
+          if(typeof v==='number'&&v<1){
             var totalMins=Math.round(v*24*60);
             var h=Math.floor(totalMins/60),m=totalMins%60;
             timeStr=h+':'+(m<10?'0':'')+m;
-          } else {
-            timeStr=String(v).replace('datetime.time(','').replace(')','').split(',').map(function(x,i){return i===1&&parseInt(x.trim())<10?'0'+x.trim():x.trim();}).join(':');
-          }
+          } else {timeStr=String(v);}
         }
         tl.push(g);tt.push(timeStr);
       });
       if(tl.length>0)parsedTransient={labels:tl,times:tt};
     }
 
-    // ── Driver Heatmap — header row at row where col4='Outage Reason'
-    var driverSheet = getSheet('The Driver Frequency');
-    var parsedDrivers = D.drivers;
-    var parsedDriverMatrix = D.driverMatrix;
-    if(driverSheet){
+    // ── DRIVER HEATMAP — header row: col4='Outage Reason', col5+=govs, last col=total ──
+    var driverRows=getSheet('The Driver Frequency');
+    var parsedDrivers=D.drivers;
+    var parsedDriverMatrix=D.driverMatrix;
+    if(driverRows){
       var hdrIdx=-1,hdrRow=null;
-      driverSheet.forEach(function(row,i){
-        if(row&&row[4]&&String(row[4]).replace(/^'+|'+$/g,'').trim()==='Outage Reason'){hdrIdx=i;hdrRow=row;}
+      driverRows.forEach(function(row,i){
+        if(row&&row[4]&&cl(row[4])==='Outage Reason'){hdrIdx=i;hdrRow=row;}
       });
       if(hdrIdx>=0){
         var govs=[];
-        for(var j=5;j<hdrRow.length;j++){
-          if(hdrRow[j]!==null&&hdrRow[j]!==undefined){govs.push(String(hdrRow[j]).replace(/^'+|'+$/g,'').trim());}
-        }
-        // Remove last col (NEDC total)
-        var dataGovs=govs.slice(0,-1);
-        var dRows=[],dList=[];
-        for(var i=hdrIdx+1;i<driverSheet.length;i++){
-          var row=driverSheet[i];
+        for(var j=5;j<hdrRow.length;j++){if(hdrRow[j]!==null)govs.push(cl(hdrRow[j]));}
+        var dataGovs=govs.slice(0,-1); // remove NEDC total col
+        var dList=[],dRows=[];
+        for(var i=hdrIdx+1;i<driverRows.length;i++){
+          var row=driverRows[i];
           if(!row||!row[4])continue;
-          var reason=String(row[4]).replace(/^'+|'+$/g,'').trim();
-          if(!reason)continue;
-          var counts=[];
-          for(var j=5;j<5+dataGovs.length;j++){counts.push(parseInt(row[j])||0);}
-          var total=parseInt(row[5+dataGovs.length])||counts.reduce(function(a,b){return a+b;},0);
-          if(total===0&&counts.every(function(c){return c===0;}))continue;
-          var cat=total>=30?'High':total>=5?'Medium':'Low';
-          dList.push({r:reason,n:total,c:cat});
-          dRows.push({driver:reason,counts:counts});
+          var reason=cl(row[4]);if(!reason)continue;
+          var counts=[],total=0;
+          for(var j=5;j<5+dataGovs.length;j++){var v=parseInt(row[j])||0;counts.push(v);total+=v;}
+          var tot2=parseInt(row[5+dataGovs.length])||total;
+          if(tot2===0&&total===0)continue;
+          var cat=tot2>=30?'High':tot2>=5?'Medium':'Low';
+          dList.push({r:reason,n:tot2,c:cat});
+          dRows.push({d:reason,v:counts});
         }
         if(dList.length>0){
           parsedDrivers=dList.sort(function(a,b){return b.n-a.n;});
@@ -1465,683 +1408,97 @@ function parseWorkbook(wb,fileName){
       }
     }
 
-    // ── Gov group data (SAIDI/SAIFI per gov) — col3/4=govname/indicator, col5=y25, col6=y26ytd, col7=rolling, col8=target, col10=imp%, col11=contribution%
-    var govGroupDefs=[
-      {hint:'Muscat & South',name:'Muscat + South Batinah',nameCol:3},
-      {hint:'North Batinah',name:'North Batinah & Al Buraimi',nameCol:3},
-      {hint:'Dakilyah',name:'Al Dakilyah & Dhahira',nameCol:4},
-      {hint:'Sharqiyah',name:'Sharqiyah ( South & North) + Wusta',nameCol:3},
-      {hint:'Musandam',name:'Musandam',nameCol:4}
+    // ── QSI PROJECTS — ind at col5 (row N), values at row N+2: col4=2024,col5=2025,col6=2026 ──
+    var qsiRows=getSheet('NEDC QSI');
+    var parsedQsi=D.qsiProjects;
+    if(qsiRows){
+      var qlist=[];
+      for(var i=0;i<qsiRows.length;i++){
+        var row=qsiRows[i];
+        if(!row||!row[5])continue;
+        var ind=cl(row[5]);
+        if(!ind||ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('indicator')>=0)continue;
+        // Check if next rows have year headers and values
+        var vrow=null;
+        for(var k=i+1;k<=i+3;k++){
+          if(qsiRows[k]&&qsiRows[k][5]!==null&&!isNaN(parseFloat(qsiRows[k][5]))){vrow=qsiRows[k];break;}
+          if(qsiRows[k]&&qsiRows[k][4]!==null&&!isNaN(parseFloat(qsiRows[k][4]))){vrow=qsiRows[k];break;}
+        }
+        if(!vrow)continue;
+        var y25=num(vrow[5]),y26=num(vrow[6]);
+        if(y25===null||y26===null)continue;
+        var impPct=y25!==0?((y26-y25)/y25*100):0;
+        qlist.push({ind:ind,y25:Math.round(y25),y26:Math.round(y26),imp:parseFloat(impPct.toFixed(1))});
+      }
+      if(qlist.length>0)parsedQsi=qlist;
+    }
+
+    // ── GOV GROUP DATA — 5 sheets with different column offsets ──
+    var govSheets=[
+      {hint:'Muscat & South',group:'Muscat + South Batinah',nc:3,ic:4},
+      {hint:'North Batinah & Al',group:'North Batinah & Al Buraimi',nc:3,ic:4},
+      {hint:'Dakilyah',group:'Al Dakilyah & Dhahira',nc:4,ic:5},
+      {hint:'Sharqiyah',group:'Sharqiyah ( South & North) + Wusta',nc:3,ic:4},
+      {hint:'Musandam',group:'Musandam',nc:4,ic:5}
     ];
     var parsedGovData=[];
-    govGroupDefs.forEach(function(gd){
+    govSheets.forEach(function(gd){
       var rows=getSheet(gd.hint);
       if(!rows)return;
-      var currentGov=null;
+      var curGov=null;
       rows.forEach(function(row){
         if(!row)return;
-        var nc=gd.nameCol,ic=nc+1,dc=nc+2;
-        if(row[nc]!==null&&row[nc]!==undefined&&String(row[nc]).replace(/^'+|'+$/g,'').trim()!==''){
-          currentGov=String(row[nc]).replace(/^'+|'+$/g,'').trim();
+        // Gov name update
+        if(row[gd.nc]!==null&&row[gd.nc]!==undefined){
+          var g=cl(row[gd.nc]);
+          if(g&&g.replace(/\s/g,'')!==''&&g!=='\xa0')curGov=g;
         }
-        if(!row[ic])return;
-        var ind=String(row[ic]).replace(/^'+|'+$/g,'').trim().toUpperCase();
-        var isSAIDI=ind==='SAIDI',isSAIFI=ind.indexOf('SAFI')>=0;
+        if(!row[gd.ic])return;
+        var ind=cl(row[gd.ic]).toUpperCase();
+        var isSAIDI=ind==='SAIDI', isSAIFI=ind.indexOf('SAFI')>=0;
         if(!isSAIDI&&!isSAIFI)return;
-        var y25=parseFloat(row[dc])||0;
-        var y26ytd=parseFloat(row[dc+1])||0;
-        var r26=parseFloat(row[dc+2])||0;
-        var t26=parseFloat(row[dc+3])||0;
-        var impRaw=row[dc+5];
-        var imp=impRaw!==null&&impRaw!==undefined?parseFloat(String(impRaw).replace('%',''))*100:0;
-        if(Math.abs(imp)<=1.5)imp=imp*100; // already decimal
-        var contRaw=row[dc+6];
-        var cont=contRaw!==null&&contRaw!==undefined?Math.round(parseFloat(String(contRaw).replace('%',''))*100):0;
-        if(Math.abs(cont)<=1)cont=Math.round(cont*100);
-        var isGroup=currentGov&&currentGov.indexOf('&')>=0;
+        var dc=gd.ic+1; // data starts after indicator col
+        var y25=num(row[dc])||0;
+        var y26ytd=num(row[dc+1])||0;
+        var r26=num(row[dc+2])||0;
+        var t26=num(row[dc+3])||0;
+        var impRaw=num(row[dc+5]);
+        var imp=impRaw!==null?parseFloat((impRaw*100).toFixed(1)):0;
+        if(Math.abs(imp)>200)imp=parseFloat(impRaw.toFixed(1)); // already %
+        var contRaw=num(row[dc+6]);
+        var cont=contRaw!==null?Math.round(contRaw*100):0;
+        if(Math.abs(cont)>100)cont=Math.round(contRaw);
+        var isGroup=curGov&&(curGov.indexOf('&')>=0||curGov.indexOf('+')>=0);
+        var y24=parseFloat((y25*0.88).toFixed(2)); // estimate
         parsedGovData.push({
-          group:gd.name,gov:currentGov,ind:isSAIDI?'SAIDI':'SAIFI',
-          y24:parseFloat((y25*0.88).toFixed(2)),y25:y25,r26:r26,t26:t26,
-          imp:parseFloat(imp.toFixed(1)),cont:cont,isGroup:!!isGroup
+          group:gd.group,gov:curGov,ind:isSAIDI?'SAIDI':'SAIFI',
+          y24:y24,y25:y25,r26:r26,t26:t26,
+          imp:imp,cont:cont,isGroup:!!isGroup
         });
       });
     });
-    if(parsedGovData.length<5)parsedGovData=D.govData; // fallback if parse failed
+    if(parsedGovData.length<5)parsedGovData=D.govData;
 
     return {
       period:period,fileName:generatedName||fileName,months:MO,
-      saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
-      saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
-      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target},
-      govData:parsedGovData,contrib:parsedContrib,voltage:parsedVoltage,zones:parsedZones,breakdown:parsedBreakdown,
-      outageType:parsedOutageType,mvUnplanned:parsedMvUnplanned,outageComp:parsedOutageComp,
-      plannedExceed:parsedPlannedExceed,transient:parsedTransient,drivers:parsedDrivers,
-      driverMatrix:parsedDriverMatrix,qsiProjects:D.qsiProjects,govKpi:D.govKpi,
+      saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,
+             y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,
+             om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
+      saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,
+             y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,
+             om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
+      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,
+               y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,
+               target:outageT.om_target||D.outages.target},
+      govData:parsedGovData,contrib:parsedContrib,voltage:parsedVoltage,
+      zones:parsedZones,breakdown:parsedBreakdown,outageType:parsedOutageType,
+      mvUnplanned:parsedMvUnplanned,outageComp:parsedOutageComp,
+      plannedExceed:parsedPlannedExceed,transient:parsedTransient,
+      drivers:parsedDrivers,driverMatrix:parsedDriverMatrix,
+      qsiProjects:parsedQsi,govKpi:D.govKpi,
       govCoords:D.govCoords,govGroups:D.govGroups
     };
-  }catch(e){console.error('Parse error:',e);return null;}
+  }catch(e){console.error('parseWorkbook error:',e);return null;}
 }
 
-// ═══════════════════════════════════════════════════
-// RENDER SUMMARY
-// ═══════════════════════════════════════════════════
-function renderSummary(){
-  renderSumKPIs();
-  renderZoneCards();
-  // Stagger chart/map renders to ensure containers have dimensions
-  setTimeout(function(){ buildTrends(); }, 50);
-  setTimeout(function(){ buildPie('SAIDI'); }, 100);
-  setTimeout(function(){ buildMap('SAIDI'); }, 150);
-}
 
-function renderSumKPIs(){
-  var s=D.saidi,sf=D.saifi,idx=latestIdx(s.y2026_ytd);
-  var s26=s.y2026_ytd[idx],s25=s.y2025[idx],sr=s.y2026_rolling[idx];
-  var sf26=sf.y2026_ytd[idx],sf25=sf.y2025[idx],sfr=sf.y2026_rolling[idx];
-  var si=s26&&s25?((s26-s25)/s25*100):null;
-  var sfi=sf26&&sf25?((sf26-sf25)/sf25*100):null;
-  var o26=D.outages.y2026_ytd[idx],o25=D.outages.y2025[idx];
-  var oi=o26&&o25?((o26-o25)/o25*100):null;
-  var topDrv=D.drivers[0];
-  var cards=[
-    {lbl:'SAIDI ('+D.period+')',val:s26?s26.toFixed(2):'—',unit:'min',sub:'Rolling: '+(sr?sr.toFixed(1):'—')+' min',imp:si,color:'red'},
-    {lbl:'SAIFI ('+D.period+')',val:sf26?sf26.toFixed(3):'—',unit:'freq',sub:'Rolling: '+(sfr?sfr.toFixed(2):'—'),imp:sfi,color:'blue'},
-    {lbl:'Total Outages (YTD)',val:o26?o26.toLocaleString():'—',unit:'events',sub:'2025: '+(o25?o25.toLocaleString():'—'),imp:oi,color:'amber'},
-    {lbl:'Top Outage Driver',val:topDrv.r,unit:'',sub:topDrv.n+' events YTD',imp:null,color:'navy'}
-  ];
-  document.getElementById('sum-kpis').innerHTML=cards.map(function(c){
-    var impH=c.imp!==null?impBadge(c.imp):'<span class="imp-n">—</span>';
-    return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div><div class="kvalue" style="font-size:'+(c.val.length>7?'18px':'26px')+'">'+c.val+'<span class="kunit">'+c.unit+'</span></div><div class="kmeta">'+impH+'<span style="font-size:10px;color:var(--text3)">vs prev year</span></div><div style="font-size:11px;color:var(--text3);margin-top:6px">'+c.sub+'</div></div>';
-  }).join('');
-}
-
-function buildTrends(){
-  var om=document.getElementById('chk-om').checked;
-  var corp=document.getElementById('chk-corp').checked;
-  buildLineChart('saidi-chart',D.saidi,'SAIDI (min)','SAIDI',om,corp);
-  buildLineChart('saifi-chart',D.saifi,'SAIFI (freq)','SAIFI',om,corp);
-  buildLineChart('outage-trend-chart',D.outages,'Events','OUTAGES',om,false);
-  updateAnalysis();
-}
-
-function buildLineChart(id,data,label,type,showOM,showCorp){
-  var fmt=function(v){if(v===null)return null;return type==='SAIDI'?v.toFixed(1):type==='SAIFI'?v.toFixed(2):Math.round(v).toLocaleString();};
-  var sets=[
-    // 2024 — light dashed grey, no points, subtle background fill
-    {label:'2024',data:data.y2024||[],
-     borderColor:'#cbd5e1',backgroundColor:'rgba(203,213,225,0.08)',
-     borderWidth:1.5,borderDash:[4,4],pointRadius:0,tension:0.4,
-     fill:true,datalabels:{display:false}},
-    // 2025 — dashed amber/orange, slightly more visible, no points
-    {label:'2025',data:data.y2025||[],
-     borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',
-     borderWidth:2,borderDash:[6,3],pointRadius:0,tension:0.4,
-     fill:true,datalabels:{display:false}},
-    // 2026 YTD — solid bold red, visible points with value labels
-    {label:'2026 YTD',data:data.y2026_ytd||[],
-     borderColor:'#c0392b',backgroundColor:'rgba(192,57,43,0.1)',
-     borderWidth:3,pointRadius:5,pointBackgroundColor:'#c0392b',
-     pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:7,
-     tension:0.4,fill:true,spanGaps:false,
-     datalabels:{display:true,align:'top',anchor:'end',offset:4,
-       color:'#c0392b',font:{weight:'bold',size:10},
-       backgroundColor:'rgba(255,255,255,0.85)',borderRadius:4,padding:{top:2,bottom:2,left:4,right:4},
-       formatter:fmt}},
-    // 2026 Rolling — solid bold navy, visible points with value labels
-    {label:'2026 Rolling',data:data.y2026_rolling||[],
-     borderColor:'#1a5276',backgroundColor:'rgba(26,82,118,0.08)',
-     borderWidth:3,pointRadius:5,pointBackgroundColor:'#1a5276',
-     pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:7,
-     tension:0.4,fill:false,spanGaps:false,
-     datalabels:{display:true,align:'bottom',anchor:'end',offset:4,
-       color:'#1a5276',font:{weight:'bold',size:10},
-       backgroundColor:'rgba(255,255,255,0.85)',borderRadius:4,padding:{top:2,bottom:2,left:4,right:4},
-       formatter:fmt}}
-  ];
-  if(showOM&&data.om_target)sets.push({label:'O&M Target',data:data.om_target,borderColor:'#27ae60',borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false,datalabels:{display:false}});
-  if(showCorp&&data.corp_target)sets.push({label:'Corp Target',data:data.corp_target,borderColor:'#111',borderWidth:1.5,borderDash:[3,3],pointRadius:0,fill:false,datalabels:{display:false}});
-  mkChart(id,{type:'line',data:{labels:MO,datasets:sets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{
-    legend:{position:'bottom',labels:{font:{size:11},usePointStyle:true,pointStyle:'circle',boxWidth:8,padding:16}},
-    datalabels:{display:false},
-    tooltip:{
-      backgroundColor:'rgba(12,30,53,0.92)',padding:12,cornerRadius:10,
-      titleFont:{size:12,weight:'bold'},bodyFont:{size:12},
-      callbacks:{
-        title:function(items){return MO[items[0].dataIndex];},
-        label:function(item){return ' '+item.dataset.label+': '+fmt(item.raw);}
-      }
-    }
-  },
-  scales:{
-    y:{
-      beginAtZero:false,
-      title:{display:true,text:label,font:{size:11},color:'#6b7280'},
-      grid:{color:'#f1f5f9',drawBorder:false},
-      ticks:{font:{size:11},color:'#6b7280'},
-      border:{display:false}
-    },
-    x:{
-      grid:{display:false},
-      ticks:{font:{size:11},color:'#6b7280'},
-      border:{display:false}
-    }
-  }}});
-}
-
-function updateAnalysis(){
-  if(!D||!D.saidi||!D.saidi.y2026_rolling) return;
-  var idx=latestIdx(D.saidi.y2026_rolling);
-  var sr=D.saidi.y2026_rolling[idx],s25e=D.saidi.y2025[11]||168.8,om=D.saidi.om_target[0],corp=D.saidi.corp_target[0];
-  var d1=sr&&s25e?(((sr-s25e)/s25e)*100).toFixed(1):null;
-  var dc=parseFloat(d1)<=0?'#27ae60':'#c0392b';
-  document.getElementById('saidi-analysis').innerHTML='<strong>'+D.period+':</strong> Rolling = <strong>'+sr.toFixed(1)+' min</strong>. '+(d1?'<span style="color:'+dc+';font-weight:600">'+(parseFloat(d1)<=0?'▼ ':'▲ ')+Math.abs(d1)+'%</span> vs YE2025. ':'')+''+(sr<=om?'Within O&M target.':'Above O&M target ('+om+' min).');
-  var sfr=D.saifi.y2026_rolling[idx],sf25e=D.saifi.y2025[11]||1.97,sfom=D.saifi.om_target[0];
-  var d2=sfr&&sf25e?(((sfr-sf25e)/sf25e)*100).toFixed(1):null;
-  var dc2=parseFloat(d2)<=0?'#27ae60':'#c0392b';
-  document.getElementById('saifi-analysis').innerHTML='<strong>'+D.period+':</strong> Rolling = <strong>'+sfr.toFixed(3)+'</strong>. '+(d2?'<span style="color:'+dc2+';font-weight:600">'+(parseFloat(d2)<=0?'▼ ':'▲ ')+Math.abs(d2)+'%</span> vs YE2025. ':'')+''+(sfr<=sfom?'Within O&M target.':'Above O&M target ('+sfom+').');
-}
-
-function buildPie(ind){
-  ['pie-saidi-btn','pie-saifi-btn'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  document.getElementById('pie-'+ind.toLowerCase()+'-btn').classList.add('active');
-  var cd=D.contrib[ind];
-  mkChart('pie-chart',{type:'doughnut',data:{labels:cd.labels,datasets:[{data:cd.values,backgroundColor:COLORS,borderWidth:0,hoverOffset:10}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'right',labels:{font:{size:11},padding:10,usePointStyle:true}},datalabels:{display:true,formatter:function(v){return v<4?'':v+'%';},color:'#fff',font:{weight:'bold',size:11}},tooltip:{callbacks:{label:function(c){return c.label+': '+c.parsed+'%';}}}}}});
-}
-
-// ── MAP ──
-function buildMap(ind){
-  var mt=document.getElementById('map-tooltip'); if(mt) mt.style.display='none';
-  ['map-saidi-btn','map-saifi-btn'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  document.getElementById('map-'+ind.toLowerCase()+'-btn').classList.add('active');
-  mapMode=ind;
-  if(omanMap){omanMap.remove();omanMap=null;}
-  var mapEl=document.getElementById('omanMap');
-  if(!mapEl||typeof L==='undefined')return;
-  omanMap=L.map('omanMap',{center:[21.5,57.0],zoom:6,zoomControl:true,scrollWheelZoom:false});
-  setTimeout(function(){ if(omanMap) omanMap.invalidateSize(); }, 100);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:12,attribution:'© CARTO'}).addTo(omanMap);
-  var govData=D.govData.filter(function(d){return d.ind===ind&&!d.isGroup;});
-  var vals=govData.map(function(d){return d.r26;});
-  var minV=Math.min.apply(null,vals),maxV=Math.max.apply(null,vals);
-  function getColor(v){var n=(v-minV)/(maxV-minV||1);return n>0.65?'#c0392b':n>0.35?'#e67e22':'#27ae60';}
-  function getR(v){return 10+((v-minV)/(maxV-minV||1))*28;}
-  var names=mapGrouped?Object.keys(D.govGroups):govData.map(function(d){return d.gov;});
-  names.forEach(function(name){
-    var coords=D.govCoords[name];
-    if(!coords)return;
-    var row;
-    if(mapGrouped){
-      var members=D.govGroups[name]||[];
-      var rows=govData.filter(function(d){return members.indexOf(d.gov)>=0;});
-      if(!rows.length)return;
-      var avgR=rows.reduce(function(s,r){return s+r.r26;},0)/rows.length;
-      row={r26:avgR,gov:name,imp:rows.reduce(function(s,r){return s+r.imp;},0)/rows.length};
-    }else{
-      row=govData.find(function(d){return d.gov===name;});
-    }
-    if(!row)return;
-    var col=getColor(row.r26),radius=getR(row.r26);
-    var circle=L.circleMarker([coords.lat,coords.lng],{color:col,weight:2,opacity:0.9,fillColor:col,fillOpacity:0.3,radius:radius}).addTo(omanMap);
-    var lbl=ind==='SAIDI'?row.r26.toFixed(1):row.r26.toFixed(2);
-    var tooltipContent = '<strong style="font-size:14px">'+name+'</strong><br><span style="color:rgba(255,255,255,0.7);font-size:11px">'+ind+'</span> <strong style="color:#f87171">'+lbl+'</strong><br><span style="color:rgba(255,255,255,0.6);font-size:11px">YoY: '+(row.imp>=0?'+':'')+row.imp.toFixed(1)+'%'+(mapGrouped?' · Click to drill down':'')+'</span>';
-    var mapTip = document.getElementById('map-tooltip');
-    circle.on('mouseover',function(e){
-      if(mapTip){mapTip.innerHTML=tooltipContent;mapTip.style.display='block';}
-    });
-    circle.on('mousemove',function(e){
-      if(mapTip){
-        var x=e.originalEvent.clientX, y=e.originalEvent.clientY;
-        mapTip.style.left=(x+16)+'px';
-        mapTip.style.top=(y-10)+'px';
-        // Keep within viewport
-        var r=mapTip.getBoundingClientRect();
-        if(r.right>window.innerWidth-10) mapTip.style.left=(x-r.width-16)+'px';
-        if(r.bottom>window.innerHeight-10) mapTip.style.top=(y-r.height+10)+'px';
-      }
-    });
-    circle.on('mouseout',function(){
-      if(mapTip) mapTip.style.display='none';
-    });
-    if(mapGrouped){circle.on('click',function(){mapGrouped=false;buildMap(mapMode);if(omanMap)omanMap.setView([coords.lat,coords.lng],8);});}
-  });
-  if(!mapGrouped){
-    var bc=L.control({position:'topleft'});
-    bc.onAdd=function(){
-      var d=L.DomUtil.create('div');
-      d.innerHTML='<button onclick="mapGrouped=true;buildMap(mapMode)" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.1)">← Back</button>';
-      return d;
-    };
-    bc.addTo(omanMap);
-  }
-}
-
-function renderZoneCards(){
-  var html=D.zones.map(function(z){
-    var ss=z.s26<=z.st?'compliant':z.s26<=z.sp?'atrisk':'breach';
-    var sfs=z.sf26<=z.sft?'compliant':z.sf26<=z.sfp?'atrisk':'breach';
-    var overall=ss==='breach'||sfs==='breach'?'breach':ss==='atrisk'||sfs==='atrisk'?'atrisk':'compliant';
-    var slbl={'compliant':'✅ Compliant','atrisk':'⚠️ At Risk','breach':'🚨 Penalty'}[ss];
-    var sflbl={'compliant':'✅ Compliant','atrisk':'⚠️ At Risk','breach':'🚨 Penalty'}[sfs];
-    var sc={'compliant':'#1e8449','atrisk':'#b7770d','breach':'#c0392b'};
-    return '<div class="zcard '+overall+'"><div class="zcard-bar"></div><div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:12px">'+z.name+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">SAIDI Rolling</div><div style="font-size:20px;font-weight:800;color:'+sc[ss]+'">'+z.s26.toFixed(1)+'</div><div style="font-size:10px;color:var(--text2)">Target: '+z.st+' | Penalty: '+z.sp+'</div><div style="font-size:11px;font-weight:700;color:'+sc[ss]+';margin-top:3px">'+slbl+'</div></div><div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">SAIFI Rolling</div><div style="font-size:20px;font-weight:800;color:'+sc[sfs]+'">'+z.sf26.toFixed(2)+'</div><div style="font-size:10px;color:var(--text2)">Target: '+z.sft+' | Penalty: '+z.sfp+'</div><div style="font-size:11px;font-weight:700;color:'+sc[sfs]+';margin-top:3px">'+sflbl+'</div></div></div></div>';
-  }).join('');
-  document.getElementById('zone-cards').innerHTML=html;
-}
-
-// ── TREND MODAL ──
-function openModal(type){
-  modalType=type;
-  document.getElementById('modal-title').textContent=type==='SAIDI'?'SAIDI Trends':type==='SAIFI'?'SAIFI Trends':'Outage Events Trends';
-  document.getElementById('modal').style.display='flex';
-  setTimeout(buildModalChart,50);
-}
-function closeModal(){document.getElementById('modal').style.display='none';dc('modal-chart');}
-function buildModalChart(){
-  if(!modalType)return;
-  var om=document.getElementById('modal-om').checked,corp=document.getElementById('modal-corp').checked;
-  var data=modalType==='SAIDI'?D.saidi:modalType==='SAIFI'?D.saifi:D.outages;
-  var lbl=modalType==='SAIDI'?'SAIDI (min)':modalType==='SAIFI'?'SAIFI (freq)':'Events';
-  buildLineChart('modal-chart',data,lbl,modalType,om,corp);
-}
-
-// ═══════════════════════════════════════════════════
-// KPI VIEW
-// ═══════════════════════════════════════════════════
-function renderKpi(){setKpi(kpiMode);}
-function setKpi(ind){
-  kpiMode=ind;
-  document.getElementById('kpi-saidi-btn').classList.toggle('active',ind==='SAIDI');
-  document.getElementById('kpi-saifi-btn').classList.toggle('active',ind==='SAIFI');
-  document.getElementById('kpi-bar-title').textContent=ind+' — Governorate Comparison';
-  document.getElementById('kpi-table-title').textContent='Detailed Governorate Data ('+ind+')';
-  renderKpiCards();
-  buildKpiBar();
-  buildVoltage();
-  renderKpiTable();
-}
-function renderKpiCards(){
-  var idx=latestIdx(D.saidi.y2026_ytd);
-  var d=kpiMode==='SAIDI'?D.saidi:D.saifi;
-  var govs=D.govData.filter(function(g){return g.ind===kpiMode&&!g.isGroup;});
-  var best=govs.slice().sort(function(a,b){return a.imp-b.imp;})[0];
-  var hic=govs.slice().sort(function(a,b){return b.cont-a.cont;})[0];
-  var worst=govs.slice().sort(function(a,b){return b.r26-a.r26;})[0];
-  var v26=d.y2026_ytd[idx],v25=d.y2025[idx];
-  var vi=v26&&v25?((v26-v25)/v25*100):null;
-  var cards=[
-    {lbl:'Network '+kpiMode+' (YTD)',val:(v26||(0)).toFixed(kpiMode==='SAIDI'?2:3),unit:kpiMode==='SAIDI'?'min':'freq',imp:vi,color:'red'},
-    {lbl:'Best Improver',val:best?best.gov:'—',unit:'',imp:best?best.imp:null,color:'green'},
-    {lbl:'Highest Impact',val:hic?hic.gov:'—',unit:(hic?hic.cont:0)+'% of total',imp:null,color:'amber'},
-    {lbl:'Worst Performing',val:worst?worst.gov:'—',unit:'Rolling: '+(worst?worst.r26.toFixed(1):'—'),imp:null,color:'navy'}
-  ];
-  document.getElementById('kpi-cards').innerHTML=cards.map(function(c){
-    var impH=c.imp!==null?impBadge(c.imp):'<span class="imp-n">—</span>';
-    return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div><div class="kvalue" style="font-size:'+(c.val.length>8?'16px':'22px')+'">'+c.val+' <span class="kunit">'+c.unit+'</span></div><div class="kmeta" style="margin-top:8px">'+impH+'</div></div>';
-  }).join('');
-}
-function buildKpiBar(){
-  var govs=D.govData.filter(function(g){return g.ind===kpiMode&&!g.isGroup;});
-  mkChart('kpi-bar',{type:'bar',data:{labels:govs.map(function(g){return g.gov;}),datasets:[{label:'2026 YTD',data:govs.map(function(g){return g.y25;}),backgroundColor:'#c0392b',borderRadius:4},{label:'2025 YTD',data:govs.map(function(g){return g.y24;}),backgroundColor:'#d5d8dc',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{position:'bottom'},datalabels:{display:false}},scales:{x:{beginAtZero:true,title:{display:true,text:kpiMode==='SAIDI'?'Minutes':'Frequency'}},y:{grid:{display:false}}}}});
-}
-function buildVoltage(){
-  var vd=D.voltage[kpiMode];
-  mkChart('voltage-chart',{type:'doughnut',data:{labels:vd.labels,datasets:[{data:vd.values,backgroundColor:['#1a5276','#c0392b','#27ae60'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom'},datalabels:{formatter:function(v,c){var t=c.dataset.data.reduce(function(a,b){return a+b;},0);return ((v/t)*100).toFixed(0)+'%';},color:'#fff',font:{weight:'bold',size:12}},tooltip:{callbacks:{label:function(c){return c.label+': '+c.parsed.toFixed(2);}}}}}});
-}
-function renderKpiTable(){
-  var filter=document.getElementById('kpi-filter').value;
-  var rows=D.govData.filter(function(g){return g.ind===kpiMode&&(filter==='All'||g.group===filter);});
-  document.getElementById('kpi-tbody').innerHTML=rows.map(function(g){
-    var bad=g.t26>0&&g.r26>g.t26;
-    return '<tr class="'+(g.isGroup?'grp':'')+'"><td>'+g.gov+'</td><td>'+g.y24.toFixed(2)+'</td><td>'+g.y25.toFixed(2)+'</td><td style="color:#1a5276;font-weight:700">'+g.r26.toFixed(2)+'</td><td style="color:'+(bad?'#c0392b':'#27ae60')+';font-weight:600">'+(g.t26||'—')+'</td><td>'+impBadge(g.imp)+'</td><td style="font-size:11px;font-weight:700;color:'+(bad?'#c0392b':'#27ae60')+'">'+(g.t26>0?(bad?'⚠ Above':'✅ On track'):'—')+'</td></tr>';
-  }).join('');
-}
-
-// ═══════════════════════════════════════════════════
-// OUTAGE VIEW
-// ═══════════════════════════════════════════════════
-function renderOutage(){
-  renderOutageKPIs();
-  setOutage('SAIDI');
-  buildOutageComp();
-  buildPlannedExceed();
-  buildTransient();
-  buildMvPie();
-}
-function renderOutageKPIs(){
-  var idx=latestIdx(D.outages.y2026_ytd);
-  var o26=D.outages.y2026_ytd[idx],o25=D.outages.y2025[idx];
-  var oi=o26&&o25?((o26-o25)/o25*100).toFixed(1):null;
-  var tot=D.drivers.reduce(function(s,d){return s+d.n;},0);
-  var top=D.drivers[0];
-  var trans=D.drivers.find(function(d){return d.r==='Transient';});
-  var cable=D.drivers.find(function(d){return d.r==='Cable damaged';});
-  var cards=[
-    {lbl:'Total Outage Events',val:o26?o26.toLocaleString():'—',unit:'events',imp:oi?parseFloat(oi):null,color:'red'},
-    {lbl:'MV Unplanned Sustained',val:tot.toLocaleString(),unit:'events',imp:null,color:'amber'},
-    {lbl:'Transient Outages',val:trans?trans.n:0,unit:'events',imp:null,color:'blue'},
-    {lbl:'Cable Damage Events',val:cable?cable.n:0,unit:'events',imp:null,color:'navy'}
-  ];
-  document.getElementById('outage-kpis').innerHTML=cards.map(function(c){
-    var impH=c.imp!==null?impBadge(c.imp):'<span class="imp-n">YTD</span>';
-    return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div><div class="kvalue" style="font-size:26px">'+c.val+' <span class="kunit">'+c.unit+'</span></div><div class="kmeta" style="margin-top:8px">'+impH+'</div></div>';
-  }).join('');
-}
-function setOutage(ind){
-  outMode=ind;
-  document.getElementById('out-saidi-btn').classList.toggle('active',ind==='SAIDI');
-  document.getElementById('out-saifi-btn').classList.toggle('active',ind==='SAIFI');
-  document.getElementById('stacked-title').textContent='Planned vs Unplanned — '+ind+' by Governorate';
-  buildStacked(ind);
-  buildOutageType(ind);
-}
-function buildStacked(ind){
-  var bd=D.breakdown,govs=Object.keys(bd);
-  mkChart('stacked-chart',{type:'bar',data:{labels:govs,datasets:[{label:'Planned',data:govs.map(function(g){return bd[g][ind].p;}),backgroundColor:'#2980b9',borderRadius:3,stack:'s'},{label:'Unplanned',data:govs.map(function(g){return bd[g][ind].u;}),backgroundColor:'#e74c3c',borderRadius:3,stack:'s'}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{position:'bottom'},datalabels:{color:'#fff',font:{weight:'bold',size:10},formatter:function(v){return v>0?v.toFixed(2):''}}},scales:{x:{stacked:true,title:{display:true,text:ind==='SAIDI'?'Minutes':'Frequency'}},y:{stacked:true}}}});
-}
-function buildOutageType(ind){
-  var d=D.outageType[ind];
-  mkChart('outage-type-chart',{type:'bar',data:{labels:d.years,datasets:[{label:'Planned',data:d.planned,backgroundColor:'#2980b9',stack:'s'},{label:'Unplanned',data:d.unplanned,backgroundColor:'#e74c3c',stack:'s'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{color:'#fff',font:{weight:'bold',size:10},formatter:function(v){return v;}}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:ind==='SAIDI'?'Minutes':'Frequency'}}}}});
-}
-function buildMvPie(){
-  var d=D.mvUnplanned;
-  mkChart('mv-pie',{type:'pie',data:{labels:d.labels,datasets:[{data:d.values,backgroundColor:COLORS,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},padding:8}},datalabels:{formatter:function(v){return v<4?'':v+'%';},color:'#fff',font:{weight:'bold',size:11}},tooltip:{callbacks:{label:function(c){return c.label+': '+c.parsed+'%';}}}}}});
-}
-function buildOutageComp(){
-  var f=document.getElementById('out-gov-filter').value;
-  var d=D.outageComp;
-  var labels=d.labels,y26=d.y2026,y25=d.y2025,y24=d.y2024;
-  if(f!=='All'){var i=labels.indexOf(f);if(i>=0){labels=[labels[i]];y26=[y26[i]];y25=[y25[i]];y24=[y24[i]];}}
-  mkChart('outage-comp-chart',{type:'bar',data:{labels:labels,datasets:[{label:'2026 YTD',data:y26,backgroundColor:'#c0392b',borderRadius:3},{label:'2025',data:y25,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:y24,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10}}},scales:{y:{beginAtZero:true,title:{display:true,text:'No. of MV Sustained Outages'}}}}});
-}
-function buildPlannedExceed(){
-  var d=D.plannedExceed;
-  mkChart('planned-exceed-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'2026 YTD',data:d.y2026,backgroundColor:'#c0392b',borderRadius:3},{label:'2025',data:d.y2025,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:d.y2024,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v>0?v:'';},font:{size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'>5hr Planned'}}}}});
-}
-function buildTransient(){
-  var d=D.transient;
-  var mins=d.times.map(function(t){var p=t.split(':');return parseInt(p[0])*60+parseInt(p[1]);});
-  mkChart('transient-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'Duration (H:MM)',data:mins,backgroundColor:d.labels.map(function(l){return l==='NEDC'?'#2c3e50':'#e67e22';}),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',formatter:function(v,c){return d.times[c.dataIndex];},font:{weight:'bold',size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'Minutes'}}}}});
-}
-
-// ═══════════════════════════════════════════════════
-// DRIVER VIEW
-// ═══════════════════════════════════════════════════
-function renderDriver(){
-  renderDriverKPIs();
-  buildHeatmap(6);
-  buildDriverBar('All');
-}
-function renderDriverKPIs(){
-  var tot=D.drivers.reduce(function(s,d){return s+d.n;},0);
-  var top5=D.drivers.slice(0,5).reduce(function(s,d){return s+d.n;},0);
-  var cards=[
-    {lbl:'Total Sustained Events',val:tot.toLocaleString(),unit:'MV unplanned',color:'red'},
-    {lbl:'Top Driver',val:D.drivers[0].r,unit:D.drivers[0].n+' events',color:'amber'},
-    {lbl:'Top 5 Concentration',val:(top5/tot*100).toFixed(1)+'%',unit:top5+' events',color:'blue'},
-    {lbl:'High Impact Drivers',val:D.drivers.filter(function(d){return d.c==='High';}).length,unit:'categories',color:'navy'}
-  ];
-  document.getElementById('driver-kpis').innerHTML=cards.map(function(c){
-    return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div><div class="kvalue" style="font-size:'+(c.val.length>7?'16px':'24px')+'">'+c.val+'</div><div style="font-size:11px;color:var(--text3);margin-top:6px">'+c.unit+'</div></div>';
-  }).join('');
-}
-function buildHeatmap(n){
-  var m=D.driverMatrix,govs=m.govs;
-  var rows=n>=99?m.rows:m.rows.slice(0,parseInt(n));
-  var maxV=Math.max.apply(null,rows.map(function(r){return Math.max.apply(null,r.v);}));
-  function hmBg(v){if(v===0)return '#f8f9fb';var n=v/maxV;return n>=0.75?'#9b2226':n>=0.5?'#c0392b':n>=0.25?'#f4a58a':'#fde8e8';}
-  function hmTxt(v){return v/maxV>=0.25?'#fff':'#7b241c';}
-  var html='<table class="hm-table"><thead><tr><th>Outage Reason</th>'+govs.map(function(g){return '<th>'+g+'</th>';}).join('')+'</tr></thead><tbody>';
-  rows.forEach(function(row){
-    var tot=row.v.reduce(function(a,b){return a+b;},0);
-    html+='<tr><td style="padding:6px 10px;font-weight:600;font-size:12px;background:#f8f9fb;border-right:1px solid #e5e7eb">'+row.d+'</td>';
-    row.v.forEach(function(v){
-      html+='<td><div class="hm-cell" style="background:'+hmBg(v)+';color:'+hmTxt(v)+'">'+( v>0?('<span>'+v+'</span><small>'+(tot>0?((v/tot)*100).toFixed(0)+'%':'')+'</small>'):'<span style="color:#d1d5db">·</span>')+'</div></td>';
-    });
-    html+='</tr>';
-  });
-  document.getElementById('heatmap-wrap').innerHTML=html+'</tbody></table>';
-}
-function buildDriverBar(cat){
-  var data=cat==='All'?D.drivers.slice():D.drivers.filter(function(d){return d.c===cat;});
-  data=data.slice().sort(function(a,b){return b.n-a.n;});
-  var cc={'High':'#c0392b','Medium':'#e67e22','Low':'#2980b9'};
-  var cv=document.getElementById('driver-bar');
-  cv.style.height=(data.length*28+100)+'px';
-  mkChart('driver-bar',{type:'bar',data:{labels:data.map(function(d){return d.r;}),datasets:[{label:'Events',data:data.map(function(d){return d.n;}),backgroundColor:data.map(function(d){return cc[d.c]||'#94a3b8';}),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},datalabels:{align:'right',anchor:'end',offset:4,color:function(c){return cc[data[c.dataIndex].c]||'#64748b';},font:{weight:'bold',size:11},formatter:function(v){return v;}}},scales:{x:{beginAtZero:true},y:{grid:{display:false}}}}});
-}
-
-// ═══════════════════════════════════════════════════
-// ZONES VIEW
-// ═══════════════════════════════════════════════════
-function renderZones(){
-  renderZoneKPIs();
-  renderZoneTable();
-  buildZoneCharts();
-  renderRegTargets();
-}
-function renderZoneKPIs(){
-  var z=D.zones;
-  var bS=z.reduce(function(a,b){return a.s26<b.s26?a:b;});
-  var bSf=z.reduce(function(a,b){return a.sf26<b.sf26?a:b;});
-  var cards=[
-    {lbl:'Best SAIDI Zone',val:bS.name,unit:bS.s26.toFixed(1)+' min rolling',color:'red'},
-    {lbl:'Best SAIFI Zone',val:bSf.name,unit:bSf.sf26.toFixed(2)+' rolling',color:'blue'},
-    {lbl:'Zone 1 SAIDI Status',val:z[0].s26<=z[0].st?'✅ Compliant':z[0].s26<=z[0].sp?'⚠️ At Risk':'🚨 Breach',unit:'Rolling: '+z[0].s26,color:z[0].s26<=z[0].st?'green':'amber'},
-    {lbl:'Zone 3 SAIDI Status',val:z[2].s26<=z[2].st?'✅ Compliant':z[2].s26<=z[2].sp?'⚠️ At Risk':'🚨 Breach',unit:'Rolling: '+z[2].s26,color:z[2].s26<=z[2].st?'green':'red'}
-  ];
-  document.getElementById('zone-kpis').innerHTML=cards.map(function(c){
-    return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div><div class="kvalue" style="font-size:20px">'+c.val+'</div><div style="font-size:11px;color:var(--text3);margin-top:6px">'+c.unit+'</div></div>';
-  }).join('');
-}
-function renderZoneTable(){
-  document.getElementById('zone-tbody').innerHTML=D.zones.map(function(z){
-    var si=((z.s26-z.s25)/z.s25*100),sfi=((z.sf26-z.sf25)/z.sf25*100);
-    return '<tr><td style="font-weight:700;color:var(--navy)">'+z.name+'</td><td style="text-align:center">'+z.s24.toFixed(1)+'</td><td style="text-align:center">'+z.sf24.toFixed(2)+'</td><td style="text-align:center;font-weight:700">'+z.s25.toFixed(1)+'</td><td style="text-align:center;font-weight:700">'+z.sf25.toFixed(2)+'</td><td style="text-align:center;font-weight:700;color:#1d4ed8;background:#eff6ff">'+z.s26.toFixed(1)+'</td><td style="text-align:center;font-weight:700;color:#1d4ed8;background:#eff6ff">'+z.sf26.toFixed(2)+'</td><td style="text-align:center">'+impBadge(si)+'</td><td style="text-align:center">'+impBadge(sfi)+'</td><td style="text-align:center;font-size:11px;font-weight:700">—</td></tr>';
-  }).join('');
-}
-function buildZoneCharts(){
-  var show24=document.getElementById('z24').checked,show25=document.getElementById('z25').checked,show26=document.getElementById('z26').checked;
-  var pts=[];
-  if(show24)pts.push({lbl:'2024',sk:'s24',sfk:'sf24',col:'#b0bec5'});
-  if(show25)pts.push({lbl:'2025',sk:'s25',sfk:'sf25',col:'#c0392b'});
-  if(show26)pts.push({lbl:'2026 Rolling',sk:'s26',sfk:'sf26',col:'#1a5276'});
-  var zc=['#27ae60','#1a5276','#c0392b'];
-  function mkSets(key){
-    return D.zones.map(function(z,i){return {label:z.name,data:pts.map(function(p){return z[key===1?p.sfk:p.sk];}),borderColor:zc[i],backgroundColor:zc[i],borderWidth:2,tension:0.3,pointRadius:4,fill:false,datalabels:{display:true,align:'top',anchor:'center',offset:4,color:zc[i],font:{weight:'bold',size:10},formatter:function(v){return v.toFixed(key===1?2:1);}}};});
-  }
-  var opts={responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},plugins:{legend:{position:'bottom',labels:{font:{size:11},usePointStyle:true}},datalabels:{display:true}},scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}};
-  mkChart('zone-saidi-chart',{type:'line',data:{labels:pts.map(function(p){return p.lbl;}),datasets:mkSets(0)},options:JSON.parse(JSON.stringify(opts))});
-  mkChart('zone-saifi-chart',{type:'line',data:{labels:pts.map(function(p){return p.lbl;}),datasets:mkSets(1)},options:JSON.parse(JSON.stringify(opts))});
-}
-function renderRegTargets(){
-  var html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">';
-  html+='<div><h4 style="font-size:13px;font-weight:700;color:#c0392b;margin-bottom:10px">SAIDI Targets (min/cust/year)</h4>';
-  html+=D.zones.map(function(z){
-    var s=z.s26<=z.st?'compliant':z.s26<=z.sp?'atrisk':'breach';
-    var lbl={'compliant':'✅ Compliant','atrisk':'⚠️ At Risk','breach':'🚨 Penalty'}[s];
-    var col={'compliant':'#1e8449','atrisk':'#b7770d','breach':'#c0392b'}[s];
-    return '<div style="padding:12px;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><strong>'+z.name+'</strong><span style="font-size:11px;font-weight:700;color:'+col+'">'+lbl+'</span></div><div style="font-size:20px;font-weight:800;color:'+col+'">'+z.s26.toFixed(1)+'</div><div style="font-size:11px;color:var(--text2)">Base: '+z.st+' | Penalty: '+z.sp+'</div></div>';
-  }).join('');
-  html+='</div><div><h4 style="font-size:13px;font-weight:700;color:#1a5276;margin-bottom:10px">SAIFI Targets (int/cust/year)</h4>';
-  html+=D.zones.map(function(z){
-    var s=z.sf26<=z.sft?'compliant':z.sf26<=z.sfp?'atrisk':'breach';
-    var lbl={'compliant':'✅ Compliant','atrisk':'⚠️ At Risk','breach':'🚨 Penalty'}[s];
-    var col={'compliant':'#1e8449','atrisk':'#b7770d','breach':'#c0392b'}[s];
-    return '<div style="padding:12px;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><strong>'+z.name+'</strong><span style="font-size:11px;font-weight:700;color:'+col+'">'+lbl+'</span></div><div style="font-size:20px;font-weight:800;color:'+col+'">'+z.sf26.toFixed(2)+'</div><div style="font-size:11px;color:var(--text2)">Base: '+z.sft+' | Penalty: '+z.sfp+'</div></div>';
-  }).join('');
-  html+='</div></div>';
-  document.getElementById('reg-targets-body').innerHTML=html;
-}
-
-// ═══════════════════════════════════════════════════
-// QSI VIEW
-// ═══════════════════════════════════════════════════
-function renderQsi(){setQsiTab('projects');}
-function setQsiTab(tab){
-  document.getElementById('qsi-proj-btn').classList.toggle('active',tab==='projects');
-  document.getElementById('qsi-kpi-btn').classList.toggle('active',tab==='govkpi');
-  document.getElementById('qsi-projects').style.display=tab==='projects'?'block':'none';
-  document.getElementById('qsi-govkpi').style.display=tab==='govkpi'?'block':'none';
-  if(tab==='projects'){buildQsiTable();buildQsiChart();buildQsiInsights();}
-  else renderGovKpi();
-}
-function buildQsiTable(){
-  document.getElementById('qsi-tbody').innerHTML=D.qsiProjects.map(function(r){
-    return '<tr><td style="font-weight:600">'+r.ind+'</td><td style="text-align:center">'+r.y25+'</td><td style="text-align:center;font-weight:700">'+r.y26+'</td><td style="text-align:center">'+impBadge(r.imp)+'</td></tr>';
-  }).join('');
-}
-function buildQsiChart(){
-  mkChart('qsi-chart',{type:'bar',data:{labels:D.qsiProjects.map(function(d){return d.ind;}),datasets:[{label:'2025 YTD',data:D.qsiProjects.map(function(d){return d.y25;}),backgroundColor:'#b0bec5',borderRadius:3},{label:'2026 YTD',data:D.qsiProjects.map(function(d){return d.y26;}),backgroundColor:'#c0392b',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10}}},scales:{y:{beginAtZero:true,title:{display:true,text:'Events'}}}}});
-}
-function buildQsiInsights(){
-  document.getElementById('qsi-insights').innerHTML=D.qsiProjects.map(function(p){
-    var g=p.imp<0;
-    return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:8px;background:'+(g?'#f0fff4':'#fff5f5')+';border:1px solid '+(g?'#c3e6cb':'#f5c6cb')+';margin-bottom:10px"><div style="font-size:18px">'+(g?'✅':'⚠️')+'</div><div><div style="font-weight:700;color:'+(g?'#1e8449':'#c0392b')+';margin-bottom:3px">'+p.ind+'</div><div style="font-size:13px;color:var(--text2)">'+(g?'Improved by <strong>'+Math.abs(p.imp)+'%</strong> ('+p.y25+' → '+p.y26+' events). Positive outcome from maintenance programs.':'Increased by <strong>'+p.imp+'%</strong> ('+p.y25+' → '+p.y26+' events). Requires immediate review of protection schemes.')+'</div></div></div>';
-  }).join('');
-}
-function renderGovKpi(){
-  var gov=document.getElementById('gov-kpi-sel').value;
-  var data=D.govKpi[gov]||[];
-  document.getElementById('gov-kpi-tbody').innerHTML=data.map(function(item){
-    var t26n=parseFloat(String(item.tgt).replace(/[^\d.-]/g,''));
-    var y26n=parseFloat(String(item.y26).replace(/[^\d.-]/g,''));
-    var y25n=parseFloat(String(item.y25).replace(/[^\d.-]/g,''));
-    var exc=!isNaN(y26n)&&!isNaN(t26n)&&y26n>t26n;
-    var yi=!isNaN(y25n)&&!isNaN(y26n)&&y25n!==0?((y26n-y25n)/y25n*100):null;
-    var tc=item.t==='Planned'?'#1a5276':'#c0392b';
-    var tbg=item.t==='Planned'?'#eff6ff':'#fff5f5';
-    return '<tr style="'+(exc?'background:#fff5f5':'')+'"><td><span style="background:'+tbg+';color:'+tc+';padding:2px 9px;border-radius:50px;font-size:11px;font-weight:700">'+item.t+'</span></td><td style="font-size:12px;color:var(--text2)">'+item.a+'</td><td style="text-align:center;font-size:12px">'+item.r25+'</td><td style="text-align:center;font-weight:700;color:#27ae60">↓ '+item.imp+'</td><td style="text-align:center;font-size:12px;color:var(--text2)">'+item.w+'</td><td style="text-align:center;font-weight:800;color:#1d4ed8;background:#eff6ff">'+item.tgt+'</td><td style="text-align:center;background:#f8f9fb">'+item.y25+'</td><td style="text-align:center;font-weight:700;'+(exc?'color:#c0392b;background:#fff5f5':'background:#f8f9fb')+'">'+( exc?'★ ':'')+item.y26+'</td><td style="text-align:center">'+( yi!==null?impBadge(yi):'<span class="imp-n">—</span>')+'</td></tr>';
-  }).join('');
-}
-
-// ═══════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════
-window.addEventListener('load', function(){
-  // ── AUTO-LOAD LIVE DATA ON EVERY PAGE LOAD ──
-  // Show loading indicator on welcome screen
-  var enterBtn = document.getElementById('enter-btn');
-  var wperiod = document.querySelector('.wbadge');
-  if(enterBtn){
-    enterBtn.disabled = true;
-    enterBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:8px;animation:spin 0.8s linear infinite"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Loading latest data…';
-    enterBtn.style.opacity = '0.8';
-  }
-  // Try to load live data before user even clicks enter
-  loadLive().then(function(ok){
-    if(ok){
-      // Live data loaded — update welcome screen period display
-      var badge = document.querySelector('#welcome .wbadge span:last-child');
-      var wStats = document.querySelectorAll('.wstat strong');
-      if(wStats.length >= 1) wStats[0].textContent = D.period || 'YTD';
-    }
-  }).catch(function(){}).finally(function(){
-    // Re-enable button regardless
-    if(enterBtn){
-      enterBtn.disabled = false;
-      enterBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg> Enter Dashboard';
-      enterBtn.style.opacity = '1';
-    }
-  });
-  // Preview modal buttons
-  var cancelBtn = document.getElementById('preview-cancel');
-  var publishBtn = document.getElementById('preview-publish');
-  if(cancelBtn){
-    cancelBtn.onclick = function(){
-      document.getElementById('preview-modal').style.display='none';
-      window._pendingData = null;
-      showMsg('info','Cancelled. You can upload a different file.');
-    };
-  }
-  if(publishBtn){
-    publishBtn.onclick = function(){
-      document.getElementById('preview-modal').style.display='none';
-      if(window._pendingData){
-        D = window._pendingData;
-        window._pendingData = null;
-        publishData();
-      }
-    };
-  }
-
-  // Sidebar tooltips via JS
-  var tip = document.getElementById('sidebar-tooltip');
-  document.querySelectorAll('.sitem').forEach(function(btn){
-    btn.addEventListener('mouseenter', function(e){
-      if(document.getElementById('sidebar').classList.contains('open')) return;
-      var label = btn.getAttribute('data-tooltip');
-      if(!label) return;
-      tip.textContent = label;
-      tip.style.display = 'block';
-      var r = btn.getBoundingClientRect();
-      tip.style.left = (r.right + 12) + 'px';
-      tip.style.top = (r.top + r.height/2 - tip.offsetHeight/2) + 'px';
-    });
-    btn.addEventListener('mouseleave', function(){
-      tip.style.display = 'none';
-    });
-    btn.addEventListener('click', function(){
-      tip.style.display = 'none';
-    });
-  });
-  if(typeof ChartDataLabels!=='undefined'){Chart.register(ChartDataLabels);}
-  // Setup dropzone
-  var dz2=document.getElementById('dropzone');
-  dz2.addEventListener('click',function(){document.getElementById('file-input').click();});
-});
-</script>
-
-<!-- DATA PREVIEW MODAL -->
-<div id="preview-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);backdrop-filter:blur(8px);z-index:99999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
-    <!-- Header -->
-    <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;background:#0c1e35;border-radius:16px 16px 0 0">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:4px">Review Before Publishing</div>
-          <div style="font-size:18px;font-weight:800;color:#fff" id="preview-title">Data Preview</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.1);padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700;color:#fff;font-family:'JetBrains Mono',monospace" id="preview-period-badge">YTD</div>
-      </div>
-    </div>
-    <!-- Body -->
-    <div style="overflow-y:auto;flex:1;padding:20px 24px">
-      <!-- Summary cards -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="preview-cards"></div>
-      <!-- SAIDI check -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">SAIDI — 2026 YTD Values Parsed</div>
-        <div id="preview-saidi" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-      </div>
-      <!-- SAIFI check -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">SAIFI — 2026 YTD Values Parsed</div>
-        <div id="preview-saifi" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-      </div>
-      <!-- Outages check -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">Outage Events — 2026 YTD Values Parsed</div>
-        <div id="preview-outages" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-      </div>
-      <!-- Gov check -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:8px">Governorate Data</div>
-        <div id="preview-govs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-      </div>
-      <!-- Warnings -->
-      <div id="preview-warnings" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#92400e"></div>
-      <!-- Confirm message -->
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;font-size:13px;color:#166534;font-weight:600">
-        ✅ Review the data above. If everything looks correct, click <strong>Publish to All Visitors</strong>. Otherwise click <strong>Cancel</strong> to re-upload.
-      </div>
-    </div>
-    <!-- Footer -->
-    <div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8f9fb;border-radius:0 0 16px 16px">
-      <button id="preview-cancel" style="padding:10px 22px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:#6b7280">← Cancel / Re-upload</button>
-      <button id="preview-publish" style="padding:10px 24px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 12px rgba(192,57,43,0.3)">Publish to All Visitors →</button>
-    </div>
-  </div>
-</div>
-<div id="map-tooltip" style="position:fixed;display:none;background:rgba(12,30,53,0.95);color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;pointer-events:none;z-index:99997;box-shadow:0 4px 20px rgba(0,0,0,0.35);max-width:200px;line-height:1.5;border:1px solid rgba(255,255,255,0.1)"></div>
-</body>
-</html>
