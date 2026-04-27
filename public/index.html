@@ -1058,13 +1058,7 @@ var JSONBIN_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID;
 async function publishData(){
   showMsg('info','Publishing to all visitors…');
   try{
-    // Save full data object to JSONBin
-    var payload = {
-      data: D,
-      updatedAt: new Date().toISOString(),
-      period: D.period,
-      fileName: D.fileName
-    };
+    // Store data directly — JSONBin returns exactly what we PUT
     var res = await fetch(JSONBIN_URL, {
       method: 'PUT',
       headers: {
@@ -1072,49 +1066,75 @@ async function publishData(){
         'X-Master-Key': JSONBIN_API_KEY,
         'X-Bin-Versioning': 'false'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        nedc_data: D,
+        updatedAt: new Date().toISOString(),
+        period: D.period
+      })
     });
     if(res.ok){
-      showMsg('ok','Published! All visitors now see '+D.period+' data.');
+      var result = await res.json();
+      console.log('Published to JSONBin:', result);
+      showMsg('ok','✅ Published! All visitors now see '+D.period+' data.');
       setTimeout(function(){
         hideAdmin();
-        if(document.getElementById('app').style.display==='none'||!document.getElementById('app').style.display){
+        if(!document.getElementById('app').style.display || document.getElementById('app').style.display==='none'){
           document.getElementById('welcome').style.display='none';
           document.getElementById('app').style.display='block';
         }
-        setPeriod();goView('summary');
+        setPeriod(); goView('summary');
       },1200);
     } else {
       var err = await res.text();
-      showMsg('err','Could not publish: '+err+'. Check your JSONBin API key and Bin ID.');
+      console.error('JSONBin publish failed:', res.status, err);
+      showMsg('err','Publish failed ('+res.status+'). Check API key & Bin ID. Data loaded locally only.');
     }
   }catch(e){
-    showMsg('err','Network error: '+e.message+'. Data loaded locally only.');
+    console.error('Publish error:', e);
+    showMsg('err','Network error: '+e.message);
   }
 }
 
 async function loadLive(){
   try{
-    if(JSONBIN_BIN_ID==='REPLACE_WITH_YOUR_BIN_ID') return false; // Not configured yet
+    if(JSONBIN_BIN_ID==='REPLACE_WITH_YOUR_BIN_ID') return false;
     var ctrl = new AbortController();
-    var t = setTimeout(function(){ctrl.abort();}, 4000);
+    var t = setTimeout(function(){ctrl.abort();}, 5000);
     var res = await fetch(JSONBIN_URL+'/latest', {
-      headers: {'X-Master-Key': JSONBIN_API_KEY, 'X-Bin-Meta': 'false'},
+      headers: {
+        'X-Master-Key': JSONBIN_API_KEY,
+        'X-Bin-Meta': 'false'
+      },
       signal: ctrl.signal
     });
     clearTimeout(t);
+    console.log('JSONBin fetch status:', res.status);
     if(res.ok){
       var s = await res.json();
-      if(s && s.data && s.data.saidi){
-        D = s.data;
-        console.log('Live data loaded:', D.period);
-        return true;
+      console.log('JSONBin response keys:', Object.keys(s));
+      // Handle both possible structures
+      var liveData = null;
+      if(s && s.nedc_data && s.nedc_data.saidi){
+        liveData = s.nedc_data; // Our new format
+      } else if(s && s.data && s.data.saidi){
+        liveData = s.data; // Old format fallback
+      } else if(s && s.saidi){
+        liveData = s; // Direct format
       }
+      if(liveData){
+        D = liveData;
+        console.log('✅ Live data loaded:', D.period);
+        return true;
+      } else {
+        console.log('JSONBin has no dashboard data yet. Full response:', JSON.stringify(s).substring(0,200));
+        return false;
+      }
+    } else {
+      console.log('JSONBin returned:', res.status);
+      return false;
     }
-    console.log('No live data — using built-in data');
-    return false;
   }catch(e){
-    console.log('Could not reach storage:', e.message);
+    console.log('loadLive error:', e.message);
     return false;
   }
 }
