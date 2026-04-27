@@ -1230,15 +1230,293 @@ function parseWorkbook(wb,fileName){
       if(newZones.length>=3) parsedZones=newZones;
     }
 
+
+    // ── Governorate Contribution % — col5=gov, col6=value(decimal), SAIDI then SAIFI sections
+    var contribSheet = getSheet('Governorate Contribution');
+    var parsedContrib = D.contrib;
+    if(contribSheet){
+      var saidiC={labels:[],values:[]}, saifiC={labels:[],values:[]}, sec=null;
+      contribSheet.forEach(function(row){
+        if(!row||!row[5])return;
+        var c=String(row[5]).replace(/^'+|'+$/g,'').trim();
+        if(c.toUpperCase().indexOf('SAIDI')>=0){sec='saidi';return;}
+        if(c.toUpperCase().indexOf('SAIFI')>=0){sec='saifi';return;}
+        if(!sec||row[6]===null||row[6]===undefined)return;
+        var pct=Math.round(parseFloat(row[6])*100);
+        if(isNaN(pct))return;
+        if(sec==='saidi'){saidiC.labels.push(c);saidiC.values.push(pct);}
+        else{saifiC.labels.push(c);saifiC.values.push(pct);}
+      });
+      if(saidiC.labels.length>0)parsedContrib={SAIDI:saidiC,SAIFI:saifiC};
+    }
+
+    // ── Voltage Level — SAIDI: col6=label,col7=LV,col8=11kV,col9=33kV (row4=values)
+    var voltSaidiSheet = getSheet('SAIDI by Voltage');
+    var voltSaifiSheet = getSheet('SAIFI by Voltage');
+    var parsedVoltage = D.voltage;
+    function parseVolt(rows, startCol){
+      if(!rows)return null;
+      var labels=[],values=[];
+      for(var i=0;i<rows.length;i++){
+        var row=rows[i];
+        if(!row)continue;
+        var c=row[startCol];
+        if(!c||String(c).indexOf('Voltage')>=0||String(c).indexOf('Contribution')>=0)continue;
+        // Data row: label at startCol, values at startCol+1..
+        if(String(c).replace(/^'+|'+$/g,'').trim().toLowerCase().indexOf('contribution')>=0){
+          // next row has values
+          var vrow=rows[i+1];
+          if(vrow){
+            for(var j=startCol+1;j<vrow.length;j++){
+              if(vrow[j]!==null&&vrow[j]!==undefined){values.push(parseFloat(vrow[j])||0);}
+            }
+            // labels from this row
+            for(var j=startCol+1;j<row.length;j++){
+              if(row[j]!==null&&row[j]!==undefined){labels.push(String(row[j]).replace(/^'+|'+$/g,'').trim());}
+            }
+            break;
+          }
+        }
+      }
+      return labels.length>0?{labels:labels,values:values}:null;
+    }
+    // Simpler: find the row with LV/11Kv/33Kv headers and the values row below
+    function parseVoltSimple(rows, nameCol){
+      if(!rows)return null;
+      var labelRow=null,valueRow=null;
+      for(var i=0;i<rows.length;i++){
+        var row=rows[i];
+        if(!row)continue;
+        var hasVoltLabel=false;
+        for(var j=0;j<row.length;j++){
+          if(row[j]&&String(row[j]).replace(/^'+|'+$/g,'').trim().match(/^(LV|11|33)/i)){hasVoltLabel=true;break;}
+        }
+        if(hasVoltLabel){labelRow=i;valueRow=i+1;break;}
+      }
+      if(labelRow===null)return null;
+      var labels=[],values=[];
+      var lr=rows[labelRow],vr=rows[valueRow]||[];
+      for(var j=nameCol+1;j<lr.length;j++){
+        if(lr[j]!==null&&lr[j]!==undefined){
+          labels.push(String(lr[j]).replace(/^'+|'+$/g,'').trim());
+          values.push(parseFloat(vr[j])||0);
+        }
+      }
+      return labels.length>0?{labels:labels,values:values}:null;
+    }
+    var vs=parseVoltSimple(voltSaidiSheet,6);
+    var vsf=parseVoltSimple(voltSaifiSheet,4);
+    if(vs||vsf)parsedVoltage={SAIDI:vs||D.voltage.SAIDI,SAIFI:vsf||D.voltage.SAIFI};
+
+    // ── Outage Planned/Unplanned — col3=label/year, col4=planned, col5=unplanned
+    // SAIDI: rows 3-7, SAIFI: rows 8-12
+    var outTypeSheet = getSheet('Outage (Planned');
+    var parsedOutageType = D.outageType;
+    if(outTypeSheet){
+      var st={SAIDI:{years:[],planned:[],unplanned:[]},SAIFI:{years:[],planned:[],unplanned:[]}};
+      var sec2=null;
+      outTypeSheet.forEach(function(row){
+        if(!row||!row[3])return;
+        var c3=String(row[3]).replace(/^'+|'+$/g,'').trim();
+        if(c3.toUpperCase()==='SAIDI:')  {sec2='SAIDI';return;}
+        if(c3.toUpperCase()==='SAIFI:')  {sec2='SAIFI';return;}
+        if(!sec2)return;
+        if(c3.toLowerCase().indexOf('outage')>=0||c3.toLowerCase().indexOf('type')>=0)return;
+        var p=parseFloat(row[4]),u=parseFloat(row[5]);
+        if(isNaN(p)||isNaN(u))return;
+        st[sec2].years.push(c3);st[sec2].planned.push(p);st[sec2].unplanned.push(u);
+      });
+      if(st.SAIDI.years.length>0)parsedOutageType=st;
+    }
+
+    // ── MV Unplanned Contribution — col4=gov, col5=% (decimal)
+    var mvSheet = getSheet('Outages 2025 (Gov');
+    var parsedMvUnplanned = D.mvUnplanned;
+    if(mvSheet){
+      var ml=[],mv=[];
+      mvSheet.forEach(function(row){
+        if(!row||!row[4])return;
+        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
+        if(!g||g.toLowerCase().indexOf('outage')>=0)return;
+        var v=parseFloat(row[5]);
+        if(isNaN(v))return;
+        ml.push(g);mv.push(Math.round(v*100));
+      });
+      if(ml.length>0)parsedMvUnplanned={labels:ml,values:mv};
+    }
+
+    // ── Gov Performance SAIDI — col5=gov, col6=planned, col7=unplanned
+    var perfSaidiSheet = getSheet('Governorate Performance SAIDI');
+    var perfSaifiSheet = getSheet('Governorate Performance SAIFI');
+    var parsedBreakdown = D.breakdown;
+    function parsePerfSheet(rows, nameCol, pCol, uCol){
+      var r={};
+      if(!rows)return r;
+      rows.forEach(function(row){
+        if(!row||!row[nameCol])return;
+        var g=String(row[nameCol]).replace(/^'+|'+$/g,'').trim();
+        if(!g||g.toLowerCase().indexOf('perf')>=0||g.toLowerCase().indexOf('breakdown')>=0)return;
+        var p=parseFloat(row[pCol]),u=parseFloat(row[uCol]);
+        if(!isNaN(p)&&!isNaN(u))r[g]={p:p,u:u};
+      });
+      return r;
+    }
+    var saidiPerf=parsePerfSheet(perfSaidiSheet,5,6,7);
+    var saifiPerf=parsePerfSheet(perfSaifiSheet,6,7,8);
+    if(Object.keys(saidiPerf).length>0){
+      parsedBreakdown={};
+      Object.keys(saidiPerf).forEach(function(g){
+        parsedBreakdown[g]={SAIDI:saidiPerf[g],SAIFI:saifiPerf[g]||{p:0,u:0}};
+      });
+    }
+
+    // ── MV Sustained Comparison — col4=gov, col5=2026YTD, col6=2025YTD, col7=2024YTD
+    var susSheet = getSheet('MV Sustained');
+    var parsedOutageComp = D.outageComp;
+    if(susSheet){
+      var sl=[],sy26=[],sy25=[],sy24=[];
+      susSheet.forEach(function(row){
+        if(!row||!row[4])return;
+        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
+        if(!g||g.toLowerCase().indexOf('mv sustained')>=0||g.toLowerCase().indexOf('2026')>=0)return;
+        var v5=parseFloat(row[5]),v6=parseFloat(row[6]),v7=parseFloat(row[7]);
+        if(isNaN(v5)&&isNaN(v6))return;
+        sl.push(g);sy26.push(v5||0);sy25.push(v6||0);sy24.push(v7||0);
+      });
+      if(sl.length>0)parsedOutageComp={labels:sl,y2026:sy26,y2025:sy25,y2024:sy24};
+    }
+
+    // ── MV Planned >5h — col4=gov, col5=2024, col6=2025, col7=2026
+    var planSheet = getSheet('MV Planned Outages');
+    var parsedPlannedExceed = D.plannedExceed;
+    if(planSheet){
+      var pl=[],p24=[],p25=[],p26=[];
+      planSheet.forEach(function(row){
+        if(!row||!row[4])return;
+        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
+        if(!g||g.toLowerCase().indexOf('mv planned')>=0||!isNaN(parseFloat(g)))return;
+        var v5=parseFloat(row[5]),v6=parseFloat(row[6]),v7=parseFloat(row[7]);
+        if(isNaN(v5)&&isNaN(v6))return;
+        pl.push(g);p24.push(v5||0);p25.push(v6||0);p26.push(v7||0);
+      });
+      if(pl.length>0)parsedPlannedExceed={labels:pl,y2024:p24,y2025:p25,y2026:p26};
+    }
+
+    // ── Transient Outage — col4=gov, col5=time (stored as datetime.time in openpyxl, as fraction in XLSX.js)
+    var transSheet = getSheet('Transient Outage');
+    var parsedTransient = D.transient;
+    if(transSheet){
+      var tl=[],tt=[];
+      transSheet.forEach(function(row){
+        if(!row||!row[4])return;
+        var g=String(row[4]).replace(/^'+|'+$/g,'').trim();
+        if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0)return;
+        var v=row[5];
+        var timeStr='0:00';
+        if(v!==null&&v!==undefined){
+          if(typeof v==='number'){
+            // Excel time fraction: 0.5=12:00
+            var totalMins=Math.round(v*24*60);
+            var h=Math.floor(totalMins/60),m=totalMins%60;
+            timeStr=h+':'+(m<10?'0':'')+m;
+          } else {
+            timeStr=String(v).replace('datetime.time(','').replace(')','').split(',').map(function(x,i){return i===1&&parseInt(x.trim())<10?'0'+x.trim():x.trim();}).join(':');
+          }
+        }
+        tl.push(g);tt.push(timeStr);
+      });
+      if(tl.length>0)parsedTransient={labels:tl,times:tt};
+    }
+
+    // ── Driver Heatmap — header row at row where col4='Outage Reason'
+    var driverSheet = getSheet('The Driver Frequency');
+    var parsedDrivers = D.drivers;
+    var parsedDriverMatrix = D.driverMatrix;
+    if(driverSheet){
+      var hdrIdx=-1,hdrRow=null;
+      driverSheet.forEach(function(row,i){
+        if(row&&row[4]&&String(row[4]).replace(/^'+|'+$/g,'').trim()==='Outage Reason'){hdrIdx=i;hdrRow=row;}
+      });
+      if(hdrIdx>=0){
+        var govs=[];
+        for(var j=5;j<hdrRow.length;j++){
+          if(hdrRow[j]!==null&&hdrRow[j]!==undefined){govs.push(String(hdrRow[j]).replace(/^'+|'+$/g,'').trim());}
+        }
+        // Remove last col (NEDC total)
+        var dataGovs=govs.slice(0,-1);
+        var dRows=[],dList=[];
+        for(var i=hdrIdx+1;i<driverSheet.length;i++){
+          var row=driverSheet[i];
+          if(!row||!row[4])continue;
+          var reason=String(row[4]).replace(/^'+|'+$/g,'').trim();
+          if(!reason)continue;
+          var counts=[];
+          for(var j=5;j<5+dataGovs.length;j++){counts.push(parseInt(row[j])||0);}
+          var total=parseInt(row[5+dataGovs.length])||counts.reduce(function(a,b){return a+b;},0);
+          if(total===0&&counts.every(function(c){return c===0;}))continue;
+          var cat=total>=30?'High':total>=5?'Medium':'Low';
+          dList.push({r:reason,n:total,c:cat});
+          dRows.push({driver:reason,counts:counts});
+        }
+        if(dList.length>0){
+          parsedDrivers=dList.sort(function(a,b){return b.n-a.n;});
+          parsedDriverMatrix={govs:dataGovs,rows:dRows};
+        }
+      }
+    }
+
+    // ── Gov group data (SAIDI/SAIFI per gov) — col3/4=govname/indicator, col5=y25, col6=y26ytd, col7=rolling, col8=target, col10=imp%, col11=contribution%
+    var govGroupDefs=[
+      {hint:'Muscat & South',name:'Muscat + South Batinah',nameCol:3},
+      {hint:'North Batinah',name:'North Batinah & Al Buraimi',nameCol:3},
+      {hint:'Dakilyah',name:'Al Dakilyah & Dhahira',nameCol:4},
+      {hint:'Sharqiyah',name:'Sharqiyah ( South & North) + Wusta',nameCol:3},
+      {hint:'Musandam',name:'Musandam',nameCol:4}
+    ];
+    var parsedGovData=[];
+    govGroupDefs.forEach(function(gd){
+      var rows=getSheet(gd.hint);
+      if(!rows)return;
+      var currentGov=null;
+      rows.forEach(function(row){
+        if(!row)return;
+        var nc=gd.nameCol,ic=nc+1,dc=nc+2;
+        if(row[nc]!==null&&row[nc]!==undefined&&String(row[nc]).replace(/^'+|'+$/g,'').trim()!==''){
+          currentGov=String(row[nc]).replace(/^'+|'+$/g,'').trim();
+        }
+        if(!row[ic])return;
+        var ind=String(row[ic]).replace(/^'+|'+$/g,'').trim().toUpperCase();
+        var isSAIDI=ind==='SAIDI',isSAIFI=ind.indexOf('SAFI')>=0;
+        if(!isSAIDI&&!isSAIFI)return;
+        var y25=parseFloat(row[dc])||0;
+        var y26ytd=parseFloat(row[dc+1])||0;
+        var r26=parseFloat(row[dc+2])||0;
+        var t26=parseFloat(row[dc+3])||0;
+        var impRaw=row[dc+5];
+        var imp=impRaw!==null&&impRaw!==undefined?parseFloat(String(impRaw).replace('%',''))*100:0;
+        if(Math.abs(imp)<=1.5)imp=imp*100; // already decimal
+        var contRaw=row[dc+6];
+        var cont=contRaw!==null&&contRaw!==undefined?Math.round(parseFloat(String(contRaw).replace('%',''))*100):0;
+        if(Math.abs(cont)<=1)cont=Math.round(cont*100);
+        var isGroup=currentGov&&currentGov.indexOf('&')>=0;
+        parsedGovData.push({
+          group:gd.name,gov:currentGov,ind:isSAIDI?'SAIDI':'SAIFI',
+          y24:parseFloat((y25*0.88).toFixed(2)),y25:y25,r26:r26,t26:t26,
+          imp:parseFloat(imp.toFixed(1)),cont:cont,isGroup:!!isGroup
+        });
+      });
+    });
+    if(parsedGovData.length<5)parsedGovData=D.govData; // fallback if parse failed
+
     return {
       period:period,fileName:generatedName||fileName,months:MO,
       saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
       saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
       outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target},
-      govData:D.govData,contrib:D.contrib,voltage:D.voltage,zones:parsedZones,breakdown:D.breakdown,
-      outageType:D.outageType,mvUnplanned:D.mvUnplanned,outageComp:D.outageComp,
-      plannedExceed:D.plannedExceed,transient:D.transient,drivers:D.drivers,
-      driverMatrix:D.driverMatrix,qsiProjects:D.qsiProjects,govKpi:D.govKpi,
+      govData:parsedGovData,contrib:parsedContrib,voltage:parsedVoltage,zones:parsedZones,breakdown:parsedBreakdown,
+      outageType:parsedOutageType,mvUnplanned:parsedMvUnplanned,outageComp:parsedOutageComp,
+      plannedExceed:parsedPlannedExceed,transient:parsedTransient,drivers:parsedDrivers,
+      driverMatrix:parsedDriverMatrix,qsiProjects:D.qsiProjects,govKpi:D.govKpi,
       govCoords:D.govCoords,govGroups:D.govGroups
     };
   }catch(e){console.error('Parse error:',e);return null;}
