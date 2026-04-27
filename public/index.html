@@ -411,7 +411,7 @@
     </div>
 
     <!-- Enter Dashboard button — primary CTA for all users -->
-    <button class="btn-primary" onclick="enterDashboardDirect()" style="width:100%;font-size:16px;padding:16px 32px;margin-bottom:12px">
+    <button class="btn-primary" onclick="try{enterDashboardDirect()}catch(e){console.error(e);alert('Error: '+e.message)}" style="width:100%;font-size:16px;padding:16px 32px;margin-bottom:12px">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;margin-right:10px"><path d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l370.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z"/></svg>Enter Dashboard
     </button>
 
@@ -2127,39 +2127,93 @@ function promptAdminPassword() {
 // ═══════════════════════════════════════════════════
 // ORIGINAL ENTER DASHBOARD — now loads live data first
 // ═══════════════════════════════════════════════════
-function enterDashboardDirect() {
-  try {
-    // Always enter instantly — no async, no waiting, no network
-    D = JSON.parse(JSON.stringify(DEMO_DATA));
-    document.getElementById('upload-screen').style.display = 'none';
-    document.getElementById('main-app').style.display = 'block';
-    setPeriodEverywhere();
-    switchView('summary');
-  } catch(e) {
-    console.error('Dashboard init error:', e);
+function waitForLibsThenRender(attempt) {
+  attempt = attempt || 0;
+  const chartReady = typeof Chart !== 'undefined';
+  const leafletReady = typeof L !== 'undefined';
+  if (chartReady && leafletReady) {
+    // All libs loaded — render
+    if (typeof ChartDataLabels !== 'undefined') {
+      try { Chart.register(ChartDataLabels); } catch(e) {}
+    }
+    setTimeout(() => { try { renderSummaryKPIs(); } catch(e) { console.error('KPIs:',e); } }, 10);
+    setTimeout(() => { try { rebuildTrendCharts(); } catch(e) { console.error('Trends:',e); } }, 80);
+    setTimeout(() => { try { updateContributionPie('SAIDI'); } catch(e) { console.error('Pie:',e); } }, 160);
+    setTimeout(() => { try { createOmanMap('SAIDI'); } catch(e) { console.error('Map:',e); } }, 240);
+    setTimeout(() => { try { renderZoneComplianceCards(); } catch(e) { console.error('Zones:',e); } }, 300);
+  } else if (attempt < 20) {
+    // Wait up to 2 seconds for libs
+    setTimeout(() => waitForLibsThenRender(attempt + 1), 100);
+  } else {
+    // Libs never loaded — show KPIs only (no charts/map)
+    try { renderSummaryKPIs(); } catch(e) {}
+    console.warn('Some libraries failed to load — charts may not display');
   }
+}
 
-  // Try live data AFTER dashboard is showing, completely isolated
+function enterDashboardDirect() {
+  // Step 1: Load data
+  D = JSON.parse(JSON.stringify(DEMO_DATA));
+
+  // Step 2: Hide welcome, show app
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+
+  // Step 3: Set period labels
+  const badge = document.getElementById('period-badge');
+  if (badge) badge.textContent = D.period || 'YTD';
+  const fn = document.getElementById('file-name-display');
+  if (fn) fn.textContent = D.fileName || 'Demo Data';
+
+  // Step 4: Activate summary view directly — no function calls that could fail
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const sv = document.getElementById('view-summary');
+  const nv = document.getElementById('nav-summary');
+  if (sv) sv.classList.add('active');
+  if (nv) nv.classList.add('active');
+  currentView = 'summary';
+  const tt = document.getElementById('topbar-title');
+  if (tt) tt.textContent = 'Executive Summary';
+
+  // Step 5: Render after confirming libs are loaded
+  waitForLibsThenRender();
+
+  // Step 6: Try live data silently after everything is shown
   setTimeout(() => {
     loadLiveData().then(ok => {
       if (ok) {
-        try {
-          setPeriodEverywhere();
-          switchView(currentView);
-          showToast('Live data loaded — ' + D.period);
-        } catch(e) {}
+        setTimeout(() => { try { renderSummaryKPIs(); } catch(e) {} }, 50);
+        setTimeout(() => { try { rebuildTrendCharts(); } catch(e) {} }, 100);
+        setTimeout(() => { try { updateContributionPie('SAIDI'); } catch(e) {} }, 150);
+        setTimeout(() => { try { renderZoneComplianceCards(); } catch(e) {} }, 200);
+        showToast('Live data loaded — ' + D.period);
       }
     }).catch(() => {});
-  }, 500);
+  }, 1000);
 }
 
 function initDashboard() {
   document.getElementById('upload-status').style.display = 'none';
   document.getElementById('upload-screen').style.display = 'none';
-  document.getElementById('admin-panel').style.display = 'none';
+  const ap = document.getElementById('admin-panel');
+  if (ap) ap.style.display = 'none';
   document.getElementById('main-app').style.display = 'block';
-  setPeriodEverywhere();
-  switchView('summary');
+  // Reuse same safe entry pattern
+  const badge = document.getElementById('period-badge');
+  if (badge) badge.textContent = D.period || 'YTD';
+  const fn = document.getElementById('file-name-display');
+  if (fn) fn.textContent = D.fileName || 'Data Loaded';
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const sv = document.getElementById('view-summary');
+  const nv = document.getElementById('nav-summary');
+  if (sv) sv.classList.add('active');
+  if (nv) nv.classList.add('active');
+  currentView = 'summary';
+  const tt = document.getElementById('topbar-title');
+  if (tt) tt.textContent = 'Executive Summary';
+  waitForLibsThenRender();
 }
 
 // ── Update every period label in the dashboard from D.period ──
@@ -2319,6 +2373,7 @@ function renderSummaryKPIs() {
 }
 
 function rebuildTrendCharts() {
+  if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded yet'); return; }
   buildLineChart('saidiTrendChart', D.saidi, 'SAIDI (Minutes)', 'SAIDI');
   buildLineChart('saifiTrendChart', D.saifi, 'SAIFI (Freq/Cust)', 'SAIFI');
   buildLineChart('outageTrendChart', D.outages, 'Outage Events', 'OUTAGES');
@@ -2326,6 +2381,7 @@ function rebuildTrendCharts() {
 }
 
 function buildLineChart(canvasId, data, label, type) {
+  if (typeof Chart === 'undefined') return;
   destroyChart(canvasId);
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
@@ -3135,7 +3191,25 @@ function rebuildModalChart() {
 // INIT
 // ═══════════════════════════════════════════════════
 window.addEventListener('load', () => {
-  Chart.register(ChartDataLabels);
+  // Register Chart.js plugins
+  if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+    Chart.register(ChartDataLabels);
+  }
+  setupDropZone();
+
+  // Make Enter Dashboard button work even before full load
+  const btn = document.querySelector('#welcome-card .btn-primary');
+  if (btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      enterDashboardDirect();
+    });
+  }
+});
+
+// Also fire on DOMContentLoaded as backup
+document.addEventListener('DOMContentLoaded', () => {
   setupDropZone();
 });
 </script>
