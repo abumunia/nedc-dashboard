@@ -62,29 +62,58 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* ── APP LAYOUT ── */
 #app{display:none;min-height:100vh}
-#sidebar{position:fixed;left:0;top:0;bottom:0;width:60px;background:var(--navy);z-index:50;display:flex;flex-direction:column;align-items:stretch;padding:0;border-right:1px solid rgba(255,255,255,0.06);transition:width 0.25s ease;overflow:hidden}
-#sidebar.open{width:210px}
-.slogo{padding:16px 0;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;overflow:hidden}
+#sidebar{
+  position:fixed;left:0;top:0;bottom:0;
+  width:64px;
+  background:linear-gradient(180deg,#0d1f35 0%,#0a1628 100%);
+  z-index:50;
+  display:flex;flex-direction:column;
+  border-right:1px solid rgba(255,255,255,0.08);
+  transition:width 0.25s ease;
+  overflow:hidden;
+}
+#sidebar.open{width:216px}
+.slogo{
+  height:60px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border-bottom:1px solid rgba(255,255,255,0.07);
+  overflow:hidden;padding:0 0;
+}
 #sidebar.open .slogo{justify-content:flex-start;padding-left:18px;gap:10px}
-.slogo-text{opacity:0;white-space:nowrap;font-size:13px;font-weight:700;color:#fff;transition:opacity 0.15s}
+.slogo-text{opacity:0;white-space:nowrap;font-size:13px;font-weight:700;color:#fff;transition:opacity 0.2s;flex-shrink:0}
 #sidebar.open .slogo-text{opacity:1}
-.snav{flex:1;width:100%;padding:8px 0;overflow:hidden;display:flex;flex-direction:column}
-.sitem{display:flex;align-items:center;justify-content:center;gap:0;width:100%;padding:11px 0;color:rgba(255,255,255,0.5);cursor:pointer;border:none;background:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;transition:all 0.15s;position:relative;text-align:left;box-sizing:border-box}
-#sidebar.open .sitem{justify-content:flex-start;padding:11px 20px;gap:12px}
-.sitem:hover{color:rgba(255,255,255,0.85);background:rgba(255,255,255,0.06)}
-.sitem.active{color:#fff;background:rgba(192,57,43,0.2)}
-.sitem.active::before{content:'';position:absolute;left:0;top:20%;height:60%;width:3px;background:#e74c3c;border-radius:0 3px 3px 0}
-.sitem svg{width:18px;height:18px;min-width:18px;flex-shrink:0;fill:currentColor;margin:0 auto}
-.sitem-label{opacity:0;transition:opacity 0.15s;white-space:nowrap}
-#sidebar.open .sitem svg{margin:0}#sidebar.open .sitem-label{opacity:1}
-.sdivider{width:calc(100% - 20px);height:1px;background:rgba(255,255,255,0.07);margin:4px 10px}
-.stoggle{width:100%;padding:14px 0;border:none;background:none;color:rgba(255,255,255,0.3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0}
+.snav{flex:1;overflow:hidden;padding:6px 0}
+.sitem{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;height:44px;
+  padding:0;
+  color:rgba(255,255,255,0.55);
+  cursor:pointer;border:none;background:transparent;
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:500;
+  white-space:nowrap;transition:color 0.15s,background 0.15s;
+  position:relative;
+}
+#sidebar.open .sitem{justify-content:flex-start;padding:0 20px;gap:12px}
+.sitem:hover{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.07)}
+.sitem.active{color:#fff;background:rgba(192,57,43,0.22)}
+.sitem.active::before{content:'';position:absolute;left:0;top:25%;height:50%;width:3px;background:#e74c3c;border-radius:0 3px 3px 0}
+.sitem svg{width:19px;height:19px;min-width:19px;fill:currentColor;flex-shrink:0}
+.sitem-label{opacity:0;width:0;overflow:hidden;white-space:nowrap;transition:opacity 0.2s,width 0s 0.25s}
+#sidebar.open .sitem-label{opacity:1;width:auto;transition:opacity 0.2s 0.05s,width 0s}
+.sdivider{height:1px;background:rgba(255,255,255,0.08);margin:4px 12px}
+.stoggle{
+  width:100%;height:48px;flex-shrink:0;
+  border:none;background:none;
+  color:rgba(255,255,255,0.35);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:color 0.15s;
+}
 #sidebar.open .stoggle{justify-content:flex-start;padding-left:20px;gap:12px}
 .stoggle:hover{color:rgba(255,255,255,0.6)}
 
 /* ── MAIN ── */
-#main{margin-left:60px;transition:margin-left 0.25s ease;min-height:100vh}
-#main.shifted{margin-left:210px}
+#main{margin-left:64px;transition:margin-left 0.25s ease;min-height:100vh}
+#main.shifted{margin-left:216px}
 
 /* ── TOPBAR ── */
 #topbar{position:sticky;top:0;z-index:40;background:rgba(240,242,245,0.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 24px}
@@ -854,14 +883,28 @@ function goView(v){
   var ne=document.querySelector('.sitem[data-view="'+v+'"]');
   if(ve)ve.classList.add('active');
   if(ne)ne.classList.add('active');
-  document.getElementById('page-title').textContent=VIEW_NAMES[v]||v;
+  var pt=document.getElementById('page-title');
+  if(pt)pt.textContent=VIEW_NAMES[v]||v;
   curView=v;
-  if(v==='summary')renderSummary();
-  else if(v==='kpi')renderKpi();
-  else if(v==='outage')renderOutage();
-  else if(v==='driver')renderDriver();
-  else if(v==='zones')renderZones();
-  else if(v==='qsi')renderQsi();
+  try{
+    if(v==='summary')renderSummary();
+    else if(v==='kpi')renderKpi();
+    else if(v==='outage')renderOutage();
+    else if(v==='driver')renderDriver();
+    else if(v==='zones')renderZones();
+    else if(v==='qsi')renderQsi();
+  }catch(e){console.error('goView render error:',e);}
+}
+
+// Re-render ALL views with new data (called after publish/load)
+function refreshAllViews(){
+  setPeriod();
+  // Reset chart cache so they rebuild fresh
+  Object.keys(charts).forEach(function(id){
+    try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}
+  });
+  // Re-render current view immediately
+  goView(curView);
 }
 
 document.querySelectorAll('.sitem').forEach(function(btn){
@@ -996,7 +1039,8 @@ async function publishData(){
           document.getElementById('welcome').style.display='none';
           document.getElementById('app').style.display='block';
         }
-        setPeriod();setTimeout(function(){goView('summary');},100);
+        refreshAllViews();
+        setTimeout(function(){goView('summary');},100);
       },1200);
     }else{
       var err=await res.text();
@@ -1565,8 +1609,12 @@ window.addEventListener('load', function(){
   // Auto-load live data before user enters
   var enterBtn=document.getElementById('enter-btn');
   if(enterBtn){enterBtn.disabled=true;enterBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:8px;animation:spin 0.8s linear infinite"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Loading…';enterBtn.style.opacity='0.7';}
-  loadLive().then(function(){
+  loadLive().then(function(ok){
     if(enterBtn){enterBtn.disabled=false;enterBtn.innerHTML='<svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg> Enter Dashboard';enterBtn.style.opacity='1';}
+    // If dashboard is already showing (user is inside), refresh all views with new data
+    if(ok && document.getElementById('app').style.display==='block'){
+      refreshAllViews();
+    }
   }).catch(function(){
     if(enterBtn){enterBtn.disabled=false;enterBtn.style.opacity='1';}
   });
@@ -1575,6 +1623,9 @@ window.addEventListener('load', function(){
   var pb=document.getElementById('preview-publish');
   if(cb)cb.onclick=function(){document.getElementById('preview-modal').style.display='none';window._pendingData=null;showMsg('info','Cancelled. You can upload a different file.');};
   if(pb)pb.onclick=function(){document.getElementById('preview-modal').style.display='none';if(window._pendingData){D=window._pendingData;window._pendingData=null;publishData();}};
+  // Also handle load-demo-btn
+  var ldb=document.getElementById('load-demo-btn');
+  if(ldb)ldb.onclick=function(){showMsg('info','Loading data…');setTimeout(function(){setPeriod();showMsg('ok','Data loaded — '+D.period);setTimeout(function(){hideAdmin();document.getElementById('welcome').style.display='none';document.getElementById('app').style.display='block';refreshAllViews();setTimeout(function(){goView('summary');},100);},800);},300);};
   // Sidebar JS tooltips
   var tip=document.getElementById('sidebar-tooltip');
   if(tip){
