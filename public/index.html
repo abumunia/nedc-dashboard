@@ -1197,12 +1197,45 @@ function parseWorkbook(wb,fileName){
     var period='YTD '+MO[li].toUpperCase()+' 2026';
     var mon=MO[li].charAt(0)+MO[li].slice(1).toLowerCase();
     var generatedName='NEDC_Network_Performance_'+mon+'2026.xlsx';
+    // ── Parse By Zone sheet
+    // Row 6: headers [Zone, 2024, 2025, 2026]
+    // Row 8: sub-headers [SAIDI, SAIFI, SAIDI, SAIFI, SAIDI(Rolling), SAIFI(Rolling)]
+    // Row 9-11: [zone name, saidi24, saifi24, saidi25, saifi25, saidi26r, saifi26r]
+    var zoneSheet = getSheet('By Zone');
+    var parsedZones = D.zones; // fallback
+    if(zoneSheet){
+      var zRows = zoneSheet;
+      var newZones = [];
+      var ZONE_REG = {
+        'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},
+        'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},
+        'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}
+      };
+      for(var zi=0;zi<zRows.length;zi++){
+        var zr=zRows[zi];
+        if(!zr||!zr[0])continue;
+        var zname=String(zr[3]||zr[0]||'').replace(/^'+|'+$/g,'').trim().toLowerCase();
+        if(zname.indexOf('zone')>=0&&(zname.indexOf('1')>=0||zname.indexOf('2')>=0||zname.indexOf('3')>=0)){
+          var reg=ZONE_REG[zname]||{st:0,sp:0,sft:0,sfp:0};
+          var displayName=zname.replace('zone','Zone').trim();
+          newZones.push({
+            name:displayName,
+            s24:parseFloat(zr[4])||0, sf24:parseFloat(zr[5])||0,
+            s25:parseFloat(zr[6])||0, sf25:parseFloat(zr[7])||0,
+            s26:parseFloat(zr[8])||0, sf26:parseFloat(zr[9])||0,
+            st:reg.st, sp:reg.sp, sft:reg.sft, sfp:reg.sfp
+          });
+        }
+      }
+      if(newZones.length>=3) parsedZones=newZones;
+    }
+
     return {
       period:period,fileName:generatedName||fileName,months:MO,
       saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
       saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
       outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target},
-      govData:D.govData,contrib:D.contrib,voltage:D.voltage,zones:D.zones,breakdown:D.breakdown,
+      govData:D.govData,contrib:D.contrib,voltage:D.voltage,zones:parsedZones,breakdown:D.breakdown,
       outageType:D.outageType,mvUnplanned:D.mvUnplanned,outageComp:D.outageComp,
       plannedExceed:D.plannedExceed,transient:D.transient,drivers:D.drivers,
       driverMatrix:D.driverMatrix,qsiProjects:D.qsiProjects,govKpi:D.govKpi,
