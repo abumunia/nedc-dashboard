@@ -1112,21 +1112,18 @@ async function loadLive(){
     if(res.ok){
       var s = await res.json();
       console.log('JSONBin response keys:', Object.keys(s));
-      // Handle both possible structures
+      // JSONBin wraps response: {record: {nedc_data: ...}, metadata: {...}}
+      var bin = s.record || s; // unwrap record
       var liveData = null;
-      if(s && s.nedc_data && s.nedc_data.saidi){
-        liveData = s.nedc_data; // Our new format
-      } else if(s && s.data && s.data.saidi){
-        liveData = s.data; // Old format fallback
-      } else if(s && s.saidi){
-        liveData = s; // Direct format
-      }
+      if(bin && bin.nedc_data && bin.nedc_data.saidi) liveData = bin.nedc_data;
+      else if(bin && bin.data && bin.data.saidi) liveData = bin.data;
+      else if(bin && bin.saidi) liveData = bin;
       if(liveData){
         D = liveData;
-        console.log('✅ Live data loaded:', D.period);
+        console.log('Live data loaded:', D.period);
         return true;
       } else {
-        console.log('JSONBin has no dashboard data yet. Full response:', JSON.stringify(s).substring(0,200));
+        console.log('JSONBin has no dashboard data yet:', JSON.stringify(bin).substring(0,200));
         return false;
       }
     } else {
@@ -1140,27 +1137,7 @@ async function loadLive(){
 }
 
 
-async function loadLive(){
-  try{
-    var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},4000);
-    var res=await fetch('/api/load-data',{signal:ctrl.signal});
-    clearTimeout(t);
-    if(res.ok){
-      var s=await res.json();
-      if(s&&s.data&&s.data.saidi){
-        D=s.data;
-        console.log('Live data loaded:',D.period);
-        return true;
-      }
-    }
-    console.log('No live data — using built-in data');
-    return false;
-  }catch(e){
-    console.log('Could not reach server:',e.message);
-    return false;
-  }
-}
+// old loadLive removed
 
 function setPeriod(){
   var p=D.period||'YTD';
@@ -1352,6 +1329,7 @@ function buildLineChart(id,data,label,type,showOM,showCorp){
 }
 
 function updateAnalysis(){
+  if(!D||!D.saidi||!D.saidi.y2026_rolling) return;
   var idx=latestIdx(D.saidi.y2026_rolling);
   var sr=D.saidi.y2026_rolling[idx],s25e=D.saidi.y2025[11]||168.8,om=D.saidi.om_target[0],corp=D.saidi.corp_target[0];
   var d1=sr&&s25e?(((sr-s25e)/s25e)*100).toFixed(1):null;
