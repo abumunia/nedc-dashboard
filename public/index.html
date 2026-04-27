@@ -160,21 +160,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 .imp-n{background:#f3f4f6;color:var(--text2);padding:2px 8px;border-radius:50px;font-size:11px;font-weight:700}
 
 #omanMap{height:440px;border-radius:0 0 var(--radius) var(--radius)}
-/* Leaflet tooltip styling */
-.leaflet-tooltip{
-  background:rgba(12,30,53,0.92) !important;
-  border:none !important;
-  border-radius:8px !important;
-  color:#fff !important;
-  font-family:'Inter',sans-serif !important;
-  font-size:13px !important;
-  padding:8px 12px !important;
-  box-shadow:0 4px 16px rgba(0,0,0,0.3) !important;
-  pointer-events:none !important;
-}
-.leaflet-tooltip strong{color:#fff !important;font-weight:700 !important}
-.leaflet-tooltip em{color:rgba(255,255,255,0.6) !important;font-style:normal !important;font-size:11px !important}
-.leaflet-tooltip-left::before,.leaflet-tooltip-right::before{border-right-color:rgba(12,30,53,0.92) !important;border-left-color:rgba(12,30,53,0.92) !important}
+/* Leaflet tooltip replaced with custom div */
 
 /* heatmap */
 .hm-wrap{overflow-x:auto}
@@ -912,7 +898,7 @@ document.getElementById('enter-btn').addEventListener('click',function(){
   document.getElementById('welcome').style.display='none';
   document.getElementById('app').style.display='block';
   setPeriod();
-  goView('summary');
+  setTimeout(function(){ goView('summary'); }, 50);
 });
 
 document.getElementById('admin-welcome-btn').addEventListener('click',showAdmin);
@@ -1082,7 +1068,9 @@ async function publishData(){
           document.getElementById('welcome').style.display='none';
           document.getElementById('app').style.display='block';
         }
-        setPeriod(); goView('summary');
+        setPeriod();
+        // Wait for DOM to be fully visible before rendering charts/map
+        setTimeout(function(){ goView('summary'); }, 100);
       },1200);
     } else {
       var err = await res.text();
@@ -1228,10 +1216,11 @@ function parseWorkbook(wb,fileName){
 // ═══════════════════════════════════════════════════
 function renderSummary(){
   renderSumKPIs();
-  buildTrends();
-  buildPie('SAIDI');
-  buildMap('SAIDI');
   renderZoneCards();
+  // Stagger chart/map renders to ensure containers have dimensions
+  setTimeout(function(){ buildTrends(); }, 50);
+  setTimeout(function(){ buildPie('SAIDI'); }, 100);
+  setTimeout(function(){ buildMap('SAIDI'); }, 150);
 }
 
 function renderSumKPIs(){
@@ -1350,6 +1339,7 @@ function buildPie(ind){
 
 // ── MAP ──
 function buildMap(ind){
+  var mt=document.getElementById('map-tooltip'); if(mt) mt.style.display='none';
   ['map-saidi-btn','map-saifi-btn'].forEach(function(id){document.getElementById(id).classList.remove('active');});
   document.getElementById('map-'+ind.toLowerCase()+'-btn').classList.add('active');
   mapMode=ind;
@@ -1357,6 +1347,7 @@ function buildMap(ind){
   var mapEl=document.getElementById('omanMap');
   if(!mapEl||typeof L==='undefined')return;
   omanMap=L.map('omanMap',{center:[21.5,57.0],zoom:6,zoomControl:true,scrollWheelZoom:false});
+  setTimeout(function(){ if(omanMap) omanMap.invalidateSize(); }, 100);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:12,attribution:'© CARTO'}).addTo(omanMap);
   var govData=D.govData.filter(function(d){return d.ind===ind&&!d.isGroup;});
   var vals=govData.map(function(d){return d.r26;});
@@ -1381,10 +1372,25 @@ function buildMap(ind){
     var col=getColor(row.r26),radius=getR(row.r26);
     var circle=L.circleMarker([coords.lat,coords.lng],{color:col,weight:2,opacity:0.9,fillColor:col,fillOpacity:0.3,radius:radius}).addTo(omanMap);
     var lbl=ind==='SAIDI'?row.r26.toFixed(1):row.r26.toFixed(2);
-    var tooltipContent = '<strong>'+name+'</strong><br>'+ind+': <strong>'+lbl+'</strong><br>YoY: '+row.imp.toFixed(1)+'%'+(mapGrouped?'<br><em style="font-size:11px;opacity:0.7">Click to drill down</em>':'');
-    circle.bindTooltip(tooltipContent,{sticky:true,opacity:1,direction:'right'});
-    circle.on('mouseover',function(e){this.openTooltip();});
-    circle.on('mouseout',function(e){this.closeTooltip();});
+    var tooltipContent = '<strong style="font-size:14px">'+name+'</strong><br><span style="color:rgba(255,255,255,0.7);font-size:11px">'+ind+'</span> <strong style="color:#f87171">'+lbl+'</strong><br><span style="color:rgba(255,255,255,0.6);font-size:11px">YoY: '+(row.imp>=0?'+':'')+row.imp.toFixed(1)+'%'+(mapGrouped?' · Click to drill down':'')+'</span>';
+    var mapTip = document.getElementById('map-tooltip');
+    circle.on('mouseover',function(e){
+      if(mapTip){mapTip.innerHTML=tooltipContent;mapTip.style.display='block';}
+    });
+    circle.on('mousemove',function(e){
+      if(mapTip){
+        var x=e.originalEvent.clientX, y=e.originalEvent.clientY;
+        mapTip.style.left=(x+16)+'px';
+        mapTip.style.top=(y-10)+'px';
+        // Keep within viewport
+        var r=mapTip.getBoundingClientRect();
+        if(r.right>window.innerWidth-10) mapTip.style.left=(x-r.width-16)+'px';
+        if(r.bottom>window.innerHeight-10) mapTip.style.top=(y-r.height+10)+'px';
+      }
+    });
+    circle.on('mouseout',function(){
+      if(mapTip) mapTip.style.display='none';
+    });
     if(mapGrouped){circle.on('click',function(){mapGrouped=false;buildMap(mapMode);if(omanMap)omanMap.setView([coords.lat,coords.lng],8);});}
   });
   if(!mapGrouped){
@@ -1825,5 +1831,6 @@ window.addEventListener('load', function(){
     </div>
   </div>
 </div>
+<div id="map-tooltip" style="position:fixed;display:none;background:rgba(12,30,53,0.95);color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;pointer-events:none;z-index:99997;box-shadow:0 4px 20px rgba(0,0,0,0.35);max-width:200px;line-height:1.5;border:1px solid rgba(255,255,255,0.1)"></div>
 </body>
 </html>
