@@ -1296,13 +1296,51 @@ function renderGovKpi(){
 // INIT
 // ═══════════════════════════════════════════════════
 window.addEventListener('load', function(){
-  // Auto-load live data before enter
+  // Enter Dashboard button
   var enterBtn=document.getElementById('enter-btn');
-  if(enterBtn){enterBtn.disabled=true;enterBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:8px;animation:spin 0.8s linear infinite"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Loading…';enterBtn.style.opacity='0.7';}
+  if(enterBtn){
+    enterBtn.addEventListener('click',function(){
+      document.getElementById('welcome').style.display='none';
+      document.getElementById('app').style.display='block';
+      setPeriod();
+      setTimeout(function(){goView('summary');},80);
+    });
+  }
+  // Admin buttons
+  var awb=document.getElementById('admin-welcome-btn');
+  var atb=document.getElementById('admin-topbar-btn');
+  var acb=document.getElementById('admin-close');
+  var abb=document.getElementById('admin-back-btn');
+  if(awb)awb.addEventListener('click',showAdmin);
+  if(atb)atb.addEventListener('click',showAdmin);
+  if(acb)acb.addEventListener('click',hideAdmin);
+  if(abb)abb.addEventListener('click',hideAdmin);
+  // Nav items
+  document.querySelectorAll('.sitem[data-view]').forEach(function(btn){
+    btn.addEventListener('click',function(){goView(this.dataset.view);});
+  });
+  // Sidebar toggle
+  var stb=document.getElementById('sidebar-toggle');
+  if(stb)stb.addEventListener('click',function(){
+    var sb=document.getElementById('sidebar');
+    var mn=document.getElementById('main');
+    var open=sb.classList.toggle('open');
+    if(mn)mn.classList.toggle('shifted',open);
+  });
+  // Drop zone
+  var dz=document.getElementById('dropzone');
+  var fi=document.getElementById('file-input');
+  if(dz){
+    dz.addEventListener('click',function(){if(fi)fi.click();});
+    dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
+    dz.addEventListener('dragleave',function(){dz.classList.remove('over');});
+    dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);});
+  }
+  if(fi)fi.addEventListener('change',function(){if(this.files[0])processFile(this.files[0]);});
+  // Load live data in background — never blocks UI
   loadLive().then(function(ok){
-    if(enterBtn){enterBtn.disabled=false;enterBtn.innerHTML='<svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg> Enter Dashboard';enterBtn.style.opacity='1';}
     if(ok&&document.getElementById('app').style.display==='block'){refreshAllViews();}
-  }).catch(function(){if(enterBtn){enterBtn.disabled=false;enterBtn.style.opacity='1';}});
+  }).catch(function(){});
   // Preview buttons
   var cb=document.getElementById('preview-cancel');
   var pb=document.getElementById('preview-publish');
@@ -1682,7 +1720,7 @@ async function publishData(){
 async function loadLive(){
   try{
     var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},5000);
+    var t=setTimeout(function(){ctrl.abort();},3000);
     var res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'},signal:ctrl.signal});
     clearTimeout(t);
     console.log('JSONBin status:',res.status);
