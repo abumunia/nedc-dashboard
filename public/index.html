@@ -1047,13 +1047,33 @@ function showPreview(parsed){
 
 // Preview modal button handlers registered in window.load below
 
+// ═══════════════════════════════════════════════════
+// JSONBIN.IO STORAGE — free, no server needed
+// Setup: go to jsonbin.io, create free account, create a bin, copy the Bin ID & API key below
+// ═══════════════════════════════════════════════════
+var JSONBIN_BIN_ID = '69ef2181856a6821897900bf';       // e.g. '6634abc123def456'
+var JSONBIN_API_KEY = '$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11G';     // e.g. '$2a$10$abc...'
+var JSONBIN_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID;
+
 async function publishData(){
-  // User already authenticated via showAdmin — send stored password
-  var pw='Humaid@1234';
   showMsg('info','Publishing to all visitors…');
   try{
-    var res=await fetch('/api/save-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:D,adminPassword:pw})});
-    var json=await res.json();
+    // Save full data object to JSONBin
+    var payload = {
+      data: D,
+      updatedAt: new Date().toISOString(),
+      period: D.period,
+      fileName: D.fileName
+    };
+    var res = await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_API_KEY,
+        'X-Bin-Versioning': 'false'
+      },
+      body: JSON.stringify(payload)
+    });
     if(res.ok){
       showMsg('ok','Published! All visitors now see '+D.period+' data.');
       setTimeout(function(){
@@ -1064,19 +1084,41 @@ async function publishData(){
         }
         setPeriod();goView('summary');
       },1200);
-    }else{
-      showMsg('err',json.error||'Publish failed. Data loaded locally only.');
+    } else {
+      var err = await res.text();
+      showMsg('err','Could not publish: '+err+'. Check your JSONBin API key and Bin ID.');
     }
   }catch(e){
-    showMsg('err','Could not reach server. Data loaded locally only.');
-    setTimeout(function(){
-      hideAdmin();
-      document.getElementById('app').style.display='block';
-      document.getElementById('welcome').style.display='none';
-      setPeriod();goView('summary');
-    },1200);
+    showMsg('err','Network error: '+e.message+'. Data loaded locally only.');
   }
 }
+
+async function loadLive(){
+  try{
+    if(JSONBIN_BIN_ID==='REPLACE_WITH_YOUR_BIN_ID') return false; // Not configured yet
+    var ctrl = new AbortController();
+    var t = setTimeout(function(){ctrl.abort();}, 4000);
+    var res = await fetch(JSONBIN_URL+'/latest', {
+      headers: {'X-Master-Key': JSONBIN_API_KEY, 'X-Bin-Meta': 'false'},
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if(res.ok){
+      var s = await res.json();
+      if(s && s.data && s.data.saidi){
+        D = s.data;
+        console.log('Live data loaded:', D.period);
+        return true;
+      }
+    }
+    console.log('No live data — using built-in data');
+    return false;
+  }catch(e){
+    console.log('Could not reach storage:', e.message);
+    return false;
+  }
+}
+
 
 async function loadLive(){
   try{
