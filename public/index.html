@@ -1742,45 +1742,45 @@ function parseWorkbook(wb,fileName){
       }}
 
     // ── QSI PROJECTS ──
-    // Row N: col4=null, col5='Indicator Name' (text)
-    // Row N+2: col4=2024_total, col5=y25, col6=y26
+    // Indicator row: ONLY col5 has text, all others null (rows 2,6,10,14)
+    // Year header: col4=year number, col5=string like '2025 YTD'
+    // Values row: col4=2024total, col5=y25, col6=y26 (all numbers)
     var qRows=gs('NEDC QSI');var pQsi=D.qsiProjects;
     if(qRows){
       var qlist=[];
       for(var qi=0;qi<qRows.length;qi++){
         var qrow=qRows[qi];if(!qrow)continue;
-        // Stop at KPI section
-        if(qrow[4]!==null&&qrow[4]!==undefined&&typeof qrow[4]==='string'&&cl(qrow[4]).toLowerCase().indexOf('quality')>=0)break;
-        // Indicator row: col4 must be null/empty AND col5 must be non-empty text
-        if(qrow[4]!==null&&qrow[4]!==undefined&&qrow[4]!=='')continue;
-        if(!qrow[5])continue;
-        var ind=cl(qrow[5]);
-        if(!ind)continue;
-        if(!isNaN(parseFloat(ind))&&isFinite(ind))continue; // skip numeric values (%, years)
-        if(ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('indicator')>=0)continue;
-        if(ind.toLowerCase().indexOf('improvement')>=0||ind.match(/^20\d\d/))continue;
-        // Find values row: has large number at col4 (2024 annual) and smaller at col5,col6
-        var vrow=null;
-        for(var qk=qi+1;qk<=qi+3&&qk<qRows.length;qk++){
+        // STOP: hit the KPI action plan section (col4 has 'NEDC Quality...' or 'Muscat Governorate' etc)
+        if(qrow[4]!==null&&qrow[4]!==undefined&&typeof qrow[4]==='string'&&qrow[4].length>5)break;
+        // Indicator row: col4=null AND col5=text string (not a number, not a header)
+        if(qrow[4]!==null&&qrow[4]!==undefined)continue; // col4 must be null
+        var c5=qrow[5];
+        if(c5===null||c5===undefined)continue; // col5 must exist
+        var ind=cl(c5);
+        if(!ind||ind.length<3)continue; // must have real text
+        try{parseFloat(ind);if(!isNaN(parseFloat(ind)))continue;}catch(e){}// skip if numeric
+        if(ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('indicator')>=0||
+           ind.toLowerCase().indexOf('quality')>=0)continue; // skip header rows
+        // Find values row in next 3 rows: col4=2024total(>10), col5=y25, col6=y26
+        var y25=null,y26=null;
+        for(var qk=qi+1;qk<=qi+4&&qk<qRows.length;qk++){
           var tr=qRows[qk];if(!tr)continue;
           var v4=nv(tr[4]),v5=nv(tr[5]),v6=nv(tr[6]);
-          if(v4===null||v4<5)continue;
-          if(v5===null||v6===null)continue;
-          if(v5>=2020&&v5<=2030)continue; // year label row
+          if(v4===null||v4<10)continue;       // col4 must be large number (2024 annual total)
+          if(v5===null||v6===null)continue;   // must have y25 and y26
+          if(v5>500||v6>500)continue;         // y25/y26 are YTD counts, not annual totals
+          if(v5>=2020&&v5<=2030)continue;     // skip if year numbers (header row)
           if(v6>=2020&&v6<=2030)continue;
-          vrow=tr;break;
+          y25=v5;y26=v6;break;
         }
-        if(!vrow)continue;
-        var y25=nv(vrow[5]),y26=nv(vrow[6]);
         if(y25===null||y26===null)continue;
-        if(y25===0&&y26===0)continue;
         var imp=y25!==0?((y26-y25)/y25*100):0;
         qlist.push({ind:ind,y25:Math.round(y25),y26:Math.round(y26),imp:parseFloat(imp.toFixed(1))});
         if(qlist.length>=6)break;
       }
-      console.log('QSI parse:',qlist.length,'projects',qlist.map(function(q){return q.ind+'('+q.y25+'→'+q.y26+')';}));if(qlist.length>0)pQsi=qlist;
+      console.log('QSI parse:',qlist.length,'projects',qlist.map(function(q){return q.ind+'('+q.y25+'→'+q.y26+')';}));
+      if(qlist.length>0)pQsi=qlist;
     }
-
     // ── GOV GROUPS — dynamic column detection ──
     var gSheets=[
       {hint:'Muscat & South',group:'Muscat + South Batinah'},
