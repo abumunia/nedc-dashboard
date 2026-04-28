@@ -267,7 +267,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     </div>
     <div class="snav">
       <button class="sitem active" data-view="summary" data-tooltip="Overview">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.25 13.5h8.25v-8.25c0-.414.336-.75.75-.75h2.25A9.75 9.75 0 0121.75 14.25v.75a.75.75 0 01-.75.75H3a.75.75 0 01-.75-.75v-.75z"/><path d="M3.75 21a.75.75 0 00.75-.75V13.5H2.25v6.75c0 .414.336.75.75.75zM8.25 21a.75.75 0 00.75-.75v-7.5h-3v7.5c0 .414.336.75.75.75zM15.75 21a.75.75 0 01-.75-.75v-5.25h-1.5V9H12v11.25c0 .414.336.75.75.75zM21.75 15.75a.75.75 0 01-.75.75h-.75v4.5c0 .414-.336.75-.75.75s-.75-.336-.75-.75v-5.25h2.25z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/></svg>
         <span class="sitem-label">Overview</span>
       </button>
       <button class="sitem" data-view="kpi" data-tooltip="KPI View">
@@ -287,7 +287,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <span class="sitem-label">NPI &amp; Zones</span>
       </button>
       <button class="sitem" data-view="qsi" data-tooltip="Improvements">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M15.22 6.268a.75.75 0 01.968-.432l5.942 2.28a.75.75 0 01.431.97l-2.28 5.942a.75.75 0 11-1.4-.537l1.63-4.251-1.086.43a11.26 11.26 0 00-7.168 8.027.75.75 0 11-1.453-.39 12.76 12.76 0 018.13-9.09l1.087-.43-4.251-1.632a.75.75 0 01-.432-.968zM9.21 3.345a.75.75 0 01-.968.432L2.3 1.497a.75.75 0 01-.432-.97l2.28-5.942a.75.75 0 111.4.537L3.918-1.127l1.086-.43A11.26 11.26 0 0012.173-9.58a.75.75 0 011.453.39 12.76 12.76 0 01-8.13 9.09l-1.087.43 4.251 1.632a.75.75 0 01.432.968z" clip-rule="evenodd"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z"/></svg>
         <span class="sitem-label">Improvements</span>
       </button>
     </div>
@@ -399,7 +399,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <div class="card"><div class="card-hdr"><div class="card-title" id="kpi-bar-title">SAIDI — Governorate Comparison</div></div><div class="card-body"><div style="height:320px"><canvas id="kpi-bar"></canvas></div></div></div>
         <div class="card"><div class="card-hdr"><div class="card-title">Voltage Level Contribution</div></div><div class="card-body"><div style="height:320px"><canvas id="voltage-chart"></canvas></div></div></div>
       </div>
-      <div class="card"><div class="card-hdr"><div class="card-title" id="kpi-table-title">Governorate Detail</div></div><div style="overflow-x:auto"><table class="dt" id="kpi-table"><thead><tr><th>Governorate</th><th>2024 YTD</th><th>2025 YTD</th><th>2026 Rolling</th><th>Target 2026</th><th>Imp %</th><th>Status</th></tr></thead><tbody id="kpi-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title" id="kpi-table-title">Governorate Detail</div></div><div style="overflow-x:auto"><table class="dt" id="kpi-table"><thead><tr><th>Governorate</th><th>2024 YTD</th><th>2025 YTD</th><th style="color:#c0392b;font-weight:700">2026 YTD</th><th>2026 Rolling</th><th>Target 2026</th><th>Imp %</th><th>Status</th></tr></thead><tbody id="kpi-tbody"></tbody></table></div></div>
     </div>
 
     <!-- OUTAGE VIEW -->
@@ -1005,8 +1005,8 @@ function buildTrends(){
 function buildLineChart(id,data,label,type,showOM,showCorp){
   var fmt=function(v){if(v===null)return null;return type==='SAIDI'?v.toFixed(1):type==='SAIFI'?v.toFixed(2):Math.round(v).toLocaleString();};
   var sets=[
-    {label:'2024',data:data.y2024||[],borderColor:'#d1d5db',backgroundColor:'#d1d5db',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
-    {label:'2025',data:data.y2025||[],borderColor:'rgba(192,57,43,0.4)',backgroundColor:'rgba(192,57,43,0.4)',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
+    {label:'2024',data:data.y2024||[],borderColor:'rgba(180,180,180,0.45)',backgroundColor:'transparent',borderWidth:1,borderDash:[4,4],pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
+    {label:'2025',data:data.y2025||[],borderColor:'rgba(130,160,190,0.55)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,3],pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
     {label:'2026 YTD',data:data.y2026_ytd||[],borderColor:'#c0392b',backgroundColor:'#c0392b',borderWidth:2.5,pointRadius:3,tension:0.3,fill:false,spanGaps:false,datalabels:{display:true,align:'top',anchor:'end',offset:3,color:'#9b2226',font:{weight:'bold',size:10},formatter:fmt}},
     {label:'2026 Rolling',data:data.y2026_rolling||[],borderColor:'#1a5276',backgroundColor:'#1a5276',borderWidth:2.5,pointRadius:3,tension:0.3,fill:false,spanGaps:false,datalabels:{display:true,align:'bottom',anchor:'end',offset:3,color:'#154360',font:{weight:'bold',size:10},formatter:fmt}}
   ];
@@ -1164,7 +1164,8 @@ function renderKpiTable(){
   var rows=D.govData.filter(function(g){return g.ind===kpiMode&&(filter==='All'||g.group===filter);});
   document.getElementById('kpi-tbody').innerHTML=rows.map(function(g){
     var bad=g.t26>0&&g.r26>g.t26;
-    return '<tr class="'+(g.isGroup?'grp':'')+'"><td>'+g.gov+'</td><td>'+g.y24.toFixed(2)+'</td><td>'+g.y25.toFixed(2)+'</td><td style="color:#1a5276;font-weight:700">'+g.r26.toFixed(2)+'</td><td style="color:'+(bad?'#c0392b':'#27ae60')+';font-weight:600">'+(g.t26||'—')+'</td><td>'+impBadge(g.imp)+'</td><td style="font-size:11px;font-weight:700;color:'+(bad?'#c0392b':'#27ae60')+'">'+(g.t26>0?(bad?'⚠ Above':'✅ On track'):'—')+'</td></tr>';
+    var y26val=g.y26||0;
+    return '<tr class="'+(g.isGroup?'grp':'')+'"><td>'+g.gov+'</td><td>'+g.y24.toFixed(2)+'</td><td>'+g.y25.toFixed(2)+'</td><td style="color:#c0392b;font-weight:800">'+y26val.toFixed(2)+'</td><td style="color:#1a5276;font-weight:700">'+g.r26.toFixed(2)+'</td><td style="color:'+(bad?'#c0392b':'#27ae60')+';font-weight:600">'+(g.t26||'—')+'</td><td>'+impBadge(g.imp)+'</td><td style="font-size:11px;font-weight:700;color:'+(bad?'#c0392b':'#27ae60')+'">'+(g.t26>0?(bad?'⚠ Above':'✅ On track'):'—')+'</td></tr>';
   }).join('');
 }
 
