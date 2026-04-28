@@ -1005,10 +1005,10 @@ function buildTrends(){
 function buildLineChart(id,data,label,type,showOM,showCorp){
   var fmt=function(v){if(v===null)return null;return type==='SAIDI'?v.toFixed(1):type==='SAIFI'?v.toFixed(2):Math.round(v).toLocaleString();};
   var sets=[
-    {label:'2024',data:data.y2024||[],borderColor:'rgba(180,180,180,0.45)',backgroundColor:'transparent',borderWidth:1,borderDash:[4,4],pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
-    {label:'2025',data:data.y2025||[],borderColor:'rgba(130,160,190,0.55)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,3],pointRadius:0,tension:0.3,fill:false,datalabels:{display:false}},
-    {label:'2026 YTD',data:data.y2026_ytd||[],borderColor:'#c0392b',backgroundColor:'#c0392b',borderWidth:2.5,pointRadius:3,tension:0.3,fill:false,spanGaps:false,datalabels:{display:true,align:'top',anchor:'end',offset:3,color:'#9b2226',font:{weight:'bold',size:10},formatter:fmt}},
-    {label:'2026 Rolling',data:data.y2026_rolling||[],borderColor:'#1a5276',backgroundColor:'#1a5276',borderWidth:2.5,pointRadius:3,tension:0.3,fill:false,spanGaps:false,datalabels:{display:true,align:'bottom',anchor:'end',offset:3,color:'#154360',font:{weight:'bold',size:10},formatter:fmt}}
+    {label:'2024',data:data.y2024||[],borderColor:'rgba(156,163,175,0.6)',backgroundColor:'rgba(156,163,175,0.08)',borderWidth:1.5,pointRadius:0,tension:0.4,fill:true,datalabels:{display:false}},
+    {label:'2025',data:data.y2025||[],borderColor:'rgba(37,99,235,0.65)',backgroundColor:'rgba(37,99,235,0.08)',borderWidth:1.5,pointRadius:0,tension:0.4,fill:true,datalabels:{display:false}},
+    {label:'2026 YTD',data:data.y2026_ytd||[],borderColor:'#c0392b',backgroundColor:'rgba(192,57,43,0.12)',borderWidth:2.5,pointRadius:3,tension:0.4,fill:true,spanGaps:false,datalabels:{display:true,align:'top',anchor:'end',offset:3,color:'#9b2226',font:{weight:'bold',size:10},formatter:fmt}},
+    {label:'2026 Rolling',data:data.y2026_rolling||[],borderColor:'#1a5276',backgroundColor:'transparent',borderWidth:2.5,pointRadius:3,tension:0.4,fill:false,spanGaps:false,datalabels:{display:true,align:'bottom',anchor:'end',offset:3,color:'#154360',font:{weight:'bold',size:10},formatter:fmt}}
   ];
   if(showOM&&data.om_target)sets.push({label:'O&M Target',data:data.om_target,borderColor:'#27ae60',borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false,datalabels:{display:false}});
   if(showCorp&&data.corp_target)sets.push({label:'Corp Target',data:data.corp_target,borderColor:'#111',borderWidth:1.5,borderDash:[3,3],pointRadius:0,fill:false,datalabels:{display:false}});
