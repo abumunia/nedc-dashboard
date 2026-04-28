@@ -930,25 +930,35 @@ function goView(v){
     else if(v==='driver')renderDriver();
     else if(v==='zones')renderZones();
     else if(v==='qsi')renderQsi();
-  }catch(e){console.error('goView error:',e);}
+  }catch(e){console.error('goView('+v+') error:',e);}
+}
+
+// ── MASTER RENDER FUNCTION — renders ALL views with current D ──
+function renderAll(){
+  console.log('renderAll: D.period=',D.period,'zones=',D.zones.length,'contrib=',D.contrib&&D.contrib.SAIDI?D.contrib.SAIDI.labels.length:0);
+  // Summary view
+  try{renderSumKPIs();}catch(e){console.error('renderSumKPIs:',e);}
+  try{renderZoneCards();}catch(e){console.error('renderZoneCards:',e);}
+  setTimeout(function(){
+    try{buildTrends();}catch(e){console.error('buildTrends:',e);}
+    setTimeout(function(){try{buildPie('SAIDI');}catch(e){console.error('buildPie:',e);}},60);
+    setTimeout(function(){
+      if(omanMap){omanMap.remove();omanMap=null;}
+      try{buildMap('SAIDI');}catch(e){console.error('buildMap:',e);}
+    },120);
+    // Other views
+    setTimeout(function(){try{renderKpi();}catch(e){console.error('renderKpi:',e);}},180);
+    setTimeout(function(){try{renderOutage();}catch(e){console.error('renderOutage:',e);}},240);
+    setTimeout(function(){try{renderDriver();}catch(e){console.error('renderDriver:',e);}},300);
+    setTimeout(function(){try{renderZones();}catch(e){console.error('renderZones:',e);}},360);
+    setTimeout(function(){try{renderQsi();}catch(e){console.error('renderQsi:',e);}},420);
+  },30);
 }
 
 function refreshAllViews(){
   setPeriod();
   Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
-  // Re-render ALL sections with new data
-  setTimeout(function(){
-    try{renderSumKPIs();}catch(e){}
-    try{renderZoneCards();}catch(e){}  // zones always re-rendered
-    try{buildTrends();}catch(e){}
-    setTimeout(function(){try{buildPie('SAIDI');}catch(e){}},50);
-    setTimeout(function(){try{buildMap('SAIDI');}catch(e){}},100);
-    setTimeout(function(){try{renderKpi();}catch(e){}},150);
-    setTimeout(function(){try{renderOutage();}catch(e){}},200);
-    setTimeout(function(){try{renderDriver();}catch(e){}},250);
-    setTimeout(function(){try{renderZones();}catch(e){}},300); // Zone table + targets
-    setTimeout(function(){try{renderQsi();}catch(e){}},350);
-  },50);
+  renderAll();
   goView(curView);
 }
 
@@ -1421,13 +1431,45 @@ window.addEventListener('load', function(){
   if(fi)fi.addEventListener('change',function(){if(this.files[0])processFile(this.files[0]);});
   // Load live data in background — never blocks UI
   loadLive().then(function(ok){
-    if(ok&&document.getElementById('app').style.display==='block'){refreshAllViews();}
+    if(ok&&document.getElementById('app').style.display==='block'){
+      console.log('loadLive: refreshing with',D.period);
+      Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
+      renderAll();
+    }
   }).catch(function(){});
   // Preview buttons
   var cb=document.getElementById('preview-cancel');
   var pb=document.getElementById('preview-publish');
   if(cb)cb.onclick=function(){document.getElementById('preview-modal').style.display='none';window._pendingData=null;showMsg('info','Cancelled.');};
-  if(pb)pb.onclick=function(){document.getElementById('preview-modal').style.display='none';if(window._pendingData){D=window._pendingData;window._pendingData=null;publishData();}};
+  if(pb)pb.onclick=function(){
+    document.getElementById('preview-modal').style.display='none';
+    if(!window._pendingData)return;
+    // ── UPDATE DATA IMMEDIATELY ──
+    D=window._pendingData;
+    window._pendingData=null;
+    // Close admin, show dashboard
+    document.getElementById('admin-panel').style.display='none';
+    document.getElementById('welcome').style.display='none';
+    document.getElementById('app').style.display='block';
+    setPeriod();
+    // Destroy all cached charts
+    Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
+    // ── RENDER ALL VIEWS NOW ──
+    try{renderSumKPIs();}catch(e){console.error(e);}
+    try{renderZoneCards();}catch(e){console.error(e);}
+    setTimeout(function(){try{buildTrends();}catch(e){}},30);
+    setTimeout(function(){try{buildPie('SAIDI');}catch(e){}},80);
+    setTimeout(function(){try{buildMap('SAIDI');}catch(e){}},130);
+    setTimeout(function(){try{renderKpi();}catch(e){}},180);
+    setTimeout(function(){try{renderOutage();}catch(e){}},230);
+    setTimeout(function(){try{renderDriver();}catch(e){}},280);
+    setTimeout(function(){try{renderZones();}catch(e){}},330);
+    setTimeout(function(){try{renderQsi();}catch(e){}},380);
+    goView('summary');
+    // ── SAVE TO CLOUD IN BACKGROUND ──
+    showMsg('info','Updating all visitors…');
+    setTimeout(function(){publishData();},500);
+  };
   // load-demo button
   var ldb=document.getElementById('load-demo-btn');
   if(ldb)ldb.onclick=function(){showMsg('info','Loading data…');setTimeout(function(){setPeriod();showMsg('ok','Data loaded — '+D.period);setTimeout(function(){hideAdmin();document.getElementById('welcome').style.display='none';document.getElementById('app').style.display='block';refreshAllViews();},800);},300);};
@@ -1528,19 +1570,53 @@ function parseWorkbook(wb,fileName){
     // ── CONTRIBUTION col5=gov, col6=decimal ──
     var cRows=gs('Governorate Contribution');var pContrib=D.contrib;
     if(cRows){var sc={labels:[],values:[]},sfc={labels:[],values:[]},csec=null;
-      cRows.forEach(function(row){if(!row)return;var c5=cl(row[5]);
-        if(c5.toUpperCase().indexOf('SAIDI')>=0){csec='s';return;}
-        if(c5.toUpperCase().indexOf('SAIFI')>=0){csec='sf';return;}
-        if(!csec||!c5||row[6]===null)return;var pct=Math.round(nv(row[6])*100);if(isNaN(pct)||pct<=0)return;
-        if(csec==='s'){sc.labels.push(c5);sc.values.push(pct);}else{sfc.labels.push(c5);sfc.values.push(pct);}});
+      cRows.forEach(function(row){if(!row)return;
+        // Find which column has the gov name (first text col) and which has the %
+        // Header rows contain SAIDI/SAIFI — find them by scanning all cols
+        var rowTxt=row.map(function(c){return cl(c).toUpperCase();});
+        var saidiIdx=rowTxt.findIndex(function(t){return t.indexOf('SAIDI')>=0&&t.length<10;});
+        var saifiIdx=rowTxt.findIndex(function(t){return t.indexOf('SAIFI')>=0&&t.length<10;});
+        if(saidiIdx>=0){csec='s';return;}
+        if(saifiIdx>=0){csec='sf';return;}
+        if(!csec)return;
+        // Data row: find first non-null text col (gov name) and next numeric col (%)
+        var nameCol=-1,valCol=-1;
+        for(var ci=0;ci<row.length;ci++){
+          if(row[ci]===null||row[ci]===undefined)continue;
+          var v=nv(row[ci]);
+          if(v===null&&cl(row[ci]).length>1&&nameCol<0)nameCol=ci;
+          else if(v!==null&&v>0&&v<=1&&nameCol>=0&&valCol<0)valCol=ci;
+        }
+        if(nameCol<0||valCol<0)return;
+        var gName=cl(row[nameCol]);var pct=Math.round(nv(row[valCol])*100);
+        if(!gName||isNaN(pct)||pct<=0)return;
+        if(csec==='s'){sc.labels.push(gName);sc.values.push(pct);}
+        else{sfc.labels.push(gName);sfc.values.push(pct);}});
       if(sc.labels.length>0)pContrib={SAIDI:sc,SAIFI:sfc};}
 
     // ── VOLTAGE — find LV/11K/33K header row, next row=values ──
     function pVolt(rows){if(!rows)return null;var labels=[],values=[];
-      for(var i=0;i<rows.length;i++){var row=rows[i];if(!row)continue;
-        var hasV=row.some(function(c){return c&&cl(c).toUpperCase().match(/^(LV|11|33)/);});
-        if(!hasV)continue;var vrow=rows[i+1]||[];
-        row.forEach(function(c,j){if(c&&cl(c).toUpperCase().match(/^(LV|11|33)/)){labels.push(cl(c));values.push(nv(vrow[j])||0);}});break;}
+      // Find label row: contains 'LV' or '11K' or '33K' as cell values (not matching years)
+      for(var i=0;i<rows.length;i++){
+        var row=rows[i];if(!row)continue;
+        var hasV=row.some(function(c){
+          if(!c)return false;
+          var s=cl(c);
+          return s==='LV'||s.toUpperCase().indexOf('KV')>=0||s.toUpperCase()==='LV';
+        });
+        if(!hasV)continue;
+        var vrow=rows[i+1]||[];
+        row.forEach(function(c,j){
+          if(!c)return;
+          var s=cl(c);
+          // Only take voltage level labels (LV, 11Kv, 33Kv etc)
+          if(s==='LV'||s.toUpperCase().indexOf('KV')>=0){
+            var val=nv(vrow[j]);
+            if(val!==null){labels.push(s);values.push(val);}
+          }
+        });
+        if(labels.length>0)break;
+      }
       return labels.length>0?{labels:labels,values:values}:null;}
     var pVoltage=D.voltage;
     var vs=pVolt(gs('SAIDI by Voltage')),vsf=pVolt(gs('SAIFI by Voltage'));
@@ -1563,12 +1639,30 @@ function parseWorkbook(wb,fileName){
       if(ml.length>0)pMvU={labels:ml,values:mv};}
 
     // ── GOV BREAKDOWN ──
-    function pBD(rows,gc,pc,uc){var r={};if(!rows)return r;
-      rows.forEach(function(row){if(!row||!row[gc])return;var g=cl(row[gc]);
-        if(!g||g.toLowerCase().indexOf('perform')>=0||g.toLowerCase().indexOf('planned')>=0)return;
-        var p=nv(row[pc]),u=nv(row[uc]);if(p===null||u===null)return;r[g]={p:p,u:u};});return r;}
-    var bdS=pBD(gs('Governorate Performance SAIDI'),5,6,7);
-    var bdSf=pBD(gs('Governorate Performance SAIFI'),6,7,8);
+    function pBD(rows){
+      var r={};if(!rows)return r;
+      // Find planned/unplanned columns from header row
+      var pc=-1,uc=-1,nc=-1;
+      for(var ri=0;ri<rows.length;ri++){
+        var row=rows[ri];if(!row)continue;
+        for(var ci=0;ci<row.length;ci++){
+          if(!row[ci])continue;var cv=cl(row[ci]).toLowerCase();
+          if(cv.indexOf('planned')>=0&&cv.indexOf('un')<0)pc=ci;
+          if(cv.indexOf('unplanned')>=0)uc=ci;
+        }
+        if(pc>=0&&uc>=0)break;
+      }
+      if(pc<0||uc<0)return r;
+      nc=pc-1; // gov name is one col before planned
+      rows.forEach(function(row){
+        if(!row||nc<0||!row[nc])return;
+        var g=cl(row[nc]);
+        if(!g||g.toLowerCase().indexOf('govern')>=0||g.toLowerCase().indexOf('perform')>=0)return;
+        var p=nv(row[pc]),u=nv(row[uc]);if(p===null||u===null)return;
+        r[g]={p:p,u:u};});
+      return r;}
+    var bdS=pBD(gs('Governorate Performance SAIDI'));
+    var bdSf=pBD(gs('Governorate Performance SAIFI'));
     var pBreakdown=D.breakdown;
     if(Object.keys(bdS).length>0){pBreakdown={};Object.keys(bdS).forEach(function(g){pBreakdown[g]={SAIDI:bdS[g],SAIFI:bdSf[g]||{p:0,u:0}};});}
 
@@ -1594,7 +1688,7 @@ function parseWorkbook(wb,fileName){
     var tRows=gs('Transient Outage')||gs('2026 (Transient');var pTrans=D.transient;
     if(tRows){var tl=[],tt=[];
       tRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);
-        if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0)return;
+        if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0||g.toLowerCase()==='nedc'||g.toLowerCase()==='total')return;
         var v=row[5],ts='0:00';
         if(v!==null&&v!==undefined&&typeof v==='number'&&v<1){var tm=Math.round(v*24*60),h=Math.floor(tm/60),m=tm%60;ts=h+':'+(m<10?'0':'')+m;}
         else if(v!==null){ts=String(v);}
@@ -1822,39 +1916,23 @@ var JSONBIN_API_KEY='$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11
 var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
 
 async function publishData(){
-  showMsg('info','Publishing to all visitors…');
   try{
     var res=await fetch(JSONBIN_URL,{method:'PUT',
       headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
       body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})});
     if(res.ok){
-      showMsg('ok','Published! All visitors now see '+D.period+' data.');
-      setTimeout(function(){
-        hideAdmin();
-        if(!document.getElementById('app').style.display||document.getElementById('app').style.display==='none'){
-          document.getElementById('welcome').style.display='none';
-          document.getElementById('app').style.display='block';}
-        setPeriod();
-        Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
-        setTimeout(function(){
-          // Render summary immediately (includes zones)
-          try{renderSumKPIs();}catch(e){}
-          try{renderZoneCards();}catch(e){}
-          setTimeout(function(){try{buildTrends();}catch(e){}},30);
-          setTimeout(function(){try{buildPie('SAIDI');}catch(e){}},80);
-          setTimeout(function(){try{buildMap('SAIDI');}catch(e){}},130);
-          // Pre-cache other views
-          setTimeout(function(){try{renderKpi();}catch(e){}},200);
-          setTimeout(function(){try{renderOutage();}catch(e){}},300);
-          setTimeout(function(){try{renderDriver();}catch(e){}},400);
-          setTimeout(function(){try{renderZones();}catch(e){}},500);
-          setTimeout(function(){try{renderQsi();}catch(e){}},600);
-          goView('summary');
-        },100);
-      },1200);
-    }else{var err=await res.text();showMsg('err','Publish failed ('+res.status+'). '+err);}
-  }catch(e){showMsg('err','Network error: '+e.message);}
+      showMsg('ok','✅ Saved to cloud — all visitors will see '+D.period);
+    }else{
+      var err=await res.text();
+      showMsg('err','Cloud save failed ('+res.status+') — data updated locally only');
+      console.error('JSONBin:',res.status,err);
+    }
+  }catch(e){
+    showMsg('err','No internet — data updated locally only');
+    console.error(e);
+  }
 }
+
 
 async function loadLive(){
   try{
@@ -1870,7 +1948,13 @@ async function loadLive(){
       if(bin&&bin.nedc_data&&bin.nedc_data.saidi)live=bin.nedc_data;
       else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
       else if(bin&&bin.saidi)live=bin;
-      if(live){D=live;console.log('Live data loaded:',D.period);return true;}
+      if(live){
+        // Only update if live data isn't older than what we already have
+        var lPeriod=live.period||'';var dPeriod=D.period||'';
+        if(lPeriod>=dPeriod){D=live;console.log('Live data loaded:',D.period);}
+        else{console.log('Live data older than local — keeping local:',D.period);}
+        return true;
+      }
       return false;
     }
     return false;
