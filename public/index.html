@@ -301,7 +301,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
   <div id="main">
     <div id="topbar">
       <div class="topbar-left">
-        <span class="topbar-title" id="page-title">Executive Summary</span>
+        <span class="topbar-title" id="page-title">Overview</span>
         <span class="period-tag" id="period-tag">YTD</span>
       </div>
       <div class="topbar-right">
@@ -793,11 +793,7 @@ var D = {
 };
 
 
-// ── STATE VARIABLES ──
-var curView='summary', kpiMode='SAIDI', outMode='SAIDI', mapGrouped=true, mapMode='SAIDI', modalType=null, omanMap=null, charts={};
-var COLORS=['#1a5276','#c0392b','#d4a017','#1e8449','#6c3483','#0e6655','#784212','#1f618d','#117a65','#626567'];
-var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements'};
+
 
 // ── UTILITIES ──
 function latestIdx(arr){var i=0;(arr||[]).forEach(function(v,j){if(v!==null&&v!==undefined)i=j;});return i;}
@@ -939,12 +935,21 @@ function goView(v){
 
 function refreshAllViews(){
   setPeriod();
-  // Destroy all charts so they rebuild with fresh data
   Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
-  // Re-render current view
+  // Re-render ALL sections with new data
+  setTimeout(function(){
+    try{renderSumKPIs();}catch(e){}
+    try{renderZoneCards();}catch(e){}  // zones always re-rendered
+    try{buildTrends();}catch(e){}
+    setTimeout(function(){try{buildPie('SAIDI');}catch(e){}},50);
+    setTimeout(function(){try{buildMap('SAIDI');}catch(e){}},100);
+    setTimeout(function(){try{renderKpi();}catch(e){}},150);
+    setTimeout(function(){try{renderOutage();}catch(e){}},200);
+    setTimeout(function(){try{renderDriver();}catch(e){}},250);
+    setTimeout(function(){try{renderZones();}catch(e){}},300); // Zone table + targets
+    setTimeout(function(){try{renderQsi();}catch(e){}},350);
+  },50);
   goView(curView);
-  // Always re-render zone cards (they disappear after data update)
-  setTimeout(function(){try{renderZoneCards();}catch(e){}},100);
 }
 
 
