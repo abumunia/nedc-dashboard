@@ -1707,21 +1707,29 @@ function parseWorkbook(wb,fileName){
 
     // ── DRIVER HEATMAP ──
     var dRows=gs('The Driver Frequency');var pDrv=D.drivers,pDrvM=D.driverMatrix;
-    if(dRows){var hi=-1,hr=null;
-      dRows.forEach(function(row,i){if(row&&row[4]&&cl(row[4])==='Outage Reason'){hi=i;hr=row;}});
+    if(dRows){var hi=-1,hr=null,hrReasonCol=4;
+      dRows.forEach(function(row,i){
+        if(!row)return;
+        // Scan all cols for 'Outage Reason' header (XLSX.js may strip leading nulls)
+        for(var dci=0;dci<row.length;dci++){
+          if(row[dci]&&cl(row[dci])==='Outage Reason'){hi=i;hr=row;hrReasonCol=dci;break;}
+        }
+      });
       if(hi>=0){
-        // Find gov columns and total column from header row
+        // Find gov columns and total column (columns AFTER 'Outage Reason' column)
         var govs=[];var totalCol=-1;
-        for(var j=5;j<hr.length;j++){
+        for(var j=hrReasonCol+1;j<hr.length;j++){
           if(hr[j]===null||hr[j]===undefined)continue;
           var hv=cl(hr[j]);
           if(hv.toUpperCase()==='NEDC'||hv.toUpperCase()==='TOTAL'){totalCol=j;}
-          else{govs.push({name:hv,col:j});}
+          else if(hv.length>0){govs.push({name:hv,col:j});}
         }
         var dList=[],dRows2=[];
         for(var i=hi+1;i<dRows.length;i++){
-          var row=dRows[i];if(!row||!row[4])continue;
-          var reason=cl(row[4]);if(!reason)continue;
+          var row=dRows[i];if(!row)continue;
+          // Reason is at hrReasonCol (or scan for text at that position)
+          var reason=row[hrReasonCol]?cl(row[hrReasonCol]):'';
+          if(!reason)continue;
           // Use NEDC total column if found, else sum govs
           var tot2=0;
           if(totalCol>0&&row[totalCol]!==null&&row[totalCol]!==undefined){
@@ -1741,37 +1749,46 @@ function parseWorkbook(wb,fileName){
         }
       }}
 
-    // ── QSI PROJECTS ──
-    // Indicator row: ONLY col5 has text, all others null (rows 2,6,10,14)
-    // Year header: col4=year number, col5=string like '2025 YTD'
-    // Values row: col4=2024total, col5=y25, col6=y26 (all numbers)
+    // ── QSI PROJECTS ── (XLSX.js strips leading nulls, so scan all cells)
+    // Indicator row: exactly ONE non-null cell = text (col0 after stripping)
+    // Year header: first cell = year number, next = '2025 YTD' string
+    // Values row: first cell = 2024 total (>10), next = y25, next = y26 (both numbers)
     var qRows=gs('NEDC QSI');var pQsi=D.qsiProjects;
     if(qRows){
       var qlist=[];
       for(var qi=0;qi<qRows.length;qi++){
         var qrow=qRows[qi];if(!qrow)continue;
-        // STOP: hit the KPI action plan section (col4 has 'NEDC Quality...' or 'Muscat Governorate' etc)
-        if(qrow[4]!==null&&qrow[4]!==undefined&&typeof qrow[4]==='string'&&qrow[4].length>5)break;
-        // Indicator row: col4=null AND col5=text string (not a number, not a header)
-        if(qrow[4]!==null&&qrow[4]!==undefined)continue; // col4 must be null
-        var c5=qrow[5];
-        if(c5===null||c5===undefined)continue; // col5 must exist
-        var ind=cl(c5);
-        if(!ind||ind.length<3)continue; // must have real text
-        try{parseFloat(ind);if(!isNaN(parseFloat(ind)))continue;}catch(e){}// skip if numeric
+        // Collect non-null cells in this row
+        var qnn=[];
+        for(var qci=0;qci<qrow.length;qci++){
+          if(qrow[qci]!==null&&qrow[qci]!==undefined)qnn.push({col:qci,val:qrow[qci]});
+        }
+        if(qnn.length===0)continue;
+        // STOP: any cell contains 'quality of supply' or 'improvement plan' (KPI action section)
+        var stopRow=qnn.some(function(c){var t=cl(c.val).toLowerCase();return t.indexOf('quality of supply')>=0||t.indexOf('improvement plan')>=0;});
+        if(stopRow)break;
+        // Indicator row: exactly 1 non-null cell, must be a meaningful non-numeric string
+        if(qnn.length!==1)continue;
+        var ind=cl(qnn[0].val);
+        if(!ind||ind.length<3)continue;
+        if(!isNaN(parseFloat(ind))&&isFinite(parseFloat(ind)))continue; // skip numeric
         if(ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('indicator')>=0||
-           ind.toLowerCase().indexOf('quality')>=0)continue; // skip header rows
-        // Find values row in next 3 rows: col4=2024total(>10), col5=y25, col6=y26
+           ind.toLowerCase().indexOf('quality')>=0)continue;
+        // Find values row within next 4 rows:
+        // values row has >=3 non-null cells; first=2024total(>10), second=y25, third=y26
         var y25=null,y26=null;
         for(var qk=qi+1;qk<=qi+4&&qk<qRows.length;qk++){
           var tr=qRows[qk];if(!tr)continue;
-          var v4=nv(tr[4]),v5=nv(tr[5]),v6=nv(tr[6]);
-          if(v4===null||v4<10)continue;       // col4 must be large number (2024 annual total)
-          if(v5===null||v6===null)continue;   // must have y25 and y26
-          if(v5>500||v6>500)continue;         // y25/y26 are YTD counts, not annual totals
-          if(v5>=2020&&v5<=2030)continue;     // skip if year numbers (header row)
-          if(v6>=2020&&v6<=2030)continue;
-          y25=v5;y26=v6;break;
+          var tnn=[];
+          for(var tci=0;tci<tr.length;tci++){if(tr[tci]!==null&&tr[tci]!==undefined)tnn.push(tr[tci]);}
+          if(tnn.length<3)continue;
+          var tv0=nv(tnn[0]),tv1=nv(tnn[1]),tv2=nv(tnn[2]);
+          if(tv0===null||tv0<10)continue;        // first = 2024 annual total (must be >10)
+          if(tv1===null||tv2===null)continue;    // must have y25 and y26
+          if(tv1>=2020&&tv1<=2030)continue;      // skip year-label rows (2024,2025,2026)
+          if(tv2>=2020&&tv2<=2030)continue;
+          if(tv1>2000||tv2>2000)continue;        // YTD counts should be reasonable
+          y25=tv1;y26=tv2;break;
         }
         if(y25===null||y26===null)continue;
         var imp=y25!==0?((y26-y25)/y25*100):0;
