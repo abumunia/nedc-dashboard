@@ -792,6 +792,77 @@ var D = {
   }
 };
 
+
+// ── STATE VARIABLES ──
+var curView='summary', kpiMode='SAIDI', outMode='SAIDI', mapGrouped=true, mapMode='SAIDI', modalType=null, omanMap=null, charts={};
+var COLORS=['#1a5276','#c0392b','#d4a017','#1e8449','#6c3483','#0e6655','#784212','#1f618d','#117a65','#626567'];
+var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements'};
+
+// ── UTILITIES ──
+function latestIdx(arr){var i=0;(arr||[]).forEach(function(v,j){if(v!==null&&v!==undefined)i=j;});return i;}
+
+function showMsg(type,txt){
+  var el=document.getElementById('upload-msg');
+  if(!el)return;
+  el.className=type==='ok'?'msg-ok':type==='err'?'msg-err':'msg-info';
+  el.textContent=txt;el.style.display='block';
+}
+
+function setPeriod(){
+  var p=D.period||'YTD';
+  var pt=document.getElementById('period-tag');if(pt)pt.textContent=p;
+  var fl=document.getElementById('file-label');
+  if(fl){
+    var mon=p.replace('YTD ','').split(' ');
+    var friendly=mon.length===2?'NEDC Performance — '+mon[0].charAt(0)+mon[0].slice(1).toLowerCase()+' '+mon[1]:'NEDC Performance';
+    fl.textContent=friendly;
+  }
+}
+
+function showAdmin(){
+  askPassword().then(function(pw){
+    if(!pw)return;
+    if(pw!=='Humaid@1234'){showMsg('err','Incorrect password.');return;}
+    document.getElementById('upload-msg').style.display='none';
+    document.getElementById('admin-panel').style.display='flex';
+    if(omanMap){omanMap.remove();omanMap=null;}
+  });
+}
+
+function hideAdmin(){
+  document.getElementById('admin-panel').style.display='none';
+  if(curView==='summary'){setTimeout(function(){buildMap(mapMode);},150);}
+}
+
+function toast(msg){
+  var t=document.getElementById('toast');
+  if(!t)return;
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},3000);
+}
+
+function dc(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function mkChart(id,cfg){dc(id);var ctx=document.getElementById(id);if(!ctx)return;charts[id]=new Chart(ctx,cfg);return charts[id];}
+
+function impBadge(v){
+  if(v===null||v===undefined)return '<span class="imp-n">—</span>';
+  var good=v<=0,cls=good?'imp-g':'imp-r',icon=good?'▼':'▲';
+  return '<span class="'+cls+'">'+icon+' '+Math.abs(v).toFixed(1)+'%</span>';
+}
+
+// ── PASSWORD MODAL ──
+var pwResolve=null;
+function askPassword(){
+  return new Promise(function(resolve){
+    pwResolve=resolve;
+    document.getElementById('pw-input').value='';
+    document.getElementById('pw-err').style.display='none';
+    document.getElementById('pw-modal').classList.add('open');
+    setTimeout(function(){document.getElementById('pw-input').focus();},100);
+  });
+}
+
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
@@ -868,17 +939,22 @@ function goView(v){
 
 function refreshAllViews(){
   setPeriod();
+  // Destroy all charts so they rebuild with fresh data
   Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
+  // Re-render current view
   goView(curView);
+  // Always re-render zone cards (they disappear after data update)
+  setTimeout(function(){try{renderZoneCards();}catch(e){}},100);
 }
 
 
 function renderSummary(){
-  renderSumKPIs();
-  renderZoneCards();
-  setTimeout(function(){buildTrends();},50);
-  setTimeout(function(){buildPie('SAIDI');},100);
-  setTimeout(function(){buildMap('SAIDI');},150);
+  try{renderSumKPIs();}catch(e){console.error('KPIs:',e);}
+  try{renderZoneCards();}catch(e){console.error('Zones:',e);}
+  // Charts need DOM dimensions - stagger slightly
+  setTimeout(function(){try{buildTrends();}catch(e){console.error('Trends:',e);}},30);
+  setTimeout(function(){try{buildPie('SAIDI');}catch(e){console.error('Pie:',e);}},80);
+  setTimeout(function(){try{buildMap('SAIDI');}catch(e){console.error('Map:',e);}},130);
 }
 
 function renderSumKPIs(){
@@ -1303,7 +1379,8 @@ window.addEventListener('load', function(){
       document.getElementById('welcome').style.display='none';
       document.getElementById('app').style.display='block';
       setPeriod();
-      setTimeout(function(){goView('summary');},80);
+      // Render immediately - DOM is visible now
+      goView('summary');
     });
   }
   // Admin buttons
@@ -1365,30 +1442,7 @@ window.addEventListener('load', function(){
   var dz2=document.getElementById('dropzone');
   dz2.addEventListener('click',function(){document.getElementById('file-input').click();});
 });
-</script>
-<div id="preview-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);backdrop-filter:blur(8px);z-index:99999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;max-width:680px;width:100%;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
-    <div style="padding:18px 24px;background:#0c1e35;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">
-      <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:4px">Review Before Publishing</div>
-      <div style="font-size:17px;font-weight:800;color:#fff" id="preview-title">Data Preview</div></div>
-      <div style="background:rgba(255,255,255,0.1);padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700;color:#fff" id="preview-period-badge">YTD</div>
-    </div>
-    <div style="overflow-y:auto;flex:1;padding:18px 24px">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="preview-cards"></div>
-      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">SAIDI — 2026 YTD</div><div id="preview-saidi" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
-      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">SAIFI — 2026 YTD</div><div id="preview-saifi" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
-      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">Outage Events — 2026 YTD</div><div id="preview-outages" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
-      <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">Governorates Parsed</div><div id="preview-govs" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
-      <div id="preview-warnings" style="border-radius:8px;padding:12px 14px;font-size:12px;display:none"></div>
-    </div>
-    <div style="padding:14px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8f9fb;border-radius:0 0 16px 16px">
-      <button id="preview-cancel" style="padding:9px 20px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:#6b7280">← Cancel</button>
-      <button id="preview-publish" style="padding:9px 22px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Publish to All Visitors →</button>
-    </div>
-  </div>
-</div>
-</body>
-</html>
+
 function parseWorkbook(wb,fileName){
   try{
     var sn=wb.SheetNames;
@@ -1704,12 +1758,18 @@ async function publishData(){
         setPeriod();
         Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
         setTimeout(function(){
-          try{renderSummary();}catch(e){console.error(e);}
-          setTimeout(function(){try{renderKpi();}catch(e){}},80);
-          setTimeout(function(){try{renderOutage();}catch(e){}},160);
-          setTimeout(function(){try{renderDriver();}catch(e){}},240);
-          setTimeout(function(){try{renderZones();}catch(e){}},320);
-          setTimeout(function(){try{renderQsi();}catch(e){}},400);
+          // Render summary immediately (includes zones)
+          try{renderSumKPIs();}catch(e){}
+          try{renderZoneCards();}catch(e){}
+          setTimeout(function(){try{buildTrends();}catch(e){}},30);
+          setTimeout(function(){try{buildPie('SAIDI');}catch(e){}},80);
+          setTimeout(function(){try{buildMap('SAIDI');}catch(e){}},130);
+          // Pre-cache other views
+          setTimeout(function(){try{renderKpi();}catch(e){}},200);
+          setTimeout(function(){try{renderOutage();}catch(e){}},300);
+          setTimeout(function(){try{renderDriver();}catch(e){}},400);
+          setTimeout(function(){try{renderZones();}catch(e){}},500);
+          setTimeout(function(){try{renderQsi();}catch(e){}},600);
           goView('summary');
         },100);
       },1200);
@@ -1737,3 +1797,27 @@ async function loadLive(){
     return false;
   }catch(e){console.log('loadLive:',e.message);return false;}
 }
+</script>
+<div id="preview-modal"<div id="preview-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);backdrop-filter:blur(8px);z-index:99999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;max-width:680px;width:100%;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
+    <div style="padding:18px 24px;background:#0c1e35;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:4px">Review Before Publishing</div>
+      <div style="font-size:17px;font-weight:800;color:#fff" id="preview-title">Data Preview</div></div>
+      <div style="background:rgba(255,255,255,0.1);padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700;color:#fff" id="preview-period-badge">YTD</div>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:18px 24px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="preview-cards"></div>
+      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">SAIDI — 2026 YTD</div><div id="preview-saidi" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">SAIFI — 2026 YTD</div><div id="preview-saifi" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">Outage Events — 2026 YTD</div><div id="preview-outages" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;margin-bottom:6px">Governorates Parsed</div><div id="preview-govs" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+      <div id="preview-warnings" style="border-radius:8px;padding:12px 14px;font-size:12px;display:none"></div>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;background:#f8f9fb;border-radius:0 0 16px 16px">
+      <button id="preview-cancel" style="padding:9px 20px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:#6b7280">← Cancel</button>
+      <button id="preview-publish" style="padding:9px 22px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Publish to All Visitors →</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
