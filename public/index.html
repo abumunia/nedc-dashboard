@@ -1064,6 +1064,7 @@ function buildMap(ind){
         return members.indexOf(d.gov)>=0||
                (d.group&&(d.group===name||d.group.replace('Sharqiyah ( South & North) + Wusta','Sharqiyah (S&N) & Wusta')===name));
       });
+      console.log('Group',name,': members=',members,'matched govs=',rows.map(function(r){return r.gov+':'+r.r26;}),'govData govs=',govData.map(function(d){return d.gov;}));
       if(!rows.length)return;
       var avgR=rows.reduce(function(s,r){return s+r.r26;},0)/rows.length;
       row={r26:avgR,gov:name,imp:rows.reduce(function(s,r){return s+r.imp;},0)/rows.length};
