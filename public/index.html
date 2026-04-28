@@ -598,12 +598,12 @@ var D = {
     SAIFI:{labels:["North Batinah","Muscat","AL Dakhliya","South Batinah","South Sharqiyyah","North Sharqiyyah","Al Dhahra","Birami","AL Wusta","Musandam"],values:[24,16,13,12,11,8,5,5,4,2]}
   },
   voltage:{
-    SAIDI:{labels:['11 KV','33 KV','LV'],values:[24.1,4.1,1]},
-    SAIFI:{labels:['11 KV','33 KV','LV'],values:[0.19,0.08,0.01]}
+    SAIDI:{labels:['LV','11Kv','33Kv'],values:[1.5,37,11]},
+    SAIFI:{labels:['LV','11Kv','33Kv'],values:[0.03,0.37,0.2]}
   },
   zones:[
-    {name:"Zone 1",s24:81.5,sf24:1.1,s25:71.4,sf25:0.94,s26:73.9,sf26:0.98,st:72,sp:75.6,sft:1.03,sfp:1.08},
-    {name:"Zone 2",s24:280.5,sf24:2.5,s25:235.4,sf25:2.4,s26:231.8,sf26:2.4,st:238,sp:249.9,sft:2.20,sfp:2.31},
+    {name:"Zone 1",s24:81.5,sf24:1.1,s25:71.4,sf25:0.94,s26:82.1,sf26:1.1,st:72,sp:75.6,sft:1.03,sfp:1.08},
+    {name:"Zone 2",s24:280.5,sf24:2.5,s25:235.4,sf25:2.4,s26:245.4,sf26:2.7,st:238,sp:249.9,sft:2.20,sfp:2.31},
     {name:"Zone 3",s24:293.3,sf24:3.2,s25:153.1,sf25:2.3,s26:151.5,sf26:2.33,st:133,sp:139.7,sft:2.20,sfp:2.31}
   ],
   breakdown:{
@@ -1445,8 +1445,10 @@ window.addEventListener('load', function(){
     document.getElementById('preview-modal').style.display='none';
     if(!window._pendingData)return;
     // ── UPDATE DATA IMMEDIATELY ──
+    _justPublished=true; // prevent loadLive from overwriting
     D=window._pendingData;
     window._pendingData=null;
+    setTimeout(function(){_justPublished=false;},30000); // allow fresh load after 30s
     // Close admin, show dashboard
     document.getElementById('admin-panel').style.display='none';
     document.getElementById('welcome').style.display='none';
@@ -1528,44 +1530,35 @@ function parseWorkbook(wb,fileName){
     var mon2=MO[li2].charAt(0)+MO[li2].slice(1).toLowerCase();
     var gName='NEDC_Performance_'+mon2+'2026.xlsx';
 
-    // ── BY ZONE — detect SAIDI/SAIFI column positions from headers ──
+    // ── BY ZONE — fixed cols: name@3, s24@4,sf24@5,s25@6,sf25@7,s26@8,sf26@9 ──
     var zRows=gs('By Zone');var pZones=D.zones;
     if(zRows){
       var ZR={'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}};
-      // Detect columns from SAIDI/SAIFI sub-header row
-      var colS24=4,colSf24=5,colS25=6,colSf25=7,colS26=8,colSf26=9; // defaults
-      for(var zri=0;zri<zRows.length;zri++){
-        var zhr=zRows[zri];if(!zhr)continue;
-        // Find row with multiple SAIDI entries (sub-header row)
-        var saidiCols=[],saifiCols=[];
-        for(var zci=0;zci<zhr.length;zci++){
-          if(!zhr[zci])continue;
-          var zcv=cl(zhr[zci]).toUpperCase();
-          if(zcv==='SAIDI'||zcv.indexOf('SAIDI (ROL')>=0||zcv.indexOf('SAIDI')>=0)saidiCols.push(zci);
-          if(zcv==='SAIFI'||zcv.indexOf('SAIFI (ROL')>=0||zcv.indexOf('SAIFI')>=0)saifiCols.push(zci);
-        }
-        if(saidiCols.length>=3&&saifiCols.length>=3){
-          colS24=saidiCols[0];colSf24=saifiCols[0];
-          colS25=saidiCols[1];colSf25=saifiCols[1];
-          colS26=saidiCols[2];colSf26=saifiCols[2];
-          break;
-        }
-      }
       var nz=[];
       zRows.forEach(function(row){
-        if(!row||!row[3])return;
-        var zn=cl(row[3]).toLowerCase();
-        if(zn.indexOf('zone')>=0&&(zn.indexOf('1')>=0||zn.indexOf('2')>=0||zn.indexOf('3')>=0)){
-          var reg=ZR[zn]||{st:0,sp:0,sft:0,sfp:0};
-          nz.push({name:zn.replace('zone','Zone').trim(),
-            s24:nv(row[colS24])||0,sf24:nv(row[colSf24])||0,
-            s25:nv(row[colS25])||0,sf25:nv(row[colSf25])||0,
-            s26:nv(row[colS26])||0,sf26:nv(row[colSf26])||0,
-            st:reg.st,sp:reg.sp,sft:reg.sft,sfp:reg.sfp});
+        if(!row)return;
+        // Find zone name: scan all cols for 'zone 1/2/3'
+        var zn='',nameAt=-1;
+        for(var ci=0;ci<row.length;ci++){
+          if(row[ci]===null||row[ci]===undefined)continue;
+          var cv=cl(row[ci]).toLowerCase();
+          if(cv.indexOf('zone')>=0&&(cv.indexOf('1')>=0||cv.indexOf('2')>=0||cv.indexOf('3')>=0)){
+            zn=cv;nameAt=ci;break;
+          }
         }
+        if(!zn||nameAt<0)return;
+        // Data starts at nameAt+1: s24,sf24,s25,sf25,s26,sf26
+        var dc=nameAt+1;
+        var s24=nv(row[dc]),sf24=nv(row[dc+1]),s25=nv(row[dc+2]),sf25=nv(row[dc+3]),s26=nv(row[dc+4]),sf26=nv(row[dc+5]);
+        var reg=ZR[zn]||{st:0,sp:0,sft:0,sfp:0};
+        nz.push({name:zn.replace('zone','Zone').trim(),
+          s24:s24||0,sf24:sf24||0,s25:s25||0,sf25:sf25||0,
+          s26:s26||0,sf26:sf26||0,
+          st:reg.st,sp:reg.sp,sft:reg.sft,sfp:reg.sfp});
       });
       if(nz.length>=3)pZones=nz;
     }
+
 
     // ── CONTRIBUTION col5=gov, col6=decimal ──
     var cRows=gs('Governorate Contribution');var pContrib=D.contrib;
@@ -1626,7 +1619,8 @@ function parseWorkbook(wb,fileName){
     var otRows=gs('Outage (Planned');var pOutType=D.outageType;
     if(otRows){var ot={SAIDI:{years:[],planned:[],unplanned:[]},SAIFI:{years:[],planned:[],unplanned:[]}},otsec=null;
       otRows.forEach(function(row){if(!row||row[3]===null)return;var c=cl(row[3]).toUpperCase();
-        if(c==='SAIDI:'){otsec='SAIDI';return;}if(c==='SAIFI:'){otsec='SAIFI';return;}
+        if(c==='SAIDI:'||c==='SAIDI'){otsec='SAIDI';return;}
+        if(c==='SAIFI:'||c==='SAIFI'){otsec='SAIFI';return;}
         if(!otsec||c.indexOf('TYPE')>=0||c.indexOf('CONTRIBUTION')>=0)return;
         var p=nv(row[4]),u=nv(row[5]);if(p===null||u===null)return;
         ot[otsec].years.push(cl(row[3]));ot[otsec].planned.push(p);ot[otsec].unplanned.push(u);});
@@ -1670,7 +1664,8 @@ function parseWorkbook(wb,fileName){
     var susRows=gs('MV Sustained');var pOutComp=D.outageComp;
     if(susRows){var sl=[],sy6=[],sy5=[],sy4=[];
       susRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);
-        if(!g||g.toLowerCase().indexOf('mv sustained')>=0||/^20\d\d/.test(g))return;
+        if(!g||g.toLowerCase().indexOf('mv sustained')>=0||g.toLowerCase().indexOf('comparison')>=0)return;
+        if(/^20\d\d/.test(g)||g.toLowerCase().indexOf('ytd')>=0||g.toLowerCase()==='total')return;
         var v5=nv(row[5]),v6=nv(row[6]),v7=nv(row[7]);if(v5===null&&v6===null)return;
         sl.push(g);sy6.push(v5||0);sy5.push(v6||0);sy4.push(v7||0);});
       if(sl.length>0)pOutComp={labels:sl,y2026:sy6,y2025:sy5,y2024:sy4};}
@@ -1679,7 +1674,8 @@ function parseWorkbook(wb,fileName){
     var planRows=gs('MV Planned Outages');var pPlanEx=D.plannedExceed;
     if(planRows){var pl=[],p4=[],p5=[],p6=[];
       planRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);
-        if(!g||g.toLowerCase().indexOf('mv planned')>=0||/^20\d\d/.test(g))return;
+        if(!g||g.toLowerCase().indexOf('mv planned')>=0||g.toLowerCase().indexOf('exceed')>=0)return;
+        if(/^20\d\d/.test(g)||g.toLowerCase()==='total')return;
         var v5=nv(row[5]),v6=nv(row[6]),v7=nv(row[7]);if(v5===null&&v6===null)return;
         pl.push(g);p4.push(v5||0);p5.push(v6||0);p6.push(v7||0);});
       if(pl.length>0)pPlanEx={labels:pl,y2024:p4,y2025:p5,y2026:p6};}
@@ -1690,8 +1686,22 @@ function parseWorkbook(wb,fileName){
       tRows.forEach(function(row){if(!row||!row[4])return;var g=cl(row[4]);
         if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0||g.toLowerCase()==='nedc'||g.toLowerCase()==='total')return;
         var v=row[5],ts='0:00';
-        if(v!==null&&v!==undefined&&typeof v==='number'&&v<1){var tm=Math.round(v*24*60),h=Math.floor(tm/60),m=tm%60;ts=h+':'+(m<10?'0':'')+m;}
-        else if(v!==null){ts=String(v);}
+        if(v!==null&&v!==undefined){
+          if(typeof v==='number'&&v>0&&v<1){
+            // Excel time fraction: convert to H:MM
+            var tm=Math.round(v*24*60),h=Math.floor(tm/60),m2=tm%60;
+            ts=h+':'+(m2<10?'0':'')+m2;
+          }else if(typeof v==='number'&&v>=1){
+            // Already in minutes or hours - treat as hours fraction
+            var tm2=Math.round((v%1)*24*60),h2=Math.floor(v),m3=tm2%60;
+            ts=h2+':'+(m3<10?'0':'')+m3;
+          }else if(typeof v==='string'){
+            // String time format - use as is or parse HH:MM
+            ts=v.replace('datetime.time(','').replace(')','').split(',').map(function(x,i){
+              x=x.trim();return i===0?x:(parseInt(x)<10?'0':'')+x;
+            }).join(':');
+          }else{ts=String(v);}
+        }
         tl.push(g);tt.push(ts);});
       if(tl.length>0)pTrans={labels:tl,times:tt};}
 
@@ -1934,7 +1944,10 @@ async function publishData(){
 }
 
 
+var _justPublished=false; // flag to prevent loadLive overwriting fresh data
+
 async function loadLive(){
+  if(_justPublished)return false; // don't overwrite freshly published data
   try{
     var ctrl=new AbortController();
     var t=setTimeout(function(){ctrl.abort();},3000);
