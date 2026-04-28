@@ -1486,14 +1486,44 @@ function parseWorkbook(wb,fileName){
     var mon2=MO[li2].charAt(0)+MO[li2].slice(1).toLowerCase();
     var gName='NEDC_Performance_'+mon2+'2026.xlsx';
 
-    // ── BY ZONE col3=name, 4-9=data ──
+    // ── BY ZONE — detect SAIDI/SAIFI column positions from headers ──
     var zRows=gs('By Zone');var pZones=D.zones;
-    if(zRows){var ZR={'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}};var nz=[];
-      zRows.forEach(function(row){if(!row||!row[3])return;var zn=cl(row[3]).toLowerCase();
+    if(zRows){
+      var ZR={'zone 1':{st:72,sp:75.6,sft:1.03,sfp:1.08},'zone 2':{st:238,sp:249.9,sft:2.20,sfp:2.31},'zone 3':{st:133,sp:139.7,sft:2.20,sfp:2.31}};
+      // Detect columns from SAIDI/SAIFI sub-header row
+      var colS24=4,colSf24=5,colS25=6,colSf25=7,colS26=8,colSf26=9; // defaults
+      for(var zri=0;zri<zRows.length;zri++){
+        var zhr=zRows[zri];if(!zhr)continue;
+        // Find row with multiple SAIDI entries (sub-header row)
+        var saidiCols=[],saifiCols=[];
+        for(var zci=0;zci<zhr.length;zci++){
+          if(!zhr[zci])continue;
+          var zcv=cl(zhr[zci]).toUpperCase();
+          if(zcv==='SAIDI'||zcv.indexOf('SAIDI (ROL')>=0||zcv.indexOf('SAIDI')>=0)saidiCols.push(zci);
+          if(zcv==='SAIFI'||zcv.indexOf('SAIFI (ROL')>=0||zcv.indexOf('SAIFI')>=0)saifiCols.push(zci);
+        }
+        if(saidiCols.length>=3&&saifiCols.length>=3){
+          colS24=saidiCols[0];colSf24=saifiCols[0];
+          colS25=saidiCols[1];colSf25=saifiCols[1];
+          colS26=saidiCols[2];colSf26=saifiCols[2];
+          break;
+        }
+      }
+      var nz=[];
+      zRows.forEach(function(row){
+        if(!row||!row[3])return;
+        var zn=cl(row[3]).toLowerCase();
         if(zn.indexOf('zone')>=0&&(zn.indexOf('1')>=0||zn.indexOf('2')>=0||zn.indexOf('3')>=0)){
           var reg=ZR[zn]||{st:0,sp:0,sft:0,sfp:0};
-          nz.push({name:zn.replace('zone','Zone').trim(),s24:nv(row[4])||0,sf24:nv(row[5])||0,s25:nv(row[6])||0,sf25:nv(row[7])||0,s26:nv(row[8])||0,sf26:nv(row[9])||0,st:reg.st,sp:reg.sp,sft:reg.sft,sfp:reg.sfp});}});
-      if(nz.length>=3)pZones=nz;}
+          nz.push({name:zn.replace('zone','Zone').trim(),
+            s24:nv(row[colS24])||0,sf24:nv(row[colSf24])||0,
+            s25:nv(row[colS25])||0,sf25:nv(row[colSf25])||0,
+            s26:nv(row[colS26])||0,sf26:nv(row[colSf26])||0,
+            st:reg.st,sp:reg.sp,sft:reg.sft,sfp:reg.sfp});
+        }
+      });
+      if(nz.length>=3)pZones=nz;
+    }
 
     // ── CONTRIBUTION col5=gov, col6=decimal ──
     var cRows=gs('Governorate Contribution');var pContrib=D.contrib;
@@ -1575,33 +1605,77 @@ function parseWorkbook(wb,fileName){
     var dRows=gs('The Driver Frequency');var pDrv=D.drivers,pDrvM=D.driverMatrix;
     if(dRows){var hi=-1,hr=null;
       dRows.forEach(function(row,i){if(row&&row[4]&&cl(row[4])==='Outage Reason'){hi=i;hr=row;}});
-      if(hi>=0){var govs=[];for(var j=5;j<hr.length;j++){if(hr[j]!==null)govs.push(cl(hr[j]));}
-        var dGovs=govs.slice(0,-1);var dList=[],dRows2=[];
-        for(var i=hi+1;i<dRows.length;i++){var row=dRows[i];if(!row||!row[4])continue;
+      if(hi>=0){
+        // Find gov columns and total column from header row
+        var govs=[];var totalCol=-1;
+        for(var j=5;j<hr.length;j++){
+          if(hr[j]===null||hr[j]===undefined)continue;
+          var hv=cl(hr[j]);
+          if(hv.toUpperCase()==='NEDC'||hv.toUpperCase()==='TOTAL'){totalCol=j;}
+          else{govs.push({name:hv,col:j});}
+        }
+        var dList=[],dRows2=[];
+        for(var i=hi+1;i<dRows.length;i++){
+          var row=dRows[i];if(!row||!row[4])continue;
           var reason=cl(row[4]);if(!reason)continue;
-          var counts=[],total=0;for(var j=5;j<5+dGovs.length;j++){var vv=parseInt(row[j])||0;counts.push(vv);total+=vv;}
-          var tot2=parseInt(row[5+dGovs.length])||total;if(tot2===0&&total===0)continue;
-          dList.push({r:reason,n:tot2,c:tot2>=30?'High':tot2>=5?'Medium':'Low'});dRows2.push({d:reason,v:counts});}
-        if(dList.length>0){pDrv=dList.sort(function(a,b){return b.n-a.n;});pDrvM={govs:dGovs,rows:dRows2};}}}
+          // Use NEDC total column if found, else sum govs
+          var tot2=0;
+          if(totalCol>0&&row[totalCol]!==null&&row[totalCol]!==undefined){
+            tot2=parseInt(row[totalCol])||0;
+          } else {
+            for(var j=0;j<govs.length;j++){tot2+=parseInt(row[govs[j].col])||0;}
+          }
+          var counts=[];
+          for(var j=0;j<govs.length;j++){counts.push(parseInt(row[govs[j].col])||0);}
+          if(tot2===0&&counts.every(function(c){return c===0;}))continue;
+          dList.push({r:reason,n:tot2,c:tot2>=30?'High':tot2>=5?'Medium':'Low'});
+          dRows2.push({d:reason,v:counts});
+        }
+        if(dList.length>0){
+          pDrv=dList.sort(function(a,b){return b.n-a.n;});
+          pDrvM={govs:govs.map(function(g){return g.name;}),rows:dRows2};
+        }
+      }}
 
     // ── QSI PROJECTS ──
+    // Row N: col4=null, col5='Indicator Name' (text)
+    // Row N+2: col4=2024_total, col5=y25, col6=y26
     var qRows=gs('NEDC QSI');var pQsi=D.qsiProjects;
-    if(qRows){var qlist=[];
-      for(var i=0;i<qRows.length;i++){var row=qRows[i];if(!row)continue;
-        if(row[4]&&cl(row[4]).toLowerCase().indexOf('quality of supply')>=0)break;
-        if(!row[5])continue;var ind=cl(row[5]);
-        if(!ind||ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('quality')>=0||ind.toLowerCase().indexOf('indicator')>=0)continue;
-        if(ind.match(/^\d{4}/)||ind.toLowerCase().indexOf('improvement')>=0)continue;
+    if(qRows){
+      var qlist=[];
+      for(var qi=0;qi<qRows.length;qi++){
+        var qrow=qRows[qi];if(!qrow)continue;
+        // Stop at KPI section
+        if(qrow[4]!==null&&qrow[4]!==undefined&&typeof qrow[4]==='string'&&cl(qrow[4]).toLowerCase().indexOf('quality')>=0)break;
+        // Indicator row: col4 must be null/empty AND col5 must be non-empty text
+        if(qrow[4]!==null&&qrow[4]!==undefined&&qrow[4]!=='')continue;
+        if(!qrow[5])continue;
+        var ind=cl(qrow[5]);
+        if(!ind)continue;
+        if(!isNaN(parseFloat(ind))&&isFinite(ind))continue; // skip numeric values (%, years)
+        if(ind.toLowerCase().indexOf('nedc')>=0||ind.toLowerCase().indexOf('indicator')>=0)continue;
+        if(ind.toLowerCase().indexOf('improvement')>=0||ind.match(/^20\d\d/))continue;
+        // Find values row: has large number at col4 (2024 annual) and smaller at col5,col6
         var vrow=null;
-        for(var k=i+1;k<=i+3&&k<qRows.length;k++){var tr=qRows[k];if(!tr)continue;
+        for(var qk=qi+1;qk<=qi+3&&qk<qRows.length;qk++){
+          var tr=qRows[qk];if(!tr)continue;
           var v4=nv(tr[4]),v5=nv(tr[5]),v6=nv(tr[6]);
-          if(v5!==null&&v5>=2020&&v5<=2030)continue;if(v6!==null&&v6>=2020&&v6<=2030)continue;
-          if(v4!==null&&v4>10&&v5!==null&&v6!==null&&v5>=0&&v6>=0){vrow=tr;break;}}
-        if(!vrow)continue;var y25=nv(vrow[5]),y26=nv(vrow[6]);if(y25===null||y26===null)continue;
+          if(v4===null||v4<5)continue;
+          if(v5===null||v6===null)continue;
+          if(v5>=2020&&v5<=2030)continue; // year label row
+          if(v6>=2020&&v6<=2030)continue;
+          vrow=tr;break;
+        }
+        if(!vrow)continue;
+        var y25=nv(vrow[5]),y26=nv(vrow[6]);
+        if(y25===null||y26===null)continue;
+        if(y25===0&&y26===0)continue;
         var imp=y25!==0?((y26-y25)/y25*100):0;
         qlist.push({ind:ind,y25:Math.round(y25),y26:Math.round(y26),imp:parseFloat(imp.toFixed(1))});
-        if(qlist.length>=6)break;}
-      if(qlist.length>0)pQsi=qlist;}
+        if(qlist.length>=6)break;
+      }
+      if(qlist.length>0)pQsi=qlist;
+    }
 
     // ── GOV GROUPS — dynamic column detection ──
     var gSheets=[
