@@ -298,14 +298,6 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:5px">Leave empty to show no announcement. Max 400 characters.</div>
     </div>
 
-    <!-- Connection Test -->
-    <div style="margin:0 0 14px">
-      <button id="test-jsonbin-btn" style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
-        🔌 Test Cloud Connection
-      </button>
-      <div id="test-jsonbin-result" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:8px;text-align:center;min-height:18px">Click to verify JSONBin save/load is working</div>
-    </div>
-
     <div class="btn-row">
       <button class="btn-outline" id="load-demo-btn">Load Monthly Demo Data</button>
       <button class="btn-outline" id="admin-back-btn">← Back</button>
@@ -1529,83 +1521,7 @@ function renderGovKpi(){
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
-var _justPublished=false; // flag to prevent loadLive overwriting fresh data
-
-async function loadLive(){
-  if(_justPublished)return false;
-  try{
-    var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},8000);
-    var url=JSONBIN_URL+'/latest?t='+Date.now();
-    var res=await fetch(url,{
-      headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
-      signal:ctrl.signal
-    });
-    clearTimeout(t);
-    console.log('loadLive status:',res.status);
-    if(res.ok){
-      var s=await res.json();
-      var bin=s.record||s;
-      var live=null;
-      if(bin&&bin.nedc_data&&bin.nedc_data.saidi)live=bin.nedc_data;
-      else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
-      else if(bin&&bin.saidi)live=bin;
-      if(live){
-        // Compare timestamps: only use JSONBin data if it's newer than localStorage
-        var lsSaved=localStorage.getItem('nedc_dashboard_saved')||'';
-        var jbSaved=live.updatedAt||'';
-        console.log('localStorage saved:',lsSaved,'JSONBin saved:',jbSaved);
-        if(!lsSaved||jbSaved>=lsSaved){
-          // JSONBin is newer or equal — use it and update localStorage
-          D=live;
-          try{
-            localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));
-            localStorage.setItem('nedc_dashboard_saved',jbSaved||new Date().toISOString());
-          }catch(e){}
-          console.log('Using JSONBin data:',D.period);
-        }else{
-          console.log('localStorage is newer — keeping local data:',D.period);
-        }
-        return true;
-      }
-      return false;
-    }
-    return false;
-  }catch(e){
-    if(e.name==='AbortError'){
-      console.log('loadLive: timeout — retrying once…');
-      // Retry once with longer timeout
-      try{
-        var res2=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{
-          headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'}
-        });
-        if(res2.ok){
-          var s2=await res2.json();
-          var bin2=s2.record||s2;
-          var live2=null;
-          if(bin2&&bin2.nedc_data&&bin2.nedc_data.saidi)live2=bin2.nedc_data;
-          else if(bin2&&bin2.saidi)live2=bin2;
-          if(live2){
-            var lsSaved2=localStorage.getItem('nedc_dashboard_saved')||'';
-            var jbSaved2=live2.updatedAt||'';
-            if(!lsSaved2||jbSaved2>=lsSaved2){
-              D=live2;
-              try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',jbSaved2||new Date().toISOString());}catch(e2){}
-              console.log('loadLive retry OK:',D.period);
-              return true;
-            }
-          }
-        }
-      }catch(e2){console.log('loadLive retry failed:',e2.message);}
-    }else{
-      console.log('loadLive error:',e.message);
-    }
-    return false;
-  }
-}
-
 window.addEventListener('load', function(){
-  console.log('%c NEDC Dashboard v1.5 — Build 2026-04-29 ', 'background:#c0392b;color:#fff;font-size:13px;font-weight:bold;padding:4px 8px;border-radius:4px');
   // ── LOGIN ──
   var AUTH_USER='DCC', AUTH_PASS='DCC@2026';
   var loginScreen=document.getElementById('login-screen');
@@ -1724,13 +1640,11 @@ window.addEventListener('load', function(){
     window._pendingData=null;
     var msgInput=document.getElementById('admin-msg-input');
     if(msgInput)D.customMsg=msgInput.value.trim();
-    // Save to localStorage immediately with timestamp
-    var _saveTime=new Date().toISOString();
-    D.updatedAt=_saveTime; // stamp D so JSONBin also gets the timestamp
+    // Save to localStorage immediately — persists across refresh/close
     try{
       localStorage.setItem('nedc_dashboard_data', JSON.stringify(D));
-      localStorage.setItem('nedc_dashboard_saved', _saveTime);
-      console.log('Saved to localStorage:', D.period, 'at', _saveTime);
+      localStorage.setItem('nedc_dashboard_saved', new Date().toISOString());
+      console.log('Saved to localStorage:', D.period);
     }catch(e){console.warn('localStorage save failed:', e);}
     setTimeout(function(){_justPublished=false;},30000); // allow fresh load after 30s
     // Close admin, show dashboard
@@ -1800,34 +1714,6 @@ window.addEventListener('load', function(){
       res_el.textContent='❌ Connection error: '+e.message;
       res_el.style.color='#f87171';
     }
-  });}
-
-  // Test JSONBin connection
-  var testBtn=document.getElementById('test-jsonbin-btn');
-  if(testBtn){testBtn.addEventListener('click',async function(){
-    var res_el=document.getElementById('test-jsonbin-result');
-    res_el.textContent='Testing connection…';res_el.style.color='rgba(255,255,255,0.6)';
-    try{
-      // Test READ
-      var rRes=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'}});
-      if(!rRes.ok){res_el.textContent='❌ Read failed ('+rRes.status+') — check API key';res_el.style.color='#f87171';return;}
-      var rData=await rRes.json();
-      var nd=(rData.record||rData).nedc_data||(rData.record||rData);
-      var storedPeriod=nd.period||'no period';
-      // Test WRITE
-      var wRes=await fetch(JSONBIN_URL,{method:'PUT',
-        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
-        body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})
-      });
-      if(wRes.ok){
-        res_el.textContent='✅ Read OK (stored: '+storedPeriod+') · Write OK — cloud is working!';
-        res_el.style.color='#4ade80';
-      }else{
-        var wErr=await wRes.text();
-        res_el.textContent='✅ Read OK · ❌ Write failed ('+wRes.status+'): '+wErr.substring(0,80);
-        res_el.style.color='#f87171';
-      }
-    }catch(e){res_el.textContent='❌ Error: '+e.message;res_el.style.color='#f87171';}
   });}
 
   var acx=document.getElementById('announce-close-x');
@@ -2369,7 +2255,45 @@ async function publishData(){
 }
 
 
+var _justPublished=false; // flag to prevent loadLive overwriting fresh data
 
+async function loadLive(){
+  if(_justPublished)return false;
+  try{
+    var ctrl=new AbortController();
+    var t=setTimeout(function(){ctrl.abort();},3000);
+    // Cache-bust with timestamp to always get fresh data from JSONBin
+    var url=JSONBIN_URL+'/latest?t='+Date.now();
+    var res=await fetch(url,{
+      headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
+      signal:ctrl.signal
+    });
+    clearTimeout(t);
+    console.log('loadLive status:',res.status);
+    if(res.ok){
+      var s=await res.json();
+      var bin=s.record||s;
+      var live=null;
+      if(bin&&bin.nedc_data&&bin.nedc_data.saidi)live=bin.nedc_data;
+      else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
+      else if(bin&&bin.saidi)live=bin;
+      if(live){
+        console.log('JSONBin data: period='+live.period+' updatedAt='+(live.updatedAt||'unknown'));
+        D=live;
+        // Update localStorage with fresh JSONBin data
+        try{
+          localStorage.setItem('nedc_dashboard_data', JSON.stringify(D));
+          localStorage.setItem('nedc_dashboard_saved', live.updatedAt||new Date().toISOString());
+        }catch(e){}
+        return true;
+      }
+      console.log('No dashboard data in JSONBin yet');
+      return false;
+    }
+    return false;
+  }catch(e){console.log('loadLive error:',e.message);return false;}
+}
+</script>
 </script>
 
 <!-- SAVE STATUS BAR -->
