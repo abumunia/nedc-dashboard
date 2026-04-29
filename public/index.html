@@ -213,11 +213,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     <img src="https://i.imgur.com/uhQSx3a.jpeg" alt="NEDC" style="height:44px;width:auto;margin:0 auto 18px;display:block;filter:brightness(0) invert(1);opacity:0.75" onerror="this.style.display='none'">
     <div class="wbadge"><span class="wbadge-dot"></span>Nama Electricity Distribution Company</div>
     <h1>Network <span>Performance</span><br>Dashboard</h1>
-    <p>Strategic KPI monitoring · Reliability analytics · Feb 2026 data</p>
+    <p>Strategic KPI monitoring · Reliability analytics · <span id="ws-period">Loading…</span></p>
     <div class="wstats">
-      <div class="wstat"><strong>10</strong><span>Governorates</span></div>
-      <div class="wstat"><strong>6</strong><span>Views</span></div>
-      <div class="wstat"><strong>3</strong><span>Zones</span></div>
+      <div class="wstat"><strong id="ws-saidi">—</strong><span>2026 YTD SAIDI</span></div>
+      <div class="wstat"><strong id="ws-saifi">—</strong><span>2026 YTD SAIFI</span></div>
+      <div class="wstat" style="min-width:120px"><strong id="ws-best-saidi" style="font-size:13px;line-height:1.2;color:#27ae60">—</strong><span>Best SAIDI Reduction</span></div>
+      <div class="wstat" style="min-width:120px"><strong id="ws-best-saifi" style="font-size:13px;line-height:1.2;color:#27ae60">—</strong><span>Best SAIFI Reduction</span></div>
+      <div class="wstat" style="min-width:120px"><strong id="ws-worst-saidi" style="font-size:13px;line-height:1.2;color:#e74c3c">—</strong><span>Worst SAIDI Perf.</span></div>
+      <div class="wstat" style="min-width:120px"><strong id="ws-worst-saifi" style="font-size:13px;line-height:1.2;color:#e74c3c">—</strong><span>Worst SAIFI Perf.</span></div>
     </div>
     <button class="btn btn-red" id="enter-btn">
       <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
@@ -923,6 +926,57 @@ document.getElementById('pw-input').onkeydown=function(e){
 // ═══════════════════════════════════════════════════
 var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements'};
 
+function updateWelcomeStats(){
+  // Period
+  var wp=document.getElementById('ws-period');
+  if(wp)wp.textContent=D.period||'YTD 2026';
+
+  // 2026 YTD SAIDI — latest non-null value
+  var saidiArr=D.saidi&&D.saidi.y2026_ytd||[];
+  var saidiVal=null;
+  saidiArr.forEach(function(v){if(v!==null&&v!==undefined)saidiVal=v;});
+  var ws=document.getElementById('ws-saidi');
+  if(ws)ws.textContent=saidiVal!==null?saidiVal.toFixed(1)+' min':'—';
+
+  // 2026 YTD SAIFI
+  var saifiArr=D.saifi&&D.saifi.y2026_ytd||[];
+  var saifiVal=null;
+  saifiArr.forEach(function(v){if(v!==null&&v!==undefined)saifiVal=v;});
+  var wf=document.getElementById('ws-saifi');
+  if(wf)wf.textContent=saifiVal!==null?saifiVal.toFixed(2):'—';
+
+  // Best SAIDI reduction — most negative imp% among non-group govs
+  var saidiGovs=(D.govData||[]).filter(function(g){return g.ind==='SAIDI'&&!g.isGroup&&g.imp!==undefined;});
+  if(saidiGovs.length>0){
+    // Most improved = most negative imp (reduction = lower value = improvement for SAIDI)
+    var best=saidiGovs.reduce(function(a,b){return b.imp<a.imp?b:a;});
+    var wbs=document.getElementById('ws-best-saidi');
+    if(wbs)wbs.textContent=best.gov+(best.imp<0?' ▼'+Math.abs(best.imp).toFixed(0)+'%':' ▲'+best.imp.toFixed(0)+'%');
+  }
+
+  // Best SAIFI reduction
+  var saifiGovs=(D.govData||[]).filter(function(g){return g.ind==='SAIFI'&&!g.isGroup&&g.imp!==undefined;});
+  if(saifiGovs.length>0){
+    var bestF=saifiGovs.reduce(function(a,b){return b.imp<a.imp?b:a;});
+    var wbf=document.getElementById('ws-best-saifi');
+    if(wbf)wbf.textContent=bestF.gov+(bestF.imp<0?' ▼'+Math.abs(bestF.imp).toFixed(0)+'%':' ▲'+bestF.imp.toFixed(0)+'%');
+  }
+
+  // Worst SAIDI — most positive imp% (highest increase = worst)
+  if(saidiGovs.length>0){
+    var worst=saidiGovs.reduce(function(a,b){return b.imp>a.imp?b:a;});
+    var wws=document.getElementById('ws-worst-saidi');
+    if(wws)wws.textContent=worst.gov+(worst.imp>0?' ▲'+worst.imp.toFixed(0)+'%':' ▼'+Math.abs(worst.imp).toFixed(0)+'%');
+  }
+
+  // Worst SAIFI — most positive imp%
+  if(saifiGovs.length>0){
+    var worstF=saifiGovs.reduce(function(a,b){return b.imp>a.imp?b:a;});
+    var wwf=document.getElementById('ws-worst-saifi');
+    if(wwf)wwf.textContent=worstF.gov+(worstF.imp>0?' ▲'+worstF.imp.toFixed(0)+'%':' ▼'+Math.abs(worstF.imp).toFixed(0)+'%');
+  }
+}
+
 function showAnnouncement(){
   var msg=D&&D.customMsg?String(D.customMsg).trim():'';
   if(!msg||msg.length===0)return; // No message — skip popup
@@ -1473,7 +1527,10 @@ window.addEventListener('load', function(){
   }
   if(fi)fi.addEventListener('change',function(){if(this.files[0])processFile(this.files[0]);});
   // Load live data in background — never blocks UI
+  updateWelcomeStats();
   loadLive().then(function(ok){
+    // Update welcome stats with live data (period, YTD values)
+    updateWelcomeStats();
     if(ok&&document.getElementById('app').style.display==='block'){
       console.log('loadLive: refreshing with',D.period);
       Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
@@ -1514,6 +1571,7 @@ window.addEventListener('load', function(){
     setTimeout(function(){try{renderZones();}catch(e){}},330);
     setTimeout(function(){try{renderQsi();}catch(e){}},380);
     goView('summary');
+    updateWelcomeStats();
     setTimeout(function(){showAnnouncement();},800);
     // ── SAVE TO CLOUD IN BACKGROUND ──
     showMsg('info','Updating all visitors…');
