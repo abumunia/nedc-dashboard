@@ -599,8 +599,8 @@ var D = {
     y2025:[2128,4321,6402,8870,12708,17297,21153,24219,27370,30205,32323,34289],
     y2026_ytd:[2308,4156,3900,4100,null,null,null,null,null,null,null,null],
     y2026_rolling:[35699,35265,34800,34600,null,null,null,null,null,null,null,null],
-    target:Array(12).fill(30860),
-    om_target:Array(12).fill(30860)
+    target:Array(12).fill(32575),
+    om_target:Array(12).fill(32575)
   },
   govData:[
     {group:"Muscat + South Batinah",gov:"Muscat",ind:"SAIDI",y24:10.23,y25:11.9,y26:12.5,r26:73.08,t26:65,imp:16.3,cont:15},
@@ -2077,13 +2077,7 @@ function parseWorkbook(wb,fileName){
       period:period,fileName:gName||fileName,months:MO,
       saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
       saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
-      outages:(function(){
-        var y25=outageT.y2025||D.outages.y2025||[];
-        // Target = 10% reduction from Dec 2025 (last non-null value of 2025)
-        var dec2025=0;for(var _i=y25.length-1;_i>=0;_i--){if(y25[_i]!==null&&y25[_i]!==undefined){dec2025=y25[_i];break;}}
-        var tgt=outageT.om_target||(dec2025>0?Array(12).fill(Math.round(dec2025*0.9)):D.outages.target);
-        return {y2024:outageT.y2024||D.outages.y2024,y2025:y25,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:tgt,om_target:tgt};
-      })(),
+      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,om_target:outageT.om_target||D.outages.om_target,target:outageT.om_target||D.outages.om_target}),
       govData:pGovData,contrib:pContrib,voltage:pVoltage,zones:pZones,
       breakdown:pBreakdown,outageType:pOutType,mvUnplanned:pMvU,
       outageComp:pOutComp,plannedExceed:pPlanEx,transient:pTrans,
@@ -2184,12 +2178,13 @@ async function publishData(){
       headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
       body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})});
     if(res.ok){
-      console.log('JSONBin save OK:',D.period);
-      setSaveBar('✅ Saved — all visitors will see '+D.period,'rgba(39,174,96,0.95)');
+      var saved=await res.json();
+      console.log('JSONBin save OK:',D.period,'size:',JSON.stringify({nedc_data:D}).length,'bytes');
+      setSaveBar('✅ Data saved — '+D.period+' now live for all visitors','rgba(39,174,96,0.95)');
     }else{
       var err=await res.text();
-      console.error('JSONBin failed:',res.status,err);
-      setSaveBar('⚠️ Save failed ('+res.status+') — try publishing again','rgba(192,57,43,0.95)');
+      console.error('JSONBin save FAILED:',res.status,err);
+      setSaveBar('❌ Save failed ('+res.status+') — refresh and try again','rgba(192,57,43,0.95)');
     }
   }catch(e){
     console.error('publishData error:',e);
@@ -2201,13 +2196,18 @@ async function publishData(){
 var _justPublished=false; // flag to prevent loadLive overwriting fresh data
 
 async function loadLive(){
-  if(_justPublished)return false; // don't overwrite freshly published data
+  if(_justPublished)return false;
   try{
     var ctrl=new AbortController();
     var t=setTimeout(function(){ctrl.abort();},3000);
-    var res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'},signal:ctrl.signal});
+    // Cache-bust with timestamp to always get fresh data from JSONBin
+    var url=JSONBIN_URL+'/latest?t='+Date.now();
+    var res=await fetch(url,{
+      headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
+      signal:ctrl.signal
+    });
     clearTimeout(t);
-    console.log('loadLive JSONBin status:',res.status,'period:',D&&D.period);
+    console.log('loadLive status:',res.status);
     if(res.ok){
       var s=await res.json();
       var bin=s.record||s;
@@ -2216,16 +2216,15 @@ async function loadLive(){
       else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
       else if(bin&&bin.saidi)live=bin;
       if(live){
-        // Only update if live data isn't older than what we already have
-        var lPeriod=live.period||'';var dPeriod=D.period||'';
-        if(lPeriod>=dPeriod){D=live;console.log('Live data loaded:',D.period);}
-        else{console.log('Live data older than local — keeping local:',D.period);}
+        console.log('JSONBin data: period='+live.period+' updatedAt='+(live.updatedAt||'unknown'));
+        D=live; // Always use JSONBin data — it's the source of truth
         return true;
       }
+      console.log('No dashboard data in JSONBin yet');
       return false;
     }
     return false;
-  }catch(e){console.log('loadLive:',e.message);return false;}
+  }catch(e){console.log('loadLive error:',e.message);return false;}
 }
 </script>
 </script>
