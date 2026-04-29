@@ -1644,8 +1644,9 @@ window.addEventListener('load', function(){
     updateWelcomeStats();
     setTimeout(function(){showAnnouncement();},800);
     // ── SAVE TO CLOUD IN BACKGROUND ──
-    showMsg('info','Updating all visitors…');
-    setTimeout(function(){publishData();},500);
+    var sb=document.getElementById('save-status-bar');
+    if(sb){sb.style.display='flex';sb.querySelector('.ssb-msg').textContent='Saving to cloud…';sb.style.background='rgba(41,128,185,0.95)';}
+    setTimeout(function(){publishData();},300);
   };
   // load-demo button
   // Pre-fill announcement textarea with existing message
@@ -2076,7 +2077,13 @@ function parseWorkbook(wb,fileName){
       period:period,fileName:gName||fileName,months:MO,
       saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
       saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
-      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target,om_target:outageT.om_target||D.outages.target},
+      outages:(function(){
+        var y25=outageT.y2025||D.outages.y2025||[];
+        // Target = 10% reduction from Dec 2025 (last non-null value of 2025)
+        var dec2025=0;for(var _i=y25.length-1;_i>=0;_i--){if(y25[_i]!==null&&y25[_i]!==undefined){dec2025=y25[_i];break;}}
+        var tgt=outageT.om_target||(dec2025>0?Array(12).fill(Math.round(dec2025*0.9)):D.outages.target);
+        return {y2024:outageT.y2024||D.outages.y2024,y2025:y25,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:tgt,om_target:tgt};
+      })(),
       govData:pGovData,contrib:pContrib,voltage:pVoltage,zones:pZones,
       breakdown:pBreakdown,outageType:pOutType,mvUnplanned:pMvU,
       outageComp:pOutComp,plannedExceed:pPlanEx,transient:pTrans,
@@ -2169,20 +2176,24 @@ var JSONBIN_API_KEY='$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11
 var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
 
 async function publishData(){
+  var saveBar=document.getElementById('save-status-bar');
+  function setSaveBar(msg,color){if(saveBar){saveBar.style.display='flex';saveBar.querySelector('.ssb-msg').textContent=msg;saveBar.style.background=color;}}
+  setSaveBar('Saving to cloud…','rgba(41,128,185,0.95)');
   try{
     var res=await fetch(JSONBIN_URL,{method:'PUT',
       headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
       body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})});
     if(res.ok){
-      showMsg('ok','✅ Saved to cloud — all visitors will see '+D.period);
+      console.log('JSONBin save OK:',D.period);
+      setSaveBar('✅ Saved — all visitors will see '+D.period,'rgba(39,174,96,0.95)');
     }else{
       var err=await res.text();
-      showMsg('err','Cloud save failed ('+res.status+') — data updated locally only');
-      console.error('JSONBin:',res.status,err);
+      console.error('JSONBin failed:',res.status,err);
+      setSaveBar('⚠️ Save failed ('+res.status+') — try publishing again','rgba(192,57,43,0.95)');
     }
   }catch(e){
-    showMsg('err','No internet — data updated locally only');
-    console.error(e);
+    console.error('publishData error:',e);
+    setSaveBar('⚠️ No internet — data not saved to cloud','rgba(192,57,43,0.95)');
   }
 }
 
@@ -2196,7 +2207,7 @@ async function loadLive(){
     var t=setTimeout(function(){ctrl.abort();},3000);
     var res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'},signal:ctrl.signal});
     clearTimeout(t);
-    console.log('JSONBin status:',res.status);
+    console.log('loadLive JSONBin status:',res.status,'period:',D&&D.period);
     if(res.ok){
       var s=await res.json();
       var bin=s.record||s;
@@ -2217,6 +2228,22 @@ async function loadLive(){
   }catch(e){console.log('loadLive:',e.message);return false;}
 }
 </script>
+</script>
+
+<!-- SAVE STATUS BAR -->
+<div id="save-status-bar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99995;color:#fff;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;box-shadow:0 8px 30px rgba(0,0,0,0.3);align-items:center;gap:14px;min-width:320px;max-width:90vw;justify-content:space-between">
+  <span class="ssb-msg">Saving…</span>
+  <button id="ssb-close" style="background:rgba(255,255,255,0.25);border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;font-family:'Inter',sans-serif;flex-shrink:0">✕</button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var ssbc=document.getElementById('ssb-close');
+  if(ssbc)ssbc.addEventListener('click',function(){document.getElementById('save-status-bar').style.display='none';});
+});
+</script>
+
+
 
 <!-- ANNOUNCEMENT POPUP -->
 <div id="announce-popup" style="display:none;position:fixed;bottom:24px;right:24px;z-index:99990;max-width:380px;width:calc(100% - 48px);animation:slideInRight 0.4s ease">
