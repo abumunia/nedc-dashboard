@@ -1809,7 +1809,7 @@ window.addEventListener('load', function(){
     res_el.textContent='Testing connection…';res_el.style.color='rgba(255,255,255,0.6)';
     try{
       // Test READ
-      var rRes=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'}});
+      var rRes=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'}});
       if(!rRes.ok){res_el.textContent='❌ Read failed ('+rRes.status+') — check API key';res_el.style.color='#f87171';return;}
       var rData=await rRes.json();
       var nd=(rData.record||rData).nedc_data||(rData.record||rData);
@@ -2350,9 +2350,10 @@ async function publishData(){
   function setSaveBar(msg,color){if(saveBar){saveBar.style.display='flex';saveBar.querySelector('.ssb-msg').textContent=msg;saveBar.style.background=color;}}
   setSaveBar('Saving to cloud…','rgba(41,128,185,0.95)');
   try{
+    // No timeout on save - let it complete
     var res=await fetch(JSONBIN_URL,{method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
-      body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})});
+      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false','Cache-Control':'no-cache'},
+      body:JSON.stringify({nedc_data:D,updatedAt:D.updatedAt||new Date().toISOString(),period:D.period})});
     if(res.ok){
       var saved=await res.json();
       console.log('JSONBin save OK:',D.period,'size:',JSON.stringify({nedc_data:D}).length,'bytes');
