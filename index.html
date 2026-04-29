@@ -1648,11 +1648,13 @@ window.addEventListener('load', function(){
     window._pendingData=null;
     var msgInput=document.getElementById('admin-msg-input');
     if(msgInput)D.customMsg=msgInput.value.trim();
-    // Save to localStorage immediately — persists across refresh/close
+    // Save to localStorage immediately with timestamp
+    var _saveTime=new Date().toISOString();
+    D.updatedAt=_saveTime; // stamp D so JSONBin also gets the timestamp
     try{
       localStorage.setItem('nedc_dashboard_data', JSON.stringify(D));
-      localStorage.setItem('nedc_dashboard_saved', new Date().toISOString());
-      console.log('Saved to localStorage:', D.period);
+      localStorage.setItem('nedc_dashboard_saved', _saveTime);
+      console.log('Saved to localStorage:', D.period, 'at', _saveTime);
     }catch(e){console.warn('localStorage save failed:', e);}
     setTimeout(function(){_justPublished=false;},30000); // allow fresh load after 30s
     // Close admin, show dashboard
@@ -2298,7 +2300,6 @@ async function loadLive(){
   try{
     var ctrl=new AbortController();
     var t=setTimeout(function(){ctrl.abort();},3000);
-    // Cache-bust with timestamp to always get fresh data from JSONBin
     var url=JSONBIN_URL+'/latest?t='+Date.now();
     var res=await fetch(url,{
       headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
@@ -2314,16 +2315,23 @@ async function loadLive(){
       else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
       else if(bin&&bin.saidi)live=bin;
       if(live){
-        console.log('JSONBin data: period='+live.period+' updatedAt='+(live.updatedAt||'unknown'));
-        D=live;
-        // Update localStorage with fresh JSONBin data
-        try{
-          localStorage.setItem('nedc_dashboard_data', JSON.stringify(D));
-          localStorage.setItem('nedc_dashboard_saved', live.updatedAt||new Date().toISOString());
-        }catch(e){}
+        // Compare timestamps: only use JSONBin data if it's newer than localStorage
+        var lsSaved=localStorage.getItem('nedc_dashboard_saved')||'';
+        var jbSaved=live.updatedAt||'';
+        console.log('localStorage saved:',lsSaved,'JSONBin saved:',jbSaved);
+        if(!lsSaved||jbSaved>=lsSaved){
+          // JSONBin is newer or equal — use it and update localStorage
+          D=live;
+          try{
+            localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));
+            localStorage.setItem('nedc_dashboard_saved',jbSaved||new Date().toISOString());
+          }catch(e){}
+          console.log('Using JSONBin data:',D.period);
+        }else{
+          console.log('localStorage is newer — keeping local data:',D.period);
+        }
         return true;
       }
-      console.log('No dashboard data in JSONBin yet');
       return false;
     }
     return false;
