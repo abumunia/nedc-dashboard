@@ -599,7 +599,8 @@ var D = {
     y2025:[2128,4321,6402,8870,12708,17297,21153,24219,27370,30205,32323,34289],
     y2026_ytd:[2308,4156,3900,4100,null,null,null,null,null,null,null,null],
     y2026_rolling:[35699,35265,34800,34600,null,null,null,null,null,null,null,null],
-    target:Array(12).fill(32575)
+    target:Array(12).fill(30860),
+    om_target:Array(12).fill(30860)
   },
   govData:[
     {group:"Muscat + South Batinah",gov:"Muscat",ind:"SAIDI",y24:10.23,y25:11.9,y26:12.5,r26:73.08,t26:65,imp:16.3,cont:15},
@@ -2075,7 +2076,7 @@ function parseWorkbook(wb,fileName){
       period:period,fileName:gName||fileName,months:MO,
       saidi:{y2024:saidiT.y2024||D.saidi.y2024,y2025:saidiT.y2025||D.saidi.y2025,y2026_ytd:saidiT.y2026_ytd||D.saidi.y2026_ytd,y2026_rolling:saidiT.y2026_rolling||D.saidi.y2026_rolling,om_target:saidiT.om_target||D.saidi.om_target,corp_target:saidiT.corp_target||D.saidi.corp_target},
       saifi:{y2024:saifiT.y2024||D.saifi.y2024,y2025:saifiT.y2025||D.saifi.y2025,y2026_ytd:saifiT.y2026_ytd||D.saifi.y2026_ytd,y2026_rolling:saifiT.y2026_rolling||D.saifi.y2026_rolling,om_target:saifiT.om_target||D.saifi.om_target,corp_target:saifiT.corp_target||D.saifi.corp_target},
-      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target},
+      outages:{y2024:outageT.y2024||D.outages.y2024,y2025:outageT.y2025||D.outages.y2025,y2026_ytd:outageT.y2026_ytd||D.outages.y2026_ytd,y2026_rolling:outageT.y2026_rolling||D.outages.y2026_rolling,target:outageT.om_target||D.outages.target,om_target:outageT.om_target||D.outages.target},
       govData:pGovData,contrib:pContrib,voltage:pVoltage,zones:pZones,
       breakdown:pBreakdown,outageType:pOutType,mvUnplanned:pMvU,
       outageComp:pOutComp,plannedExceed:pPlanEx,transient:pTrans,
