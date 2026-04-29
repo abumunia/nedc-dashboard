@@ -924,17 +924,19 @@ document.getElementById('pw-input').onkeydown=function(e){
 var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements'};
 
 function showAnnouncement(){
-  var msg=D.customMsg&&D.customMsg.trim();
-  if(!msg)return;
+  var msg=D&&D.customMsg?String(D.customMsg).trim():'';
+  if(!msg||msg.length===0)return; // No message — skip popup
   var el=document.getElementById('announce-popup');
   var msgEl=document.getElementById('announce-msg');
   var periodEl=document.getElementById('announce-period');
   if(!el||!msgEl)return;
-  if(msgEl)msgEl.textContent=msg;
+  msgEl.textContent=msg;
   if(periodEl)periodEl.textContent=D.period||'Latest Update';
+  // Reset animation
+  el.style.animation='none';
   el.style.display='block';
-  // Auto-dismiss after 12 seconds
-  setTimeout(function(){if(el.style.display!=='none')el.style.display='none';},12000);
+  setTimeout(function(){el.style.animation='slideInRight 0.4s ease';},10);
+  // No auto-dismiss — user must close manually
 }
 
 function goView(v){
@@ -1512,6 +1514,7 @@ window.addEventListener('load', function(){
     setTimeout(function(){try{renderZones();}catch(e){}},330);
     setTimeout(function(){try{renderQsi();}catch(e){}},380);
     goView('summary');
+    setTimeout(function(){showAnnouncement();},800);
     // ── SAVE TO CLOUD IN BACKGROUND ──
     showMsg('info','Updating all visitors…');
     setTimeout(function(){publishData();},500);
@@ -1520,6 +1523,13 @@ window.addEventListener('load', function(){
   // Pre-fill announcement textarea with existing message
   var msgInp=document.getElementById('admin-msg-input');
   if(msgInp&&D.customMsg)msgInp.value=D.customMsg;
+
+  // Announcement popup close buttons
+  var acx=document.getElementById('announce-close-x');
+  var acb2=document.getElementById('announce-close-btn');
+  function closeAnnounce(){document.getElementById('announce-popup').style.display='none';}
+  if(acx)acx.addEventListener('click',closeAnnounce);
+  if(acb2)acb2.addEventListener('click',closeAnnounce);
 
   var ldb=document.getElementById('load-demo-btn');
   if(ldb)ldb.onclick=function(){showMsg('info','Loading data…');setTimeout(function(){setPeriod();showMsg('ok','Data loaded — '+D.period);setTimeout(function(){hideAdmin();document.getElementById('welcome').style.display='none';document.getElementById('app').style.display='block';refreshAllViews();},800);},300);};
@@ -2091,13 +2101,13 @@ async function loadLive(){
           <div style="font-size:13px;font-weight:700;color:#fff" id="announce-period"></div>
         </div>
       </div>
-      <button onclick="document.getElementById('announce-popup').style.display='none'" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.7);width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      <button id="announce-close-x" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.7);width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
     </div>
     <div style="padding:14px 16px">
       <p id="announce-msg" style="margin:0;font-size:13px;color:#374151;line-height:1.6;font-family:'Inter',sans-serif"></p>
     </div>
     <div style="padding:0 16px 14px;display:flex;justify-content:flex-end">
-      <button onclick="document.getElementById('announce-popup').style.display='none'" style="background:#0c1e35;color:#fff;border:none;border-radius:8px;padding:7px 20px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Got it</button>
+      <button id="announce-close-btn" style="background:#0c1e35;color:#fff;border:none;border-radius:8px;padding:7px 20px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Got it</button>
     </div>
   </div>
 </div>
