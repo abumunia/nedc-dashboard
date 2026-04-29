@@ -298,6 +298,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:5px">Leave empty to show no announcement. Max 400 characters.</div>
     </div>
 
+    <!-- Connection Test -->
+    <div style="margin:0 0 14px">
+      <button id="test-jsonbin-btn" style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
+        🔌 Test Cloud Connection
+      </button>
+      <div id="test-jsonbin-result" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:8px;text-align:center;min-height:18px">Click to verify JSONBin save/load is working</div>
+    </div>
+
     <div class="btn-row">
       <button class="btn-outline" id="load-demo-btn">Load Monthly Demo Data</button>
       <button class="btn-outline" id="admin-back-btn">← Back</button>
@@ -1714,6 +1722,34 @@ window.addEventListener('load', function(){
       res_el.textContent='❌ Connection error: '+e.message;
       res_el.style.color='#f87171';
     }
+  });}
+
+  // Test JSONBin connection
+  var testBtn=document.getElementById('test-jsonbin-btn');
+  if(testBtn){testBtn.addEventListener('click',async function(){
+    var res_el=document.getElementById('test-jsonbin-result');
+    res_el.textContent='Testing connection…';res_el.style.color='rgba(255,255,255,0.6)';
+    try{
+      // Test READ
+      var rRes=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false'}});
+      if(!rRes.ok){res_el.textContent='❌ Read failed ('+rRes.status+') — check API key';res_el.style.color='#f87171';return;}
+      var rData=await rRes.json();
+      var nd=(rData.record||rData).nedc_data||(rData.record||rData);
+      var storedPeriod=nd.period||'no period';
+      // Test WRITE
+      var wRes=await fetch(JSONBIN_URL,{method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
+        body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})
+      });
+      if(wRes.ok){
+        res_el.textContent='✅ Read OK (stored: '+storedPeriod+') · Write OK — cloud is working!';
+        res_el.style.color='#4ade80';
+      }else{
+        var wErr=await wRes.text();
+        res_el.textContent='✅ Read OK · ❌ Write failed ('+wRes.status+'): '+wErr.substring(0,80);
+        res_el.style.color='#f87171';
+      }
+    }catch(e){res_el.textContent='❌ Error: '+e.message;res_el.style.color='#f87171';}
   });}
 
   var acx=document.getElementById('announce-close-x');
