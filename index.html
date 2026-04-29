@@ -281,6 +281,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     </div>
     <div id="upload-msg"></div>
 
+    <!-- Connection Test -->
+    <div style="margin:0 0 12px;display:flex;gap:10px;align-items:center">
+      <button id="test-jsonbin-btn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
+        🔌 Test Cloud Connection
+      </button>
+      <span id="test-jsonbin-result" style="font-size:12px;color:rgba(255,255,255,0.6)">Click to test</span>
+    </div>
+
     <!-- Custom announcement message -->
     <div style="margin:16px 0 8px;padding:16px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.1)">
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:8px">
@@ -1596,6 +1604,18 @@ window.addEventListener('load', function(){
     dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);});
   }
   if(fi)fi.addEventListener('change',function(){if(this.files[0])processFile(this.files[0]);});
+  // Load from localStorage first (instant, no network needed)
+  try{
+    var lsData=localStorage.getItem('nedc_dashboard_data');
+    if(lsData){
+      var lsParsed=JSON.parse(lsData);
+      if(lsParsed&&lsParsed.saidi&&lsParsed.period){
+        D=lsParsed;
+        console.log('Loaded from localStorage:',D.period);
+      }
+    }
+  }catch(e){console.warn('localStorage load failed:',e);}
+
   // Load live data in background — never blocks UI
   updateWelcomeStats();
   loadLive().then(function(ok){
@@ -1615,12 +1635,17 @@ window.addEventListener('load', function(){
     document.getElementById('preview-modal').style.display='none';
     if(!window._pendingData)return;
     // ── UPDATE DATA IMMEDIATELY ──
-    _justPublished=true; // prevent loadLive from overwriting
+    _justPublished=true;
     D=window._pendingData;
     window._pendingData=null;
-    // Save custom message from admin textarea
     var msgInput=document.getElementById('admin-msg-input');
     if(msgInput)D.customMsg=msgInput.value.trim();
+    // Save to localStorage immediately — persists across refresh/close
+    try{
+      localStorage.setItem('nedc_dashboard_data', JSON.stringify(D));
+      localStorage.setItem('nedc_dashboard_saved', new Date().toISOString());
+      console.log('Saved to localStorage:', D.period);
+    }catch(e){console.warn('localStorage save failed:', e);}
     setTimeout(function(){_justPublished=false;},30000); // allow fresh load after 30s
     // Close admin, show dashboard
     document.getElementById('admin-panel').style.display='none';
@@ -1654,6 +1679,43 @@ window.addEventListener('load', function(){
   if(msgInp&&D.customMsg)msgInp.value=D.customMsg;
 
   // Announcement popup close buttons
+  // Test JSONBin connection button
+  var testBtn=document.getElementById('test-jsonbin-btn');
+  if(testBtn){testBtn.addEventListener('click',async function(){
+    var res_el=document.getElementById('test-jsonbin-result');
+    res_el.textContent='Testing…';res_el.style.color='rgba(255,255,255,0.6)';
+    try{
+      // Test READ
+      var ctrl=new AbortController();
+      setTimeout(function(){ctrl.abort();},5000);
+      var res=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{
+        headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
+        signal:ctrl.signal
+      });
+      if(!res.ok){res_el.textContent='❌ Read failed ('+res.status+') — check API key';res_el.style.color='#f87171';return;}
+      var data=await res.json();
+      var bin=data.record||data;
+      var nd=bin.nedc_data||bin;
+      var storedPeriod=nd.period||'unknown';
+      // Test WRITE with a small payload
+      var testRes=await fetch(JSONBIN_URL,{method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
+        body:JSON.stringify({nedc_data:D,updatedAt:new Date().toISOString(),period:D.period})
+      });
+      if(testRes.ok){
+        res_el.textContent='✅ Connected! Stored period: '+storedPeriod+' → Write OK';
+        res_el.style.color='#4ade80';
+      }else{
+        var err=await testRes.text();
+        res_el.textContent='✅ Read OK but ❌ Write failed ('+testRes.status+'): '+err.substring(0,60);
+        res_el.style.color='#f87171';
+      }
+    }catch(e){
+      res_el.textContent='❌ Connection error: '+e.message;
+      res_el.style.color='#f87171';
+    }
+  });}
+
   var acx=document.getElementById('announce-close-x');
   var acb2=document.getElementById('announce-close-btn');
   function closeAnnounce(){document.getElementById('announce-popup').style.display='none';}
@@ -2217,7 +2279,12 @@ async function loadLive(){
       else if(bin&&bin.saidi)live=bin;
       if(live){
         console.log('JSONBin data: period='+live.period+' updatedAt='+(live.updatedAt||'unknown'));
-        D=live; // Always use JSONBin data — it's the source of truth
+        D=live;
+        // Update localStorage with fresh JSONBin data
+        try{
+          localStorage.setItem('nedc_dashboard_data', JSON.stringify(D));
+          localStorage.setItem('nedc_dashboard_saved', live.updatedAt||new Date().toISOString());
+        }catch(e){}
         return true;
       }
       console.log('No dashboard data in JSONBin yet');
