@@ -2300,7 +2300,7 @@ async function loadLive(){
   if(_justPublished)return false;
   try{
     var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},3000);
+    var t=setTimeout(function(){ctrl.abort();},8000);
     var url=JSONBIN_URL+'/latest?t='+Date.now();
     var res=await fetch(url,{
       headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
@@ -2336,7 +2336,37 @@ async function loadLive(){
       return false;
     }
     return false;
-  }catch(e){console.log('loadLive error:',e.message);return false;}
+  }catch(e){
+    if(e.name==='AbortError'){
+      console.log('loadLive: timeout — retrying once…');
+      // Retry once with longer timeout
+      try{
+        var res2=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{
+          headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'}
+        });
+        if(res2.ok){
+          var s2=await res2.json();
+          var bin2=s2.record||s2;
+          var live2=null;
+          if(bin2&&bin2.nedc_data&&bin2.nedc_data.saidi)live2=bin2.nedc_data;
+          else if(bin2&&bin2.saidi)live2=bin2;
+          if(live2){
+            var lsSaved2=localStorage.getItem('nedc_dashboard_saved')||'';
+            var jbSaved2=live2.updatedAt||'';
+            if(!lsSaved2||jbSaved2>=lsSaved2){
+              D=live2;
+              try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',jbSaved2||new Date().toISOString());}catch(e2){}
+              console.log('loadLive retry OK:',D.period);
+              return true;
+            }
+          }
+        }
+      }catch(e2){console.log('loadLive retry failed:',e2.message);}
+    }else{
+      console.log('loadLive error:',e.message);
+    }
+    return false;
+  }
 }
 </script>
 </script>
