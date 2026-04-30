@@ -629,7 +629,7 @@ var D = {
     {group:"Al Dakilyah & Dhahira",gov:"Dhahira",ind:"SAIDI",y24:27.5,y25:18.5,y26:19.43,r26:200.4,t26:185,imp:-33.0,cont:6},
     {group:"Al Dakilyah & Dhahira",gov:"Al Dakilyah & Dhahira",ind:"SAIDI",y24:41.9,y25:31.5,y26:33.08,r26:262.9,t26:0,imp:-25.0,cont:29,isGroup:true},
     {group:"Sharqiyah ( South & North) + Wusta",gov:"South Sharqiyah",ind:"SAIDI",y24:71.9,y25:61.08,y26:64.13,r26:237.7,t26:225,imp:-15.0,cont:10},
-    {group:"Sharqiyah ( South & North) + Wusta",gov:"North Sharqiya",ind:"SAIDI",y24:59.2,y25:67.96,y26:71.36,r26:287.1,t26:252,imp:15.0,cont:11},
+    {group:"Sharqiyah ( South & North) + Wusta",gov:"Sharqiyah North",ind:"SAIDI",y24:59.2,y25:67.96,y26:71.36,r26:287.1,t26:252,imp:15.0,cont:11},
     {group:"Sharqiyah ( South & North) + Wusta",gov:"Wusta",ind:"SAIDI",y24:142.3,y25:99.92,y26:104.92,r26:622.2,t26:580,imp:-30.0,cont:8},
     {group:"Sharqiyah ( South & North) + Wusta",gov:"Sharqiyah (S&N) & Wusta",ind:"SAIDI",y24:75.4,y25:68.6,y26:72.03,r26:308.9,t26:0,imp:-9.0,cont:31,isGroup:true},
     {group:"Musandam",gov:"Musandam",ind:"SAIDI",y24:107.4,y25:21.5,y26:22.57,r26:116.7,t26:181,imp:-80.0,cont:1.5},
@@ -643,7 +643,7 @@ var D = {
     {group:"Al Dakilyah & Dhahira",gov:"Dhahira",ind:"SAIFI",y24:0.35,y25:0.28,y26:0.29,r26:2.4,t26:2.43,imp:-20.0,cont:7},
     {group:"Al Dakilyah & Dhahira",gov:"Al Dakilyah & Dhahira",ind:"SAIFI",y24:0.35,y25:0.29,y26:0.3,r26:2.7,t26:0,imp:-17.0,cont:24,isGroup:true},
     {group:"Sharqiyah ( South & North) + Wusta",gov:"South Sharqiyah",ind:"SAIFI",y24:0.37,y25:0.5,y26:0.53,r26:2.4,t26:2.11,imp:35.0,cont:7},
-    {group:"Sharqiyah ( South & North) + Wusta",gov:"North Sharqiya",ind:"SAIFI",y24:0.43,y25:0.36,y26:0.38,r26:3.2,t26:3.1,imp:-16.0,cont:12},
+    {group:"Sharqiyah ( South & North) + Wusta",gov:"Sharqiyah North",ind:"SAIFI",y24:0.43,y25:0.36,y26:0.38,r26:3.2,t26:3.1,imp:-16.0,cont:12},
     {group:"Sharqiyah ( South & North) + Wusta",gov:"Wusta",ind:"SAIFI",y24:0.6,y25:0.6,y26:0.63,r26:4.6,t26:3.77,imp:0.0,cont:5},
     {group:"Sharqiyah ( South & North) + Wusta",gov:"Sharqiyah (S&N) & Wusta",ind:"SAIFI",y24:0.43,y25:0.45,y26:0.47,r26:3.03,t26:0,imp:5.0,cont:24,isGroup:true},
     {group:"Musandam",gov:"Musandam",ind:"SAIFI",y24:1.33,y25:0.33,y26:0.35,r26:2.9,t26:3.56,imp:-75.0,cont:3}
@@ -663,15 +663,15 @@ var D = {
   ],
   breakdown:{
     "Muscat":{SAIDI:{p:4,u:8},SAIFI:{p:0.025,u:0.113}},
-    "Al Dakilyah":{SAIDI:{p:26,u:12},SAIFI:{p:0.103,u:0.21}},
+    "Ad Dakhliyah":{SAIDI:{p:26,u:12},SAIFI:{p:0.103,u:0.21}},
     "South Batinah":{SAIDI:{p:10,u:16},SAIFI:{p:0.044,u:0.255}},
     "North Batinah":{SAIDI:{p:18,u:13},SAIFI:{p:0.128,u:0.29}},
     "South Sharqiyah":{SAIDI:{p:44,u:17},SAIFI:{p:0.175,u:0.334}},
-    "North Sharqiya":{SAIDI:{p:59,u:8},SAIFI:{p:0.214,u:0.141}},
+    "Sharqiyah North":{SAIDI:{p:59,u:8},SAIFI:{p:0.214,u:0.141}},
     "Musandam":{SAIDI:{p:3,u:19},SAIFI:{p:0.048,u:0.282}},
     "Al Buraimi":{SAIDI:{p:4,u:4},SAIFI:{p:0.3,u:0.078}},
-    "Wusta":{SAIDI:{p:82,u:17},SAIFI:{p:0.328,u:0.275}},
-    "Dhahira":{SAIDI:{p:8,u:10},SAIFI:{p:0.118,u:0.164}}
+    "Al Wusta":{SAIDI:{p:82,u:17},SAIFI:{p:0.328,u:0.275}},
+    "Ad Dhahira":{SAIDI:{p:8,u:10},SAIFI:{p:0.118,u:0.164}}
   },
   outageType:{
     SAIDI:{years:['2024','2025','2026 YTD'],planned:[79.7,64.3,17.7],unplanned:[145.5,104.5,11.5]},
@@ -734,15 +734,15 @@ var D = {
     "Musandam":{lat:25.9,lng:56.4},
     "Muscat":{lat:23.6,lng:58.5},"South Batinah":{lat:23.6,lng:57.5},
     "North Batinah":{lat:24.3,lng:56.7},"Al Buraimi":{lat:24.2,lng:55.9},
-    "Al Dakilyah":{lat:22.9,lng:57.5},"Dhahira":{lat:22.8,lng:56.0},
-    "South Sharqiyah":{lat:22.0,lng:59.0},"North Sharqiya":{lat:22.9,lng:59.5},
-    "Wusta":{lat:19.8,lng:56.8},"South Sharqyia":{lat:22.0,lng:59.0},"Sharqyia (South &North)& Wusta":{lat:21.0,lng:58.3}
+    "Ad Dakhliyah":{lat:22.9,lng:57.5},"Ad Dhahira":{lat:22.8,lng:56.0},
+    "South Sharqiyah":{lat:22.0,lng:59.0},"Sharqiyah North":{lat:22.9,lng:59.5},
+    "Al Wusta":{lat:19.8,lng:56.8},"South Sharqyia":{lat:22.0,lng:59.0},"Sharqyia (South &North)& Wusta":{lat:21.0,lng:58.3}
   },
   govGroups:{
     "Muscat & South Batinah":["Muscat","South Batinah"],
     "North Batinah & Al Buraimi":["North Batinah","Al Buraimi"],
     "Al Dakilyah & Dhahira":["Al Dakilyah","Dhahira"],
-    "Sharqiyah (S&N) & Wusta":["South Sharqiyah","South Sharqyia","North Sharqiya","Wusta"],
+    "Sharqiyah (S&N) & Wusta":["South Sharqiyah","South Sharqyia","Sharqiyah North","Wusta"],
     "Musandam":["Musandam"]
   },
   customMsg:'',
@@ -2208,10 +2208,11 @@ function parseWorkbook(wb,fileName){
     var pGovKpi=D.govKpi;
     if(qRows){
       var gkpi={};var gkCur=null;var gkType=null;
-      var gkNameMap={'South Al Batinah':'South Batinah','North Batinah':'North Batinah',
-        'Al Buraimi':'Al Buraimi','Sharqiyah North':'North Sharqiya',
-        'South Sharqiyah':'South Sharqiyah','Al Wusta':'Wusta',
-        'Ad Dakhliyah':'Al Dakilyah','Ad Dhahira':'Dhahira',
+      var gkNameMap={
+        'South Al Batinah':'South Batinah','North Batinah':'North Batinah',
+        'Al Buraimi':'Al Buraimi','Sharqiyah North':'Sharqiyah North',
+        'South Sharqiyah':'South Sharqiyah','Al Wusta':'Al Wusta',
+        'Ad Dakhliyah':'Ad Dakhliyah','Ad Dhahira':'Ad Dhahira',
         'Muscat':'Muscat','Musandam':'Musandam'};
       for(var gki=0;gki<qRows.length;gki++){
         var gkr=qRows[gki];if(!gkr)continue;
