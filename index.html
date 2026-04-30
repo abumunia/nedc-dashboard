@@ -453,7 +453,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <div class="card"><div class="card-hdr"><div class="card-title" id="kpi-bar-title">SAIDI — Governorate Comparison</div></div><div class="card-body"><div style="height:320px"><canvas id="kpi-bar"></canvas></div></div></div>
         <div class="card"><div class="card-hdr"><div class="card-title">Voltage Level Contribution</div></div><div class="card-body"><div style="height:320px"><canvas id="voltage-chart"></canvas></div></div></div>
       </div>
-      <div class="card"><div class="card-hdr"><div class="card-title" id="kpi-table-title">Governorate Detail</div></div><div style="overflow-x:auto"><table class="dt" id="kpi-table"><thead><tr><th>Governorate</th><th>2024 YTD</th><th>2025 YTD</th><th style="color:#c0392b;font-weight:700">2026 YTD</th><th>2026 Rolling</th><th>Target 2026</th><th>Imp %</th><th>Status</th></tr></thead><tbody id="kpi-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title" id="kpi-table-title">Governorate Detail</div></div><div style="overflow-x:auto"><table class="dt" id="kpi-table"><thead><tr><th>Governorate</th><th>2025 YTD</th><th style="color:#c0392b;font-weight:700">2026 YTD</th><th>2026 Rolling</th><th>Target 2026</th><th>Imp %</th><th>Status</th></tr></thead><tbody id="kpi-tbody"></tbody></table></div></div>
     </div>
 
     <!-- OUTAGE VIEW -->
@@ -687,8 +687,8 @@ var D = {
     y2024:[8,18,11,8,5,13,21,25,2,0],y2025:[42,27,37,52,15,60,79,94,1,1],y2026:[8,18,11,8,5,13,21,25,2,0]
   },
   transient:{
-    labels:['WUSTA','Muscat','Dhahira','SHARQIYA-N','NEDC','SHARQIYA-S','SOUTH-B','DAKHLYA','Musandam','N Batinah','Buraimi'],
-    times:['3:24','1:09','1:45','1:03','1:30','1:02','1:05','0:48','9:21','0:49','0:00']
+    labels:['WUSTA','Muscat','Dhahira','SHARQIYA-NORTH','NEDC','SHARQIYA-SOUTH','SOUTH-BATINAH','DAKHLYA','Musandam','North Batinah','Buraimi'],
+    times:['2:29','1:10','0:49','0:57','1:07','1:09','1:15','0:56','3:20','0:50','0:12']
   },
   drivers:[
     {r:"TERMINATION",n:75,c:"High"},{r:"CONDUCTOR & PG & Jumper",n:64,c:"High"},
@@ -1304,7 +1304,7 @@ function renderKpiTable(){
   document.getElementById('kpi-tbody').innerHTML=rows.map(function(g){
     var bad=g.t26>0&&g.r26>g.t26;
     var y26val=g.y26||0;
-    return '<tr class="'+(g.isGroup?'grp':'')+'"><td>'+g.gov+'</td><td>'+g.y24.toFixed(2)+'</td><td>'+g.y25.toFixed(2)+'</td><td style="color:#c0392b;font-weight:800">'+y26val.toFixed(2)+'</td><td style="color:#1a5276;font-weight:700">'+g.r26.toFixed(2)+'</td><td style="color:'+(bad?'#c0392b':'#27ae60')+';font-weight:600">'+(g.t26||'—')+'</td><td>'+impBadge(g.imp)+'</td><td style="font-size:11px;font-weight:700;color:'+(bad?'#c0392b':'#27ae60')+'">'+(g.t26>0?(bad?'⚠ Above':'✅ On track'):'—')+'</td></tr>';
+    return '<tr class="'+(g.isGroup?'grp':'')+'"><td>'+g.gov+'</td><td>'+g.y25.toFixed(2)+'</td><td style="color:#c0392b;font-weight:800">'+y26val.toFixed(2)+'</td><td style="color:#1a5276;font-weight:700">'+g.r26.toFixed(2)+'</td><td style="color:'+(bad?'#c0392b':'#27ae60')+';font-weight:600">'+(g.t26||'—')+'</td><td>'+impBadge(g.imp)+'</td><td style="font-size:11px;font-weight:700;color:'+(bad?'#c0392b':'#27ae60')+'">'+(g.t26>0?(bad?'⚠ Above':'✅ On track'):'—')+'</td></tr>';
   }).join('');
 }
 
@@ -1372,7 +1372,7 @@ function buildPlannedExceed(){
 function buildTransient(){
   var d=D.transient;
   var mins=d.times.map(function(t){var p=t.split(':');return parseInt(p[0])*60+parseInt(p[1]);});
-  mkChart('transient-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'Duration (H:MM)',data:mins,backgroundColor:d.labels.map(function(l){return l==='NEDC'?'#2c3e50':'#e67e22';}),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',formatter:function(v,c){return d.times[c.dataIndex];},font:{weight:'bold',size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'Minutes'}}}}});
+  mkChart('transient-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'Duration (H:MM)',data:mins,backgroundColor:d.labels.map(function(l){return l==='NEDC'?'#0c1e35':'#e67e22';}),borderColor:d.labels.map(function(l){return l==='NEDC'?'#c0392b':'#e67e22';}),borderWidth:d.labels.map(function(l){return l==='NEDC'?2:0;}),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',formatter:function(v,c){return d.times[c.dataIndex];},font:{weight:'bold',size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'Minutes'}}}}});
 }
 
 // ═══════════════════════════════════════════════════
@@ -2090,8 +2090,9 @@ function parseWorkbook(wb,fileName){
         var nn=row.filter(function(c){return c!==null&&c!==undefined;});
         if(nn.length<1)return;
         var g=cl(nn[0]);
-        if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0||g.toLowerCase()==='nedc'||g.toLowerCase()==='total')return;
+        if(!g||g.toLowerCase().indexOf('mv unplanned')>=0||g.toLowerCase().indexOf('transient')>=0||g.toLowerCase()==='total')return;
         var v=nn[1],ts='0:00';
+        console.log('Transient row:',g,'raw value:',v,'type:',typeof v);
         if(v!==null&&v!==undefined){
           if(typeof v==='number'&&v>0&&v<1){
             var tm=Math.round(v*24*60),h=Math.floor(tm/60),m2=tm%60;
@@ -2200,6 +2201,65 @@ function parseWorkbook(wb,fileName){
       console.log('QSI parse:',qlist.length,'projects',qlist.map(function(q){return q.ind+'('+q.y25+'→'+q.y26+')';}));
       if(qlist.length>0)pQsi=qlist;
     }
+
+    // ── GOV KPI ACTION PLAN (rows 20+ of QSI sheet) ──
+    // XLSX.js strips leading nulls. Gov name row has 1 cell ('Muscat Governorate')
+    // Header row: col0='Type'. Data: col0=type or number(continuation)
+    var pGovKpi=D.govKpi;
+    if(qRows){
+      var gkpi={};var gkCur=null;var gkType=null;
+      var gkNameMap={'South Al Batinah':'South Batinah','North Batinah':'North Batinah',
+        'Al Buraimi':'Al Buraimi','Sharqiyah North':'North Sharqiya',
+        'South Sharqiyah':'South Sharqiyah','Al Wusta':'Wusta',
+        'Ad Dakhliyah':'Al Dakilyah','Ad Dhahira':'Dhahira',
+        'Muscat':'Muscat','Musandam':'Musandam'};
+      for(var gki=0;gki<qRows.length;gki++){
+        var gkr=qRows[gki];if(!gkr)continue;
+        var gknn=gkr.filter(function(c){return c!==null&&c!==undefined;});
+        if(gknn.length===0)continue;
+        var gkf=cl(gknn[0]);
+        if(!gkf)continue;
+        // Stop before QSI projects section (single text cell with 'NEDC QSI')
+        if(gkf.indexOf('NEDC QSI')>=0&&gki<10)continue;
+        // Gov name: single cell containing 'Governorate' or known gov name
+        if(gknn.length===1&&(gkf.toLowerCase().indexOf('governorate')>=0||gkf==='Muscat')){
+          var gkRaw=gkf.replace(/\s*Governorate\s*/i,'').trim();
+          gkCur=gkNameMap[gkRaw]||gkRaw;
+          gkpi[gkCur]=[];gkType=null;
+          continue;
+        }
+        if(!gkCur)continue;
+        // Header row: col0='Type'
+        if(gkf==='Type')continue;
+        // Type row: col0='Planned' or 'Unplanned'
+        if(gkf==='Planned'||gkf==='Unplanned'){
+          gkType=gkf;
+          if(gknn.length>=6){
+            var gkImp=nv(gknn[2]);var gkW=nv(gknn[3]);
+            gkpi[gkCur].push({t:gkType,r25:cl(gknn[1]),
+              imp:gkImp!==null?Math.round(gkImp*100)+'%':'',
+              w:gkW!==null?Math.round(gkW*100)+'%':'',
+              a:cl(gknn[4]),tgt:cl(gknn[5]),
+              y25:gknn.length>6?cl(gknn[6]):'',
+              y26:gknn.length>7?cl(gknn[7]):''});
+          }
+          continue;
+        }
+        // Continuation row: col0 is a number
+        if(!isNaN(parseFloat(gkf))&&gkType&&gknn.length>=5){
+          var gkImp2=nv(gknn[1]);var gkW2=nv(gknn[2]);
+          gkpi[gkCur].push({t:'',r25:cl(gknn[0]),
+            imp:gkImp2!==null?Math.round(gkImp2*100)+'%':'',
+            w:gkW2!==null?Math.round(gkW2*100)+'%':'',
+            a:cl(gknn[3]),tgt:cl(gknn[4]),
+            y25:gknn.length>5?cl(gknn[5]):'',
+            y26:gknn.length>6?cl(gknn[6]):''});
+          continue;
+        }
+      }
+      if(Object.keys(gkpi).length>=5)pGovKpi=gkpi;
+      console.log('GovKPI parse:',Object.keys(gkpi).length,'govs');
+    }
     // ── GOV GROUPS — dynamic column detection ──
     var gSheets=[
       {hint:'Muscat & South',group:'Muscat + South Batinah'},
@@ -2258,7 +2318,7 @@ function parseWorkbook(wb,fileName){
       breakdown:pBreakdown,outageType:pOutType,mvUnplanned:pMvU,
       outageComp:pOutComp,plannedExceed:pPlanEx,transient:pTrans,
       drivers:pDrv,driverMatrix:pDrvM,qsiProjects:pQsi,
-      customMsg:D.customMsg,govKpi:D.govKpi,govCoords:D.govCoords,govGroups:D.govGroups
+      customMsg:D.customMsg,govKpi:pGovKpi,govCoords:D.govCoords,govGroups:D.govGroups
     };
   }catch(e){console.error('parseWorkbook error:',e);return null;}
 }function processFile(f){
