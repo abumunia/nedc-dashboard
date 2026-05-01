@@ -188,6 +188,11 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 </head>
 <body>
 
+<!-- DEV ENVIRONMENT BANNER -->
+<div id="dev-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:999999;background:#e67e22;color:#fff;text-align:center;font-size:12px;font-weight:700;padding:6px;font-family:'Inter',sans-serif;letter-spacing:0.5px">
+  🔧 DEV — Testing Environment · Not visible to users · <a href="https://nedc-qsi-dashboard.pages.dev" style="color:#fff;text-decoration:underline">Go to Production →</a>
+</div>
+
 <!-- PASSWORD MODAL -->
 <div id="pw-modal">
   <div class="pw-box">
@@ -1606,6 +1611,16 @@ async function loadLive(){
 
 window.addEventListener('load', function(){
   console.log('%c NEDC Dashboard v1.5 — Build 2026-04-29 ', 'background:#c0392b;color:#fff;font-size:13px;font-weight:bold;padding:4px 8px;border-radius:4px');
+
+  // Show dev banner only on dev environment
+  if(window.location.hostname.indexOf('dev')>=0||window.location.hostname.indexOf('localhost')>=0){
+    var devBanner=document.getElementById('dev-banner');
+    if(devBanner){
+      devBanner.style.display='block';
+      // Push all content down so banner doesn't overlap
+      document.body.style.paddingTop='32px';
+    }
+  }
   // ── LOGIN ──
   var AUTH_USER='DCC', AUTH_PASS='DCC@2026';
   var loginScreen=document.getElementById('login-screen');
