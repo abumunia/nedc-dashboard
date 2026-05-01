@@ -1255,9 +1255,11 @@ function renderSumKPIs(){
   var sTgt=D.saidi.om_target?D.saidi.om_target[idx]:null;
   var sfTgt=D.saifi.om_target?D.saifi.om_target[idx]:null;
   var oTgt=D.outages.om_target?D.outages.om_target[0]:null;
-  var sProg=sr&&sTgt?(sr/sTgt*100):null;
-  var sfProg=sfr&&sfTgt?(sfr/sfTgt*100):null;
-  var oProg=o26&&oTgt?(o26/oTgt*100):null;
+  // Progress: for SAIDI/SAIFI lower is better → target/rolling * 100 = % achievement
+  // For outages lower is better too
+  var sProg=sr&&sTgt?(Math.min(200,sTgt/sr*100)):null; // 100% = at target, <100% = above target
+  var sfProg=sfr&&sfTgt?(Math.min(200,sfTgt/sfr*100)):null;
+  var oProg=o26&&oTgt?(Math.min(200,oTgt/o26*100)):null;
   var cards=[
     {lbl:'SAIDI ('+D.period+')',val:s26?s26.toFixed(2):'—',unit:'min',sub:'Rolling: '+(sr?sr.toFixed(1):'—')+' min',imp:si,mom:sMoM,prog:sProg,color:'red'},
     {lbl:'SAIFI ('+D.period+')',val:sf26?sf26.toFixed(3):'—',unit:'freq',sub:'Rolling: '+(sfr?sfr.toFixed(2):'—'),imp:sfi,mom:sfMoM,prog:sfProg,color:'blue'},
@@ -1271,7 +1273,7 @@ function renderSumKPIs(){
     if(c.prog!==null&&c.prog!==undefined){
       var pct=Math.min(100,Math.max(0,c.prog));
       var pCol=pct>=100?'#c0392b':pct>=75?'#e67e22':'#27ae60';
-      progH='<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px"><span>Target Progress</span><span>'+pct.toFixed(0)+'%</span></div><div style="background:rgba(0,0,0,0.1);border-radius:4px;height:5px"><div style="background:'+pCol+';height:5px;border-radius:4px;width:'+pct+'%"></div></div></div>';
+      progH='<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px"><span>Target Achievement</span><span style="color:'+pCol+';font-weight:700">'+pct.toFixed(0)+'%</span></div><div style="background:rgba(0,0,0,0.1);border-radius:4px;height:5px"><div style="background:'+pCol+';height:5px;border-radius:4px;width:'+pct+'%"></div></div></div>';
     }
     return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div><div class="kvalue" style="font-size:'+(c.val.length>7?'18px':'26px')+'">'+c.val+'<span class="kunit">'+c.unit+'</span></div><div class="kmeta">'+impH+'<span style="font-size:10px;color:var(--text3)">vs 2025</span>'+' '+momH+'</div><div style="font-size:11px;color:var(--text3);margin-top:4px">'+c.sub+'</div>'+progH+'</div>';
   }).join('');
@@ -1413,7 +1415,14 @@ function buildModalChart(){
 // ═══════════════════════════════════════════════════
 // KPI VIEW
 // ═══════════════════════════════════════════════════
-function renderKpi(){setKpi(kpiMode);}
+function renderKpi(){
+  setKpi(kpiMode);
+  setTimeout(function(){
+    populateCmpSelects();
+    var cmpBtn=document.getElementById('cmp-btn');
+    if(cmpBtn)cmpBtn.onclick=buildComparison;
+  },50);
+}
 function setKpi(ind){
   kpiMode=ind;
   document.getElementById('kpi-saidi-btn').classList.toggle('active',ind==='SAIDI');
@@ -1468,11 +1477,14 @@ function renderKpiTable(){
   var filter=document.getElementById('kpi-filter').value;
   var rows=D.govData.filter(function(g){return g.ind===kpiMode&&(filter==='All'||g.group===filter);});
   document.getElementById('kpi-tbody').innerHTML=rows.map(function(g){
+    // Alert based on current kpiMode (SAIDI or SAIFI) rolling vs target
     var bad=g.t26>0&&g.r26>g.t26;
-    var isCritical=g.t26>0&&g.r26>g.t26*1.2;
+    var isCritical=g.t26>0&&g.r26>g.t26*1.2; // 20%+ above target
     var y26val=g.y26||0;
     var rowStyle=isCritical?'background:rgba(192,57,43,0.06)':'';
-    var statusTxt=g.t26>0?(isCritical?'🚨 Critical':bad?'⚠ Above':'✅ On track'):'—';
+    var indicator=kpiMode==='SAIDI'?'min':'freq';
+    var pctAbove=g.t26>0?((g.r26-g.t26)/g.t26*100).toFixed(0):'';
+    var statusTxt=g.t26>0?(isCritical?'🚨 Critical (+'+pctAbove+'%)':bad?'⚠ Above (+'+pctAbove+'%)':'✅ On track'):'—';
     var statusColor=isCritical?'#c0392b':bad?'#e67e22':'#27ae60';
     var govName=(isCritical?'🔴 ':'')+g.gov;
     return '<tr class="'+(g.isGroup?'grp':'')+'" style="'+rowStyle+'"><td>'+govName+'</td><td>'+g.y25.toFixed(2)+'</td><td style="color:#c0392b;font-weight:800">'+y26val.toFixed(2)+'</td><td style="color:#1a5276;font-weight:700">'+g.r26.toFixed(2)+'</td><td style="color:'+(bad?'#c0392b':'#27ae60')+';font-weight:600">'+(g.t26||'—')+'</td><td>'+impBadge(g.imp)+'</td><td style="font-size:11px;font-weight:700;color:'+statusColor+'">'+statusTxt+'</td></tr>';
