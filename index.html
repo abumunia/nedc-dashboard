@@ -1148,6 +1148,32 @@ function renderGovFocus(){
   document.getElementById('gf-content').style.display=gov?'block':'none';
   if(!gov)return;
 
+  // ── Name alias map (handles spelling variants across all sheets) ──
+  var GOV_ALIASES={
+    'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA'],
+    'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA'],
+    'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S'],
+    'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North','Sharqiyah North'],
+    'Al Buraimi':['Buraimi','AL BURAIMI'],
+    'North Batinah':['N Batinah','NORTH BATINAH'],
+    'South Batinah':['SOUTH-B','SOUTH BATINAH'],
+    'Wusta':['Wusta','WUSTA','Al Wusta','AL WUSTA'],
+    'Al Wusta':['Wusta','WUSTA','AL WUSTA'],
+    'Ad Dhahira':['Dhahira','AD DHAHIRA'],
+    'Dhahira':['AD DHAHIRA','Ad Dhahira']};
+  function findGovIdx(labels,name){
+    var idx=labels.findIndex(function(g){return g===name;});if(idx>=0)return idx;
+    var aliases=GOV_ALIASES[name]||[];
+    for(var ai=0;ai<aliases.length;ai++){idx=labels.findIndex(function(g){return g===aliases[ai];});if(idx>=0)return idx;}
+    var skip={al:1,ad:1};
+    var words=name.split(' ').filter(function(w){return !skip[w.toLowerCase()];});
+    var key=words[0]?words[0].toLowerCase().substring(0,5):'';
+    return key?labels.findIndex(function(g){
+      var gw=g.split(/[ \-_]+/).filter(function(w){return !skip[w.toLowerCase()];});
+      return gw.some(function(w){return w.toLowerCase().substring(0,5)===key;});
+    }):-1;
+  }
+
   // Group badge
   var sRow=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});
   var badge=document.getElementById('gf-group-badge');
@@ -1255,7 +1281,7 @@ function renderGovFocus(){
   // ── OUTAGE DRIVERS for this gov ──
   var drvEl=document.getElementById('gf-drivers');
   if(drvEl&&D.driverMatrix&&D.driverMatrix.govs){
-    var govIdx=D.driverMatrix.govs.findIndex(function(g){return g.toLowerCase().indexOf(gov.toLowerCase().split(' ')[0])>=0||gov.toLowerCase().indexOf(g.toLowerCase())>=0;});
+    var govIdx=findGovIdx(D.driverMatrix.govs,gov);
     if(govIdx>=0){
       var govDrivers=D.driverMatrix.rows.map(function(r){return {d:r.d,n:r.v[govIdx]||0};}).filter(function(r){return r.n>0;}).sort(function(a,b){return b.n-a.n;});
       var total=govDrivers.reduce(function(s,r){return s+r.n;},0);
@@ -1274,7 +1300,7 @@ function renderGovFocus(){
   // ── MV SUSTAINED ──
   var susEl=document.getElementById('gf-sustained');
   if(susEl&&D.outageComp&&D.outageComp.labels){
-    var susIdx=D.outageComp.labels.findIndex(function(g){return g===gov;});
+    var susIdx=findGovIdx(D.outageComp.labels,gov);
     if(susIdx>=0){
       var s26=D.outageComp.y2026[susIdx],s25=D.outageComp.y2025[susIdx],s24=D.outageComp.y2024?D.outageComp.y2024[susIdx]:null;
       var maxV=Math.max(s26||0,s25||0,s24||0)||1;
@@ -1289,7 +1315,7 @@ function renderGovFocus(){
   // ── TRANSIENT ──
   var transEl=document.getElementById('gf-transient');
   if(transEl&&D.transient&&D.transient.labels){
-    var tIdx=D.transient.labels.findIndex(function(g){return g===gov||g.toLowerCase().indexOf(gov.toLowerCase().split(' ')[0])>=0;});
+    var tIdx=findGovIdx(D.transient.labels,gov);
     var nedcIdx=D.transient.labels.findIndex(function(g){return g==='NEDC';});
     if(tIdx>=0){
       var tDur=D.transient.times[tIdx];
@@ -1308,23 +1334,53 @@ function renderGovFocus(){
     }else{transEl.innerHTML='<p style="color:var(--text3);font-size:13px">No transient data available</p>';}
   }
 
-  // ── ACTION PLAN ──
+  // ── ACTION PLAN — same theme as QSI Gov KPIs tab ──
   var apEl=document.getElementById('gf-action-plan');
   if(apEl){
-    // Try govKpi first, then match by name variations
     var kpiKey=Object.keys(D.govKpi||{}).find(function(k){
-      return k===gov||k.toLowerCase().indexOf(gov.toLowerCase().split(' ')[0])>=0||gov.toLowerCase().indexOf(k.toLowerCase())>=0;
+      if(k===gov)return true;
+      // Check if k is an alias of gov or gov is an alias of k
+      var aliases=GOV_ALIASES[gov]||[];
+      if(aliases.indexOf(k)>=0)return true;
+      var kAliases=GOV_ALIASES[k]||[];
+      if(kAliases.indexOf(gov)>=0)return true;
+      // Keyword match
+      return findGovIdx([k],gov)>=0;
     });
     var kpiData=kpiKey?D.govKpi[kpiKey]:null;
     if(kpiData&&kpiData.length>0){
-      apEl.innerHTML='<table class="dt"><thead><tr><th>Type</th><th>Action Task</th><th>2025 Records</th><th>Target</th><th>2025 YTD</th><th>2026 YTD</th><th>Weight</th><th>Imp%</th></tr></thead><tbody>'+
-        kpiData.map(function(r){
-          return '<tr><td style="font-weight:600;color:'+(r.t==='Planned'?'#2980b9':r.t==='Unplanned'?'#c0392b':'var(--text3)')+'">'+r.t+'</td>'+
-            '<td style="font-size:12px">'+r.a+'</td><td>'+r.r25+'</td><td style="font-weight:700">'+r.tgt+'</td>'+
-            '<td>'+r.y25+'</td><td style="font-weight:700;color:#c0392b">'+r.y26+'</td>'+
-            '<td>'+r.w+'</td><td>'+r.imp+'</td></tr>';
-        }).join('')+'</tbody></table>';
-    }else{apEl.innerHTML='<p style="color:var(--text3);font-size:13px">No action plan data available. Upload the latest Excel to populate.</p>';}
+      var apRows=kpiData.map(function(item){
+        var t26n=parseFloat(String(item.tgt).replace(/[^\d.-]/g,''));
+        var y26n=parseFloat(String(item.y26).replace(/[^\d.-]/g,''));
+        var y25n=parseFloat(String(item.y25).replace(/[^\d.-]/g,''));
+        var exc=!isNaN(y26n)&&!isNaN(t26n)&&y26n>t26n;
+        var yi=!isNaN(y25n)&&!isNaN(y26n)&&y25n!==0?((y26n-y25n)/y25n*100):null;
+        var tc=item.t==='Planned'?'#1a5276':'#c0392b';
+        var tbg=item.t==='Planned'?'#eff6ff':'#fff5f5';
+        return '<tr style="'+(exc?'background:#fff5f5':'')+'">'+
+          '<td><span style="background:'+tbg+';color:'+tc+';padding:2px 9px;border-radius:50px;font-size:11px;font-weight:700">'+item.t+'</span></td>'+
+          '<td style="font-size:12px;color:var(--text2)">'+item.a+'</td>'+
+          '<td style="text-align:center;font-size:12px">'+item.r25+'</td>'+
+          '<td style="text-align:center;font-weight:700;color:#27ae60">↓ '+item.imp+'</td>'+
+          '<td style="text-align:center;font-size:12px;color:var(--text2)">'+item.w+'</td>'+
+          '<td style="text-align:center;font-weight:800;color:#1d4ed8;background:#eff6ff">'+item.tgt+'</td>'+
+          '<td style="text-align:center;background:#f8f9fb">'+item.y25+'</td>'+
+          '<td style="text-align:center;font-weight:700;'+(exc?'color:#c0392b;background:#fff5f5':'background:#f8f9fb')+'">'+( exc?'★ ':'')+item.y26+'</td>'+
+          '<td style="text-align:center">'+(yi!==null?impBadge(yi):'<span class="imp-n">—</span>')+'</td></tr>';
+      }).join('');
+      apEl.innerHTML='<table class="dt"><thead><tr>'+
+        '<th>Type</th><th style="width:28%">Action</th>'+
+        '<th style="text-align:center">Record 25</th>'+
+        '<th style="text-align:center">Target Imp</th>'+
+        '<th style="text-align:center">Weight</th>'+
+        '<th style="text-align:center;background:#eff6ff;color:#1d4ed8">2026 Target</th>'+
+        '<th style="text-align:center">2025 YTD</th>'+
+        '<th style="text-align:center">2026 YTD</th>'+
+        '<th style="text-align:center">YTD Imp</th>'+
+        '</tr></thead><tbody>'+apRows+'</tbody></table>';
+    }else{
+      apEl.innerHTML='<p style="color:var(--text3);font-size:13px;padding:12px 0">No action plan data available. Upload the latest Excel to populate.</p>';
+    }
   }
 }
 
