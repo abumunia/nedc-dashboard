@@ -209,10 +209,10 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 <title>NEDC Network Performance Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+
+
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -503,6 +503,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <span id="test-jsonbin-result" style="font-size:12px;color:rgba(255,255,255,0.6)">Click to test</span>
     </div>
 
+    <!-- Manage History -->
+    <div style="margin:0 0 12px;padding:14px 16px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.1)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:10px">🗂 Manage History Archive</div>
+      <div id="admin-history-list" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35)">No archived months yet</div>
+      </div>
+    </div>
+
     <!-- Custom announcement message -->
     <div style="margin:16px 0 8px;padding:16px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.1)">
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:8px">
@@ -513,6 +521,11 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     </div>
 
     <!-- Connection Test -->
+    <div style="margin:0 0 8px;display:flex;gap:8px">
+      <button id="refresh-history-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">
+        🔄 Refresh History List
+      </button>
+    </div>
     <div style="margin:0 0 14px">
       <button id="test-jsonbin-btn" style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
         🔌 Test Cloud Connection
@@ -577,6 +590,12 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <span class="period-tag" id="period-tag">YTD</span>
       </div>
       <div class="topbar-right">
+        <!-- Historical month selector -->
+        <div id="history-container" style="display:none;align-items:center;gap:8px">
+          <select id="history-sel" onchange="loadHistoricalMonth(this.value)" style="border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-family:'Inter',sans-serif;background:#fff;cursor:pointer">
+            <option value="">📅 View Past Month</option>
+          </select>
+        </div>
         <div class="file-info"><span class="file-dot"></span><span id="file-label">Demo Data</span></div>
         <button class="admin-btn" id="admin-topbar-btn">
           <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
@@ -1199,6 +1218,8 @@ function showAdmin(){
     // Pre-fill message textarea
     var mi=document.getElementById('admin-msg-input');
     if(mi&&D.customMsg)mi.value=D.customMsg;
+    // Refresh history list
+    if(USE_WORKER){loadHistoryIndex().then(renderAdminHistory);}
   });
 }
 
@@ -1351,22 +1372,10 @@ async function trackVisitor(){
     if(sessionStorage.getItem('nedc_visited'))return;
     sessionStorage.setItem('nedc_visited','1');
 
-    // Fetch latest count first to avoid race condition
-    var res=await fetch(JSONBIN_URL+'/latest',{
-      headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'}
-    });
-    if(res.ok){
-      var s=await res.json();
-      var bin=s.record||s;
-      var nd=bin.nedc_data||bin;
-      var currentCount=(nd.visitCount||0)+1;
-      D.visitCount=currentCount;
-      // Save back
-      nd.visitCount=currentCount;
-      fetch(JSONBIN_URL,{method:'PUT',
-        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
-        body:JSON.stringify({nedc_data:nd,updatedAt:nd.updatedAt||new Date().toISOString(),period:nd.period})
-      }).catch(function(){});
+    if(USE_WORKER){
+      // Worker has dedicated visit counter — much simpler
+      var vres=await fetch(WORKER_URL+'/track-visit',{method:'POST'});
+      if(vres.ok){var vd=await vres.json();D.visitCount=vd.count;}
     }else{
       D.visitCount=(D.visitCount||0)+1;
     }
@@ -1377,6 +1386,122 @@ async function trackVisitor(){
 function updateVisitorDisplay(){
   var el=document.getElementById('ws-visitors');
   if(el)el.textContent=(D.visitCount||0).toLocaleString();
+}
+
+// ══════════════════════════════════
+// HISTORY — load past months
+// ══════════════════════════════════
+var historyIndex=[];
+
+async function deleteArchivedMonth(key){
+  if(!confirm('Delete '+key+' from archive? This cannot be undone.'))return;
+  try{
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/'),{
+      method:'DELETE',
+      headers:{'X-Admin-Secret':WORKER_SECRET}
+    });
+    if(res.ok){
+      // Remove from local index
+      historyIndex=historyIndex.filter(function(m){return m.key!==key;});
+      buildHistoryDropdown();
+      renderAdminHistory();
+    }else{
+      alert('Delete failed: '+(await res.text()));
+    }
+  }catch(e){alert('Delete error: '+e.message);}
+}
+
+function renderAdminHistory(){
+  var el=document.getElementById('admin-history-list');
+  if(!el)return;
+  el.innerHTML='';
+  if(!historyIndex||historyIndex.length===0){
+    el.innerHTML='<div style="font-size:12px;color:rgba(255,255,255,0.35)">No archived months yet</div>';
+    return;
+  }
+  historyIndex.forEach(function(m){
+    var date=m.updatedAt?new Date(m.updatedAt).toLocaleDateString():'';
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);border-radius:7px;padding:7px 10px';
+    var info=document.createElement('div');
+    info.innerHTML='<span style="font-size:13px;font-weight:600;color:#fff">'+m.period+'</span>'+(date?'<span style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:8px">saved '+date+'</span>':'');
+    var btn=document.createElement('button');
+    btn.textContent='Delete';
+    btn.style.cssText='background:rgba(192,57,43,0.3);border:1px solid rgba(192,57,43,0.5);color:#f87171;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif';
+    btn.addEventListener('click',(function(key){return function(){deleteArchivedMonth(key);};})(m.key));
+    row.appendChild(info);
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
+
+async function loadHistoryIndex(){
+  if(!USE_WORKER)return;
+  try{
+    var res=await fetch(WORKER_URL+'/index?t='+Date.now());
+    if(!res.ok)return;
+    historyIndex=await res.json();
+    buildHistoryDropdown();
+    renderAdminHistory();
+  }catch(e){console.log('History index error:',e);}
+}
+
+function buildHistoryDropdown(){
+  var sel=document.getElementById('history-sel');
+  if(!sel||historyIndex.length===0)return;
+  sel.innerHTML='<option value="">📅 View Past Month</option>'+
+    historyIndex.map(function(m){
+      return '<option value="'+m.key+'">'+m.period+'</option>';
+    }).join('');
+  sel.parentElement.style.display='flex';
+}
+
+async function loadHistoricalMonth(key){
+  if(!key){
+    // Reset to current
+    if(_histViewingArchive){
+      _histViewingArchive=false;
+      document.getElementById('hist-banner').style.display='none';
+      await loadLive();
+      refreshAllViews();
+      updateWelcomeStats();
+    }
+    return;
+  }
+  try{
+    document.getElementById('hist-banner').style.display='flex';
+    document.getElementById('hist-banner-text').textContent=key.replace(':',' / ');
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?t='+Date.now());
+    if(!res.ok){
+      // Data deleted — remove from dropdown silently
+      var selEl=document.getElementById('history-sel');
+      if(selEl){var opt=selEl.querySelector('option[value="'+key+'"]');if(opt)opt.remove();}
+      document.getElementById('hist-banner').style.display='none';
+      return;
+    }
+    var data=await res.json();
+    var live=data.nedc_data||data;
+    if(live&&live.saidi){
+      D=live;
+      _histViewingArchive=true;
+      refreshAllViews();
+      updateWelcomeStats();
+      console.log('Historical data loaded:',D.period);
+    }
+  }catch(e){console.log('Load history error:',e);}
+}
+
+var _histViewingArchive=false;
+
+function refreshAllViews(){
+  Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
+  try{renderSummary();}catch(e){}
+  try{renderKpi();}catch(e){}
+  try{renderOutage();}catch(e){}
+  try{renderDriver();}catch(e){}
+  try{renderZones();}catch(e){}
+  try{renderQsi();}catch(e){}
+  setPeriod();
 }
 
 function showAnnouncement(){
@@ -2192,15 +2317,22 @@ var _justPublished=false; // flag to prevent loadLive overwriting fresh data
 
 async function loadLive(){
   if(_justPublished)return false;
+  // Load from localStorage instantly
   try{
-    var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},8000);
-    var url=JSONBIN_URL+'/latest?t='+Date.now();
-    var res=await fetch(url,{
-      headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
-      signal:ctrl.signal
-    });
-    clearTimeout(t);
+    var lsData=localStorage.getItem('nedc_dashboard_data');
+    if(lsData){
+      var lsParsed=JSON.parse(lsData);
+      if(lsParsed&&lsParsed.saidi&&lsParsed.period){D=lsParsed;console.log('localStorage:',D.period);}
+    }
+  }catch(e){}
+  // Fetch from Worker or JSONBin
+  try{
+    var res;
+    if(USE_WORKER){
+      res=await fetch(WORKER_URL+'/current?t='+Date.now());
+    }else{
+      res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache,no-store'}});
+    }
     console.log('loadLive status:',res.status);
     if(res.ok){
       var s=await res.json();
@@ -2210,57 +2342,22 @@ async function loadLive(){
       else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
       else if(bin&&bin.saidi)live=bin;
       if(live){
-        // Compare timestamps: only use JSONBin data if it's newer than localStorage
-        var lsSaved=localStorage.getItem('nedc_dashboard_saved')||'';
         var jbSaved=live.updatedAt||'';
-        console.log('localStorage saved:',lsSaved,'JSONBin saved:',jbSaved);
-        if(!lsSaved||jbSaved>=lsSaved){
-          // JSONBin is newer or equal — use it and update localStorage
+        var lsSavedNow=localStorage.getItem('nedc_dashboard_saved')||'';
+        console.log('Remote period:',live.period,'saved:',jbSaved,'local:',lsSavedNow);
+        if(!lsSavedNow||jbSaved>=lsSavedNow){
           D=live;
-          try{
-            localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));
-            localStorage.setItem('nedc_dashboard_saved',jbSaved||new Date().toISOString());
-          }catch(e){}
-          console.log('Using JSONBin data:',D.period);
+          try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',jbSaved||new Date().toISOString());}catch(e){}
+          console.log('Remote data applied:',D.period);
+          return true;
         }else{
-          console.log('localStorage is newer — keeping local data:',D.period);
+          console.log('localStorage newer — keeping local data');
+          return true;
         }
-        return true;
       }
-      return false;
     }
     return false;
-  }catch(e){
-    if(e.name==='AbortError'){
-      console.log('loadLive: timeout — retrying once…');
-      // Retry once with longer timeout
-      try{
-        var res2=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{
-          headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'}
-        });
-        if(res2.ok){
-          var s2=await res2.json();
-          var bin2=s2.record||s2;
-          var live2=null;
-          if(bin2&&bin2.nedc_data&&bin2.nedc_data.saidi)live2=bin2.nedc_data;
-          else if(bin2&&bin2.saidi)live2=bin2;
-          if(live2){
-            var lsSaved2=localStorage.getItem('nedc_dashboard_saved')||'';
-            var jbSaved2=live2.updatedAt||'';
-            if(!lsSaved2||jbSaved2>=lsSaved2){
-              D=live2;
-              try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',jbSaved2||new Date().toISOString());}catch(e2){}
-              console.log('loadLive retry OK:',D.period);
-              return true;
-            }
-          }
-        }
-      }catch(e2){console.log('loadLive retry failed:',e2.message);}
-    }else{
-      console.log('loadLive error:',e.message);
-    }
-    return false;
-  }
+  }catch(e){console.log('loadLive error:',e.message);return false;}
 }
 
 window.addEventListener('load', function(){
@@ -2373,8 +2470,9 @@ window.addEventListener('load', function(){
   // Load live data in background — never blocks UI
   updateWelcomeStats();
   loadLive().then(function(ok){
-    // Update welcome stats with live data (period, YTD values)
     updateWelcomeStats();
+    // Load history index if Worker is configured
+    if(USE_WORKER)loadHistoryIndex();
     if(ok&&document.getElementById('app').style.display==='block'){
       console.log('loadLive: refreshing with',D.period);
       Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
@@ -2499,6 +2597,16 @@ window.addEventListener('load', function(){
       }
     }catch(e){res_el.textContent='❌ Error: '+e.message;res_el.style.color='#f87171';}
   });}
+
+  var rhBtn=document.getElementById('refresh-history-btn');
+  if(rhBtn)rhBtn.addEventListener('click',function(){
+    historyIndex=[];
+    loadHistoryIndex().then(function(){
+      renderAdminHistory();
+      rhBtn.textContent='✅ Refreshed';
+      setTimeout(function(){rhBtn.textContent='🔄 Refresh History List';},2000);
+    });
+  });
 
   var acx=document.getElementById('announce-close-x');
   var acb2=document.getElementById('announce-close-btn');
@@ -3076,27 +3184,38 @@ var JSONBIN_BIN_ID='69ef2181856a6821897900bf';
 var JSONBIN_API_KEY='$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11G';
 var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
 
+// ── Cloudflare Worker (replaces JSONBin for save/load) ──
+var WORKER_URL='https://frosty-leaf-9497.abu-munia.workers.dev'; // Set after deploying Worker
+var WORKER_SECRET='NEDC_WORKER_2026';
+var USE_WORKER=WORKER_URL!=='__WORKER_URL__'; // Auto-enabled once URL is set
+
 async function publishData(){
   var saveBar=document.getElementById('save-status-bar');
   function setSaveBar(msg,color){if(saveBar){saveBar.style.display='flex';saveBar.querySelector('.ssb-msg').textContent=msg;saveBar.style.background=color;}}
   setSaveBar('Saving to cloud…','rgba(41,128,185,0.95)');
   try{
-    // No timeout on save - let it complete
-    var res=await fetch(JSONBIN_URL,{method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false','Cache-Control':'no-cache'},
-      body:JSON.stringify({nedc_data:D,updatedAt:D.updatedAt||new Date().toISOString(),period:D.period})});
+    var res;
+    if(USE_WORKER){
+      res=await fetch(WORKER_URL+'/save',{method:'POST',
+        headers:{'Content-Type':'application/json','X-Admin-Secret':WORKER_SECRET},
+        body:JSON.stringify({nedc_data:D,period:D.period,updatedAt:D.updatedAt||new Date().toISOString()})});
+    }else{
+      res=await fetch(JSONBIN_URL,{method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false','Cache-Control':'no-cache'},
+        body:JSON.stringify({nedc_data:D,updatedAt:D.updatedAt||new Date().toISOString(),period:D.period})});
+    }
     if(res.ok){
-      var saved=await res.json();
-      console.log('JSONBin save OK:',D.period,'size:',JSON.stringify({nedc_data:D}).length,'bytes');
+      console.log('Save OK:',D.period);
       setSaveBar('✅ Data saved — '+D.period+' now live for all visitors','rgba(39,174,96,0.95)');
+      if(USE_WORKER)setTimeout(function(){loadHistoryIndex();},1000);
     }else{
       var err=await res.text();
-      console.error('JSONBin save FAILED:',res.status,err);
-      setSaveBar('❌ Save failed ('+res.status+') — refresh and try again','rgba(192,57,43,0.95)');
+      console.error('Save FAILED:',res.status,err);
+      setSaveBar('❌ Save failed ('+res.status+') — try again','rgba(192,57,43,0.95)');
     }
   }catch(e){
     console.error('publishData error:',e);
-    setSaveBar('⚠️ No internet — data not saved to cloud','rgba(192,57,43,0.95)');
+    setSaveBar('⚠️ No internet — data not saved','rgba(192,57,43,0.95)');
   }
 }
 
@@ -3118,6 +3237,12 @@ document.addEventListener('DOMContentLoaded',function(){
 </script>
 
 
+
+<!-- HISTORICAL VIEW BANNER — inline in topbar, no layout shift -->
+<div id="hist-banner" style="display:none;position:fixed;top:10px;right:160px;z-index:99999;background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;padding:5px 12px 5px 10px;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;align-items:center;gap:8px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,0.25)">
+  <span>📅 <span id="hist-banner-text">Historical</span></span>
+  <button onclick="document.getElementById('history-sel').value='';loadHistoricalMonth('')" style="background:rgba(255,255,255,0.25);border:none;color:#fff;border-radius:10px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;font-family:'Inter',sans-serif">✕ Current</button>
+</div>
 
 <!-- ANNOUNCEMENT POPUP -->
 <div id="announce-popup" style="display:none;position:fixed;bottom:24px;right:24px;z-index:99990;max-width:380px;width:calc(100% - 48px);animation:slideInRight 0.4s ease">
