@@ -794,7 +794,11 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
           <div id="gf-gov-title" style="font-size:34px;font-weight:800;color:#0c1e35;line-height:1.1"></div>
           <div id="gf-group-badge" style="display:inline-block;margin-top:8px;padding:4px 14px;background:linear-gradient(135deg,#0c1e35,#1a3a5c);color:#fff;border-radius:20px;font-size:12px;font-weight:600"></div>
         </div>
-        <div style="text-align:right;font-size:12px;color:var(--text3)">
+        <div style="text-align:right;font-size:12px;color:var(--text3);display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <button id="gf-pdf-btn-inner" onclick="exportGovFocusPDF()" style="display:none;background:#c0392b;color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:7px">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:15px;height:15px"><path d="M5 4v3H4a2 2 0 00-2 2v4a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v4H6v-4zm8-4a1 1 0 110 2 1 1 0 010-2z"/></svg>
+            Export PDF
+          </button>
           <div id="gf-ytd-label" style="font-weight:700;font-size:14px;color:var(--text2)"></div>
           <div>NEDC Network Performance Dashboard</div>
         </div>
@@ -809,10 +813,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
           </select>
         </div>
 
-      <button id="gf-pdf-btn" id="gf-pdf-btn-inner" style="display:none;margin-left:auto;background:#0c1e35;color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;align-items:center;gap:7px">
-        <svg viewBox="0 0 20 20" fill="currentColor" style="width:15px;height:15px"><path d="M5 4v3H4a2 2 0 00-2 2v4a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v4H6v-4zm8-4a1 1 0 110 2 1 1 0 010-2z"/></svg>
-        Export PDF
-      </button>
+      
       </div>
 
       <!-- Placeholder when no gov selected -->
@@ -1371,8 +1372,8 @@ function renderGovFocus(){
   document.getElementById('gf-content').style.display=gov?'block':'none';
   var titleBlk=document.getElementById('gf-title-block');
   var titleBlk2=document.getElementById('gf-title-block');if(titleBlk2)titleBlk2.style.display=gov?'flex':'none';
-  var pdfBtn=document.getElementById('gf-pdf-btn-inner');
-  if(pdfBtn)pdfBtn.style.display=gov?'inline-flex':'none';
+  var pdfBtnEl=document.getElementById('gf-pdf-btn-inner');
+  if(pdfBtnEl)pdfBtnEl.style.display=gov?'flex':'none';
   if(!gov)return;
 
   // ── Name alias map (handles spelling variants across all sheets) ──
