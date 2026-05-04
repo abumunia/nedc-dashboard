@@ -503,6 +503,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <span id="test-jsonbin-result" style="font-size:12px;color:rgba(255,255,255,0.6)">Click to test</span>
     </div>
 
+    <!-- Manage History -->
+    <div style="margin:0 0 12px;padding:14px 16px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.1)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:10px">🗂 Manage History Archive</div>
+      <div id="admin-history-list" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35)">No archived months yet</div>
+      </div>
+    </div>
+
     <!-- Custom announcement message -->
     <div style="margin:16px 0 8px;padding:16px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.1)">
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:8px">
@@ -1210,6 +1218,8 @@ function showAdmin(){
     // Pre-fill message textarea
     var mi=document.getElementById('admin-msg-input');
     if(mi&&D.customMsg)mi.value=D.customMsg;
+    // Refresh history list
+    if(USE_WORKER){loadHistoryIndex().then(renderAdminHistory);}
   });
 }
 
@@ -1383,6 +1393,43 @@ function updateVisitorDisplay(){
 // ══════════════════════════════════
 var historyIndex=[];
 
+async function deleteArchivedMonth(key){
+  if(!confirm('Delete '+key+' from archive? This cannot be undone.'))return;
+  try{
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/'),{
+      method:'DELETE',
+      headers:{'X-Admin-Secret':WORKER_SECRET}
+    });
+    if(res.ok){
+      // Remove from local index
+      historyIndex=historyIndex.filter(function(m){return m.key!==key;});
+      buildHistoryDropdown();
+      renderAdminHistory();
+    }else{
+      alert('Delete failed: '+(await res.text()));
+    }
+  }catch(e){alert('Delete error: '+e.message);}
+}
+
+function renderAdminHistory(){
+  var el=document.getElementById('admin-history-list');
+  if(!el)return;
+  if(!historyIndex||historyIndex.length===0){
+    el.innerHTML='<div style="font-size:12px;color:rgba(255,255,255,0.35)">No archived months yet</div>';
+    return;
+  }
+  el.innerHTML=historyIndex.map(function(m){
+    var date=m.updatedAt?new Date(m.updatedAt).toLocaleDateString():'';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);border-radius:7px;padding:7px 10px">'+
+      '<div>'+
+        '<span style="font-size:13px;font-weight:600;color:#fff">'+m.period+'</span>'+
+        (date?'<span style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:8px">saved '+date+'</span>':'')+
+      '</div>'+
+      '<button onclick="deleteArchivedMonth(''+m.key+'')" style="background:rgba(192,57,43,0.3);border:1px solid rgba(192,57,43,0.5);color:#f87171;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">Delete</button>'+
+    '</div>';
+  }).join('');
+}
+
 async function loadHistoryIndex(){
   if(!USE_WORKER)return;
   try{
@@ -1390,6 +1437,7 @@ async function loadHistoryIndex(){
     if(!res.ok)return;
     historyIndex=await res.json();
     buildHistoryDropdown();
+    renderAdminHistory();
   }catch(e){console.log('History index error:',e);}
 }
 
@@ -2549,6 +2597,7 @@ window.addEventListener('load', function(){
   if(rhBtn)rhBtn.addEventListener('click',function(){
     historyIndex=[];
     loadHistoryIndex().then(function(){
+      renderAdminHistory();
       rhBtn.textContent='✅ Refreshed';
       setTimeout(function(){rhBtn.textContent='🔄 Refresh History List';},2000);
     });
