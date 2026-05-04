@@ -184,7 +184,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 
 @keyframes spin{to{transform:rotate(360deg)}}
 @media print{
-  #sidebar,#topbar,#dev-banner,#gf-pdf-btn,.btn-row{display:none!important;}
+  #sidebar,#topbar,#dev-banner,#gf-pdf-btn,#gf-pdf-btn-inner,.btn-row,#gf-selector{display:none!important;}
   #app{margin-left:0!important;}
   body{background:#fff!important;}
   .kcard{break-inside:avoid;}
@@ -192,10 +192,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
   #view-govfocus{display:block!important;padding:12px!important;}
   #gf-placeholder{display:none!important;}
   #gf-content{display:block!important;}
+  #gf-title-block{display:flex!important;}
+  #gf-gov-title{font-size:26px!important;font-weight:800!important;color:#0c1e35!important;}
   #gf-group-badge{display:inline-block!important;}
   .kgrid{grid-template-columns:repeat(2,1fr)!important;}
   .g2{grid-template-columns:1fr 1fr!important;}
   table{font-size:11px!important;}
+  .dt td,.dt th{padding:5px 6px!important;}
+}
   .dt td,.dt th{padding:5px 6px!important;}
 }<!DOCTYPE html>
 <html lang="en">
@@ -782,6 +786,20 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 
     <!-- GOV FOCUS VIEW -->
     <div class="view" id="view-govfocus">
+
+      <!-- GOV REPORT TITLE — full width at top -->
+      <div id="gf-title-block" style="display:none;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:16px;margin-bottom:20px;border-bottom:3px solid #0c1e35;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">Governorate Focus Report · NEDC Network Performance</div>
+          <div id="gf-gov-title" style="font-size:34px;font-weight:800;color:#0c1e35;line-height:1.1"></div>
+          <div id="gf-group-badge" style="display:inline-block;margin-top:8px;padding:4px 14px;background:linear-gradient(135deg,#0c1e35,#1a3a5c);color:#fff;border-radius:20px;font-size:12px;font-weight:600"></div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--text3)">
+          <div id="gf-ytd-label" style="font-weight:700;font-size:14px;color:var(--text2)"></div>
+          <div>NEDC Network Performance Dashboard</div>
+        </div>
+      </div>
+
       <!-- Header with gov selector -->
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
         <div>
@@ -790,7 +808,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
             <option value="">— Choose Governorate —</option>
           </select>
         </div>
-        <div id="gf-group-badge" style="display:none;padding:6px 14px;background:linear-gradient(135deg,#0c1e35,#1a3a5c);color:#fff;border-radius:20px;font-size:12px;font-weight:600"></div>
+
       <button id="gf-pdf-btn" id="gf-pdf-btn-inner" style="display:none;margin-left:auto;background:#0c1e35;color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;align-items:center;gap:7px">
         <svg viewBox="0 0 20 20" fill="currentColor" style="width:15px;height:15px"><path d="M5 4v3H4a2 2 0 00-2 2v4a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v4H6v-4zm8-4a1 1 0 110 2 1 1 0 010-2z"/></svg>
         Export PDF
@@ -1351,7 +1369,9 @@ function renderGovFocus(){
   var gov=document.getElementById('gf-selector').value;
   document.getElementById('gf-placeholder').style.display=gov?'none':'block';
   document.getElementById('gf-content').style.display=gov?'block':'none';
-  var pdfBtn=document.getElementById('gf-pdf-btn');
+  var titleBlk=document.getElementById('gf-title-block');
+  var titleBlk2=document.getElementById('gf-title-block');if(titleBlk2)titleBlk2.style.display=gov?'flex':'none';
+  var pdfBtn=document.getElementById('gf-pdf-btn-inner');
   if(pdfBtn)pdfBtn.style.display=gov?'inline-flex':'none';
   if(!gov)return;
 
@@ -1383,15 +1403,28 @@ function renderGovFocus(){
     }):-1;
   }
 
-  // Update page title to reflect selected gov
+  // Update page title
   var pt=document.getElementById('page-title');
   if(pt)pt.textContent=gov+' — Governorate Focus';
 
-  // Group badge
+  // Big gov title + group badge
   var sRow=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});
+  var titleBlock=document.getElementById('gf-title-block');
+  var govTitle=document.getElementById('gf-gov-title');
   var badge=document.getElementById('gf-group-badge');
-  if(badge&&sRow&&sRow.group){badge.textContent='Group: '+sRow.group;badge.style.display='block';}
-  else if(badge){badge.style.display='none';}
+  if(titleBlock)titleBlock.style.display='flex';
+  if(govTitle)govTitle.textContent=gov;
+  // Set period and YTD label
+  var yLbl=document.getElementById('gf-ytd-label');
+  if(yLbl){
+    var mp=D.period?D.period.replace('YTD ','').split(' '):[];
+    var fp=mp.length===2?mp[0].charAt(0)+mp[0].slice(1).toLowerCase()+' '+mp[1]:'YTD Report';
+    yLbl.textContent=fp;
+  }
+  if(badge&&sRow&&sRow.group){
+    badge.textContent='Group: '+sRow.group;
+    badge.style.display='inline-block';
+  }else if(badge){badge.style.display='none';}
 
   // ── KPI CARDS ──
   var sfRow=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIFI'&&!g.isGroup;});
