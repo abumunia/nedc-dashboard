@@ -1381,7 +1381,7 @@ var historyIndex=[];
 async function loadHistoryIndex(){
   if(!USE_WORKER)return;
   try{
-    var res=await fetch(WORKER_URL+'/index',{headers:{'Cache-Control':'no-cache'}});
+    var res=await fetch(WORKER_URL+'/index?t='+Date.now());
     if(!res.ok)return;
     historyIndex=await res.json();
     buildHistoryDropdown();
@@ -1413,7 +1413,7 @@ async function loadHistoricalMonth(key){
   try{
     document.getElementById('hist-banner').style.display='flex';
     document.getElementById('hist-banner-text').textContent='Viewing historical data: '+key.replace(':',' ').replace(':',' / ');
-    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/'));
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?t='+Date.now());
     if(!res.ok){alert('Historical data not found for '+key);return;}
     var data=await res.json();
     var live=data.nedc_data||data;
@@ -2265,7 +2265,7 @@ async function loadLive(){
   try{
     var res;
     if(USE_WORKER){
-      res=await fetch(WORKER_URL+'/current',{headers:{'Cache-Control':'no-cache'}});
+      res=await fetch(WORKER_URL+'/current?t='+Date.now());
     }else{
       res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache,no-store'}});
     }
