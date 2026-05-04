@@ -513,6 +513,11 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     </div>
 
     <!-- Connection Test -->
+    <div style="margin:0 0 8px;display:flex;gap:8px">
+      <button id="refresh-history-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">
+        🔄 Refresh History List
+      </button>
+    </div>
     <div style="margin:0 0 14px">
       <button id="test-jsonbin-btn" style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
         🔌 Test Cloud Connection
@@ -1412,9 +1417,15 @@ async function loadHistoricalMonth(key){
   }
   try{
     document.getElementById('hist-banner').style.display='flex';
-    document.getElementById('hist-banner-text').textContent='Viewing historical data: '+key.replace(':',' ').replace(':',' / ');
+    document.getElementById('hist-banner-text').textContent=key.replace(':',' / ');
     var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?t='+Date.now());
-    if(!res.ok){alert('Historical data not found for '+key);return;}
+    if(!res.ok){
+      // Data deleted — remove from dropdown silently
+      var selEl=document.getElementById('history-sel');
+      if(selEl){var opt=selEl.querySelector('option[value="'+key+'"]');if(opt)opt.remove();}
+      document.getElementById('hist-banner').style.display='none';
+      return;
+    }
     var data=await res.json();
     var live=data.nedc_data||data;
     if(live&&live.saidi){
@@ -2534,6 +2545,15 @@ window.addEventListener('load', function(){
     }catch(e){res_el.textContent='❌ Error: '+e.message;res_el.style.color='#f87171';}
   });}
 
+  var rhBtn=document.getElementById('refresh-history-btn');
+  if(rhBtn)rhBtn.addEventListener('click',function(){
+    historyIndex=[];
+    loadHistoryIndex().then(function(){
+      rhBtn.textContent='✅ Refreshed';
+      setTimeout(function(){rhBtn.textContent='🔄 Refresh History List';},2000);
+    });
+  });
+
   var acx=document.getElementById('announce-close-x');
   var acb2=document.getElementById('announce-close-btn');
   function closeAnnounce(){document.getElementById('announce-popup').style.display='none';}
@@ -3164,10 +3184,10 @@ document.addEventListener('DOMContentLoaded',function(){
 
 
 
-<!-- HISTORICAL VIEW BANNER -->
-<div id="hist-banner" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;padding:10px 20px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.2)">
-  <span>📅 <span id="hist-banner-text">Viewing historical data</span> — Read Only Mode</span>
-  <button onclick="document.getElementById('history-sel').value='';loadHistoricalMonth('')" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600;font-family:'Inter',sans-serif">← Back to Current</button>
+<!-- HISTORICAL VIEW BANNER — inline in topbar, no layout shift -->
+<div id="hist-banner" style="display:none;position:fixed;top:10px;right:160px;z-index:99999;background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;padding:5px 12px 5px 10px;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;align-items:center;gap:8px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,0.25)">
+  <span>📅 <span id="hist-banner-text">Historical</span></span>
+  <button onclick="document.getElementById('history-sel').value='';loadHistoricalMonth('')" style="background:rgba(255,255,255,0.25);border:none;color:#fff;border-radius:10px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;font-family:'Inter',sans-serif">✕ Current</button>
 </div>
 
 <!-- ANNOUNCEMENT POPUP -->
