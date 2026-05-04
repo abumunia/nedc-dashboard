@@ -459,6 +459,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <div class="wstat" style="min-width:120px"><strong id="ws-best-saifi" style="font-size:13px;line-height:1.2;color:#27ae60">—</strong><span>Best SAIFI Reduction</span></div>
       <div class="wstat" style="min-width:120px"><strong id="ws-worst-saidi" style="font-size:13px;line-height:1.2;color:#e74c3c">—</strong><span>Worst SAIDI Perf.</span></div>
       <div class="wstat" style="min-width:120px"><strong id="ws-worst-saifi" style="font-size:13px;line-height:1.2;color:#e74c3c">—</strong><span>Worst SAIFI Perf.</span></div>
+      <div class="wstat"><strong id="ws-visitors" style="font-size:22px">—</strong><span>Total Visitors</span></div>
     </div>
     <button class="btn btn-red" id="enter-btn">
       <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
@@ -468,6 +469,12 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
       Admin · Update Data
     </button>
+  </div>
+
+  <!-- Visitor counter at bottom -->
+  <div style="text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+    <span id="ws-visitors" style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.3px">—</span>
+    <span style="font-size:11px;color:rgba(255,255,255,0.25)"> visitors</span>
   </div>
 </div>
 
@@ -1056,6 +1063,7 @@ var D = {
     "Musandam":["Musandam"]
   },
   customMsg:'',
+  visitCount:0,
     govKpi:{
     "Muscat":[
       {t:"Planned",a:"Connect Generator for planned programs >60 customers & >5hrs",r25:"79",imp:"34%",w:"10%",tgt:"52",y25:"38",y26:"20"},
@@ -1287,6 +1295,7 @@ function updateWelcomeStats(){
   // Period
   var wp=document.getElementById('ws-period');
   if(wp)wp.textContent=D.period||'YTD 2026';
+  updateVisitorDisplay();
 
   // 2026 YTD SAIDI — latest non-null value
   var saidiArr=D.saidi&&D.saidi.y2026_ytd||[];
@@ -1332,6 +1341,33 @@ function updateWelcomeStats(){
     var wwf=document.getElementById('ws-worst-saifi');
     if(wwf)wwf.textContent=worstF.gov+(worstF.imp>0?' ▲'+worstF.imp.toFixed(0)+'%':' ▼'+Math.abs(worstF.imp).toFixed(0)+'%');
   }
+}
+
+// ══ VISITOR COUNTER ══
+var VISIT_BIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID; // reuse same bin
+
+async function trackVisitor(){
+  try{
+    // Check if this session already counted
+    if(sessionStorage.getItem('nedc_visited'))return;
+    sessionStorage.setItem('nedc_visited','1');
+
+    // Increment count in D and save to JSONBin
+    D.visitCount=(D.visitCount||0)+1;
+    var el=document.getElementById('ws-visitors');
+    if(el)el.textContent=D.visitCount.toLocaleString();
+
+    // Save updated count to JSONBin in background
+    fetch(JSONBIN_URL,{method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false'},
+      body:JSON.stringify({nedc_data:D,updatedAt:D.updatedAt||new Date().toISOString(),period:D.period})
+    }).catch(function(){});
+  }catch(e){console.log('Visitor track error:',e);}
+}
+
+function updateVisitorDisplay(){
+  var el=document.getElementById('ws-visitors');
+  if(el&&D.visitCount)el.textContent=(D.visitCount||0).toLocaleString();
 }
 
 function showAnnouncement(){
@@ -2277,8 +2313,9 @@ window.addEventListener('load', function(){
       document.getElementById('app').style.display='block';
       setPeriod();
       goView('summary');
-      // Show announcement if set
       setTimeout(function(){showAnnouncement();},600);
+      // Track visit
+      setTimeout(function(){trackVisitor();},1000);
     });
   }
   // Admin buttons
