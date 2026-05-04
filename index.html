@@ -1448,12 +1448,17 @@ async function loadHistoryIndex(){
 
 function buildHistoryDropdown(){
   var sel=document.getElementById('history-sel');
-  if(!sel||historyIndex.length===0)return;
+  var container=document.getElementById('history-container');
+  if(!sel)return;
+  if(!historyIndex||historyIndex.length===0){
+    if(container)container.style.display='none';
+    return;
+  }
   sel.innerHTML='<option value="">📅 View Past Month</option>'+
     historyIndex.map(function(m){
       return '<option value="'+m.key+'">'+m.period+'</option>';
     }).join('');
-  sel.parentElement.style.display='flex';
+  if(container)container.style.display='flex';
 }
 
 async function loadHistoricalMonth(key){
