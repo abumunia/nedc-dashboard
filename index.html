@@ -2327,45 +2327,59 @@ var _justPublished=false; // flag to prevent loadLive overwriting fresh data
 
 async function loadLive(){
   if(_justPublished)return false;
-  // Try Worker/JSONBin first — always the source of truth
-  try{
-    var res;
-    if(USE_WORKER){
-      res=await fetch(WORKER_URL+'/current?t='+Date.now());
-    }else{
-      res=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache,no-store'}});
-    }
-    console.log('loadLive status:',res.status);
-    if(res.ok){
-      var s=await res.json();
-      var bin=s.record||s;
-      var live=null;
-      if(bin&&bin.nedc_data&&bin.nedc_data.saidi)live=bin.nedc_data;
-      else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
-      else if(bin&&bin.saidi)live=bin;
-      if(live){
-        D=live;
-        // Update localStorage as cache
-        try{
-          localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));
-          localStorage.setItem('nedc_dashboard_saved',live.updatedAt||new Date().toISOString());
-        }catch(e){}
-        console.log('Remote data applied:',D.period);
-        return true;
+  if(USE_WORKER){
+    try{
+      // Step 1: get index to find the LATEST month chronologically
+      var idxRes=await fetch(WORKER_URL+'/index?t='+Date.now());
+      if(idxRes.ok){
+        var idxData=await idxRes.json();
+        if(idxData&&idxData.length>0){
+          // Sort descending and pick the latest key
+          var sorted=idxData.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
+          var latestKey=sorted[0].key; // e.g. "2026:04"
+          var parts=latestKey.split(':'); // ["2026","04"]
+          var archRes=await fetch(WORKER_URL+'/archive/'+parts[0]+'/'+parts[1]+'?t='+Date.now());
+          if(archRes.ok){
+            var s=await archRes.json();
+            var live=s.nedc_data||s;
+            if(live&&live.saidi){
+              D=live;
+              try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',live.updatedAt||new Date().toISOString());}catch(e){}
+              console.log('Loaded latest month from archive:',D.period,'key:',latestKey);
+              return true;
+            }
+          }
+        }
       }
-    }
-  }catch(e){console.log('loadLive error:',e.message);}
-  // Fallback to localStorage if Worker/JSONBin unavailable
+      // Fallback to /current if index empty
+      var res=await fetch(WORKER_URL+'/current?t='+Date.now());
+      if(res.ok){
+        var s2=await res.json();
+        var live2=s2.nedc_data||s2.record||s2;
+        if(live2&&live2.saidi){
+          D=live2;
+          try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',live2.updatedAt||new Date().toISOString());}catch(e){}
+          console.log('Loaded from /current:',D.period);
+          return true;
+        }
+      }
+    }catch(e){console.log('loadLive Worker error:',e.message);}
+  }else{
+    // JSONBin fallback
+    try{
+      var res3=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache,no-store'}});
+      if(res3.ok){
+        var s3=await res3.json();
+        var bin=s3.record||s3;
+        var live3=bin&&bin.nedc_data&&bin.nedc_data.saidi?bin.nedc_data:bin&&bin.saidi?bin:null;
+        if(live3){D=live3;try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));}catch(e){}return true;}
+      }
+    }catch(e){console.log('loadLive JSONBin error:',e.message);}
+  }
+  // Final fallback: localStorage
   try{
     var lsData=localStorage.getItem('nedc_dashboard_data');
-    if(lsData){
-      var lsParsed=JSON.parse(lsData);
-      if(lsParsed&&lsParsed.saidi&&lsParsed.period){
-        D=lsParsed;
-        console.log('Fallback to localStorage:',D.period);
-        return true;
-      }
-    }
+    if(lsData){var lsParsed=JSON.parse(lsData);if(lsParsed&&lsParsed.saidi){D=lsParsed;console.log('Fallback localStorage:',D.period);return true;}}
   }catch(e){}
   return false;
 }
@@ -2425,13 +2439,18 @@ window.addEventListener('load', function(){
   var enterBtn=document.getElementById('enter-btn');
   if(enterBtn){
     enterBtn.addEventListener('click',function(){
-      document.getElementById('welcome').style.display='none';
-      document.getElementById('app').style.display='block';
-      setPeriod();
-      goView('summary');
-      setTimeout(function(){showAnnouncement();},600);
-      // Track visit
-      setTimeout(function(){trackVisitor();},1000);
+      var btn=document.getElementById('enter-btn');
+      if(btn){btn.disabled=true;btn.textContent='Loading…';}
+      // Wait for live data to load before rendering
+      Promise.resolve(_livePromise).then(function(){
+        document.getElementById('welcome').style.display='none';
+        document.getElementById('app').style.display='block';
+        setPeriod();
+        goView('summary');
+        if(btn){btn.disabled=false;btn.innerHTML=btn._origHTML||'Enter Dashboard';}
+        setTimeout(function(){showAnnouncement();},600);
+        setTimeout(function(){trackVisitor();},1000);
+      });
     });
   }
   // Admin buttons
@@ -2479,7 +2498,8 @@ window.addEventListener('load', function(){
 
   // Load live data in background — never blocks UI
   updateWelcomeStats();
-  loadLive().then(function(ok){
+  var _livePromise=loadLive();
+  _livePromise.then(function(ok){
     updateWelcomeStats();
     if(USE_WORKER){
       loadHistoryIndex();
