@@ -2327,15 +2327,7 @@ var _justPublished=false; // flag to prevent loadLive overwriting fresh data
 
 async function loadLive(){
   if(_justPublished)return false;
-  // Load from localStorage instantly
-  try{
-    var lsData=localStorage.getItem('nedc_dashboard_data');
-    if(lsData){
-      var lsParsed=JSON.parse(lsData);
-      if(lsParsed&&lsParsed.saidi&&lsParsed.period){D=lsParsed;console.log('localStorage:',D.period);}
-    }
-  }catch(e){}
-  // Fetch from Worker or JSONBin
+  // Try Worker/JSONBin first — always the source of truth
   try{
     var res;
     if(USE_WORKER){
@@ -2352,22 +2344,30 @@ async function loadLive(){
       else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
       else if(bin&&bin.saidi)live=bin;
       if(live){
-        var jbSaved=live.updatedAt||'';
-        var lsSavedNow=localStorage.getItem('nedc_dashboard_saved')||'';
-        console.log('Remote period:',live.period,'saved:',jbSaved,'local:',lsSavedNow);
-        if(!lsSavedNow||jbSaved>=lsSavedNow){
-          D=live;
-          try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',jbSaved||new Date().toISOString());}catch(e){}
-          console.log('Remote data applied:',D.period);
-          return true;
-        }else{
-          console.log('localStorage newer — keeping local data');
-          return true;
-        }
+        D=live;
+        // Update localStorage as cache
+        try{
+          localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));
+          localStorage.setItem('nedc_dashboard_saved',live.updatedAt||new Date().toISOString());
+        }catch(e){}
+        console.log('Remote data applied:',D.period);
+        return true;
       }
     }
-    return false;
-  }catch(e){console.log('loadLive error:',e.message);return false;}
+  }catch(e){console.log('loadLive error:',e.message);}
+  // Fallback to localStorage if Worker/JSONBin unavailable
+  try{
+    var lsData=localStorage.getItem('nedc_dashboard_data');
+    if(lsData){
+      var lsParsed=JSON.parse(lsData);
+      if(lsParsed&&lsParsed.saidi&&lsParsed.period){
+        D=lsParsed;
+        console.log('Fallback to localStorage:',D.period);
+        return true;
+      }
+    }
+  }catch(e){}
+  return false;
 }
 
 window.addEventListener('load', function(){
