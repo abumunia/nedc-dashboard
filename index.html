@@ -1373,13 +1373,17 @@ async function trackVisitor(){
     sessionStorage.setItem('nedc_visited','1');
 
     if(USE_WORKER){
-      // Worker has dedicated visit counter — much simpler
       var vres=await fetch(WORKER_URL+'/track-visit',{method:'POST'});
-      if(vres.ok){var vd=await vres.json();D.visitCount=vd.count;}
+      if(vres.ok){
+        var vd=await vres.json();
+        var el=document.getElementById('ws-visitors');
+        if(el)el.textContent=(vd.count||0).toLocaleString();
+      }
     }else{
-      D.visitCount=(D.visitCount||0)+1;
+      var curCount=(parseInt((document.getElementById('ws-visitors')||{}).textContent)||0)+1;
+      var el2=document.getElementById('ws-visitors');
+      if(el2)el2.textContent=curCount.toLocaleString();
     }
-    updateVisitorDisplay();
   }catch(e){console.log('Visitor track error:',e);}
 }
 
@@ -2152,11 +2156,11 @@ function buildOutageComp(){
   var d=D.outageComp;
   var labels=d.labels,y26=d.y2026,y25=d.y2025,y24=d.y2024;
   if(f!=='All'){var i=labels.indexOf(f);if(i>=0){labels=[labels[i]];y26=[y26[i]];y25=[y25[i]];y24=[y24[i]];}}
-  mkChart('outage-comp-chart',{type:'bar',data:{labels:labels,datasets:[{label:'2026 YTD',data:y26,backgroundColor:'#c0392b',borderRadius:3},{label:'2025',data:y25,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:y24,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10}}},scales:{y:{beginAtZero:true,title:{display:true,text:'No. of MV Sustained Outages'}}}}});
+  mkChart('outage-comp-chart',{type:'bar',data:{labels:labels,datasets:[{label:'2026 YTD',data:y26,backgroundColor:'#c0392b',borderRadius:3},{label:'2025 YTD',data:y25,backgroundColor:'#2980b9',borderRadius:3},{label:'2024 YTD',data:y24,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10}}},scales:{y:{beginAtZero:true,title:{display:true,text:'No. of MV Sustained Outages'}}}}});
 }
 function buildPlannedExceed(){
   var d=D.plannedExceed;
-  mkChart('planned-exceed-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'2026 YTD',data:d.y2026,backgroundColor:'#c0392b',borderRadius:3},{label:'2025',data:d.y2025,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:d.y2024,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v>0?v:'';},font:{size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'>5hr Planned'}}}}});
+  mkChart('planned-exceed-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'2026 YTD',data:d.y2026,backgroundColor:'#c0392b',borderRadius:3},{label:'2025 YTD',data:d.y2025,backgroundColor:'#2980b9',borderRadius:3},{label:'2024 YTD',data:d.y2024,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v>0?v:'';},font:{size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'>5hr Planned'}}}}});
 }
 function buildTransient(){
   var d=D.transient;
@@ -2476,8 +2480,16 @@ window.addEventListener('load', function(){
   updateWelcomeStats();
   loadLive().then(function(ok){
     updateWelcomeStats();
-    // Load history index if Worker is configured
-    if(USE_WORKER)loadHistoryIndex();
+    if(USE_WORKER){
+      loadHistoryIndex();
+      // Fetch visitor count to display on welcome page
+      fetch(WORKER_URL+'/visit-count?t='+Date.now())
+        .then(function(r){return r.json();})
+        .then(function(d){
+          var el=document.getElementById('ws-visitors');
+          if(el&&d.count)el.textContent=(d.count).toLocaleString();
+        }).catch(function(){});
+    }
     if(ok&&document.getElementById('app').style.display==='block'){
       console.log('loadLive: refreshing with',D.period);
       Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
