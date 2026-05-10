@@ -1373,7 +1373,7 @@ async function trackVisitor(){
     sessionStorage.setItem('nedc_visited','1');
 
     if(USE_WORKER){
-      var vres=await fetch(WORKER_URL+'/track-visit',{method:'POST'});
+      var vres=await fetch(WORKER_URL+'/track-visit',{method:'POST',headers:{'X-Dashboard-Env':WORKER_ENV}});
       if(vres.ok){
         var vd=await vres.json();
         var el=document.getElementById('ws-visitors');
@@ -1402,7 +1402,7 @@ async function deleteArchivedMonth(key){
   try{
     var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/'),{
       method:'DELETE',
-      headers:{'X-Admin-Secret':WORKER_SECRET}
+      headers:{'X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV}
     });
     if(res.ok){
       // Remove from local index
@@ -3223,9 +3223,11 @@ var JSONBIN_API_KEY='$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11
 var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
 
 // ── Cloudflare Worker (replaces JSONBin for save/load) ──
-var WORKER_URL='https://frosty-leaf-9497.abu-munia.workers.dev'; // Set after deploying Worker
+var WORKER_URL='https://frosty-leaf-9497.abu-munia.workers.dev';
 var WORKER_SECRET='NEDC_WORKER_2026';
-var USE_WORKER=WORKER_URL!=='__WORKER_URL__'; // Auto-enabled once URL is set
+var USE_WORKER=WORKER_URL!=='__WORKER_URL__';
+var IS_DEV=window.location.hostname.startsWith('dev.')||window.location.hostname==='localhost';
+var WORKER_ENV=IS_DEV?'dev':'prod';
 
 async function publishData(){
   var saveBar=document.getElementById('save-status-bar');
@@ -3235,7 +3237,7 @@ async function publishData(){
     var res;
     if(USE_WORKER){
       res=await fetch(WORKER_URL+'/save',{method:'POST',
-        headers:{'Content-Type':'application/json','X-Admin-Secret':WORKER_SECRET},
+        headers:{'Content-Type':'application/json','X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV},
         body:JSON.stringify({nedc_data:D,period:D.period,updatedAt:D.updatedAt||new Date().toISOString()})});
     }else{
       res=await fetch(JSONBIN_URL,{method:'PUT',
