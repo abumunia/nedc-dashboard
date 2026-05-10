@@ -183,10 +183,218 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 .pw-confirm{padding:9px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
 
 @keyframes spin{to{transform:rotate(360deg)}}
+@media print{
+  #sidebar,#topbar,#dev-banner,#gf-pdf-btn,#gf-pdf-btn-inner,.btn-row,#gf-selector{display:none!important;}
+  #app{margin-left:0!important;}
+  body{background:#fff!important;}
+  .kcard{break-inside:avoid;}
+  .view{display:none!important;}
+  #view-govfocus{display:block!important;padding:12px!important;}
+  #gf-placeholder{display:none!important;}
+  #gf-content{display:block!important;}
+  #gf-title-block{display:flex!important;}
+  #gf-gov-title{font-size:26px!important;font-weight:800!important;color:#0c1e35!important;}
+  #gf-group-badge{display:inline-block!important;}
+  .kgrid{grid-template-columns:repeat(2,1fr)!important;}
+  .g2{grid-template-columns:1fr 1fr!important;}
+  table{font-size:11px!important;}
+  .dt td,.dt th{padding:5px 6px!important;}
+}
+  .dt td,.dt th{padding:5px 6px!important;}
+}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEDC Network Performance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+
+
+
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5;--surface:#fff;--surface2:#f8f9fb;
+  --navy:#0c1e35;--navy2:#15304f;--red:#c0392b;--red2:#e74c3c;
+  --green:#27ae60;--amber:#e67e22;--blue:#2980b9;
+  --text:#111827;--text2:#6b7280;--text3:#9ca3af;
+  --border:#e5e7eb;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,0.08);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── WELCOME ── */
+#welcome{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:0}
+.wcard{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:48px 44px;max-width:480px;width:92%;text-align:center}
+.wcard h1{font-size:36px;font-weight:900;color:#fff;line-height:1.1;margin-bottom:8px;letter-spacing:-1px}
+.wcard h1 span{color:rgba(255,255,255,0.35)}
+.wcard p{color:rgba(255,255,255,0.45);font-size:13px;margin-bottom:28px;line-height:1.6}
+.wstats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;margin-bottom:28px}
+.wstat{background:rgba(255,255,255,0.03);padding:16px 8px;text-align:center}
+.wstat strong{display:block;font-size:22px;font-weight:800;color:#fff}
+.wstat span{font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.8px}
+.wbadge{display:inline-flex;align-items:center;gap:6px;background:rgba(192,57,43,0.2);border:1px solid rgba(192,57,43,0.4);border-radius:50px;padding:4px 14px;margin-bottom:20px;font-size:11px;font-weight:600;color:#f1948a;letter-spacing:0.5px;text-transform:uppercase}
+.wbadge-dot{width:6px;height:6px;border-radius:50%;background:#e74c3c;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.4)}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 28px;border-radius:50px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;border:none;transition:all 0.2s;width:100%}
+.btn-red{background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;box-shadow:0 8px 24px rgba(192,57,43,0.35)}
+.btn-red:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(192,57,43,0.5)}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.4);font-size:12px;margin-top:10px;padding:8px 20px}
+.btn-ghost:hover{color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.25)}
+
+/* ── ADMIN PANEL ── */
+#admin-panel{display:none;position:fixed;inset:0;background:var(--navy);z-index:101;align-items:center;justify-content:center}
+.apcard{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px;max-width:460px;width:92%}
+.apcard h2{color:#fff;font-size:20px;font-weight:700;margin-bottom:6px}
+.apcard p{color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:24px}
+.dropzone{border:2px dashed rgba(192,57,43,0.4);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;background:rgba(192,57,43,0.04);transition:all 0.2s;margin-bottom:16px}
+.dropzone:hover,.dropzone.over{border-color:#e74c3c;background:rgba(192,57,43,0.1)}
+.dropzone input{display:none}
+.dropzone p{color:rgba(255,255,255,0.5);font-size:13px;margin-top:8px}
+.dropzone strong{color:rgba(255,255,255,0.8);font-size:14px}
+#upload-msg{font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:none}
+.msg-ok{background:rgba(39,174,96,0.15);color:#6fcf97;border:1px solid rgba(39,174,96,0.3)}
+.msg-err{background:rgba(192,57,43,0.15);color:#f1948a;border:1px solid rgba(192,57,43,0.3)}
+.msg-info{background:rgba(41,128,185,0.15);color:#7fc4e8;border:1px solid rgba(41,128,185,0.3)}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);border-radius:50px;padding:11px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s}
+.btn-outline:hover{color:#fff;border-color:rgba(255,255,255,0.3)}
+.btn-sm-red{background:rgba(192,57,43,0.8);color:#fff;border:none;border-radius:50px;padding:11px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s}
+.btn-sm-red:hover{background:#c0392b}
+
+/* ── APP LAYOUT ── */
+#app{display:none;min-height:100vh}
+#sidebar{position:fixed;left:0;top:0;bottom:0;width:64px;background:linear-gradient(180deg,#0d1f35 0%,#0a1628 100%);z-index:50;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);transition:width 0.25s ease;overflow:hidden}
+#sidebar.open{width:216px}
+.slogo{height:60px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,0.07);overflow:hidden;padding:0}
+#sidebar.open .slogo{justify-content:flex-start;padding-left:12px;gap:8px}
+.slogo-text{opacity:0;white-space:nowrap;font-size:12px;font-weight:800;color:#fff;letter-spacing:0.5px;transition:opacity 0.2s;flex-shrink:0;line-height:1.2}
+#sidebar.open .slogo-text{opacity:1}
+.snav{flex:1;overflow:hidden;padding:6px 0}
+.sitem{display:flex;align-items:center;justify-content:center;width:100%;height:44px;padding:0;color:rgba(255,255,255,0.55);cursor:pointer;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;transition:color 0.15s,background 0.15s;position:relative}
+#sidebar.open .sitem{justify-content:flex-start;padding:0 20px;gap:12px}
+.sitem:hover{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.07)}
+.sitem.active{color:#fff;background:rgba(192,57,43,0.22)}
+.sitem.active::before{content:'';position:absolute;left:0;top:25%;height:50%;width:3px;background:#e74c3c;border-radius:0 3px 3px 0}
+.sitem svg{width:19px;height:19px;min-width:19px;fill:currentColor;flex-shrink:0}
+.sitem-label{opacity:0;width:0;overflow:hidden;white-space:nowrap;transition:opacity 0.2s,width 0s 0.25s}
+#sidebar.open .sitem-label{opacity:1;width:auto;transition:opacity 0.2s 0.05s,width 0s}
+.sdivider{height:1px;background:rgba(255,255,255,0.08);margin:4px 12px}
+.stoggle{width:100%;height:48px;flex-shrink:0;border:none;background:none;color:rgba(255,255,255,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s}
+#sidebar.open .stoggle{justify-content:flex-start;padding-left:20px;gap:12px}
+.stoggle:hover{color:rgba(255,255,255,0.6)}
+
+/* ── MAIN ── */
+#main{margin-left:64px;transition:margin-left 0.25s ease;min-height:100vh}
+#main.shifted{margin-left:216px}
+
+/* ── TOPBAR ── */
+#topbar{position:sticky;top:0;z-index:40;background:rgba(240,242,245,0.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-title{font-size:16px;font-weight:700;color:var(--navy)}
+.period-tag{background:var(--navy);color:#fff;padding:3px 12px;border-radius:50px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.file-info{display:flex;align-items:center;gap:7px;padding:5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)}
+.file-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.admin-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif;transition:all 0.2s}
+.admin-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* ── VIEWS ── */
+.view{display:none;padding:24px}
+.view.active{display:block}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.card-hdr{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-title{font-size:14px;font-weight:700;color:var(--text)}
+.card-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.card-body{padding:18px 20px}
+
+.kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+@media(max-width:900px){.kgrid{grid-template-columns:repeat(2,1fr)}}
+.kcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.kcard::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kcard.red::after{background:linear-gradient(90deg,#c0392b,#e74c3c)}
+.kcard.blue::after{background:linear-gradient(90deg,#1a5276,#2980b9)}
+.kcard.green::after{background:linear-gradient(90deg,#1e8449,#27ae60)}
+.kcard.amber::after{background:linear-gradient(90deg,#b7770d,#e67e22)}
+.kcard.navy::after{background:linear-gradient(90deg,#0c1e35,#15304f)}
+.klabel{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px}
+.kvalue{font-size:28px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-0.5px}
+.kunit{font-size:12px;font-weight:500;color:var(--text2);margin-left:3px}
+.kmeta{margin-top:10px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2)}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:50px;font-size:11px;font-weight:700}
+.badge.up{background:#fde8e8;color:#c0392b}
+.badge.dn{background:#e8f8ee;color:#1e8449}
+.badge.neu{background:#f3f4f6;color:var(--text2)}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+
+.section-hdr{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-hdr::before{content:'';display:block;width:4px;height:16px;background:var(--red);border-radius:2px;flex-shrink:0}
+
+.subtabs{display:flex;gap:4px;background:#f3f4f6;padding:4px;border-radius:10px;width:fit-content}
+.stab{padding:7px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border:none;background:transparent;font-family:'Inter',sans-serif;transition:all 0.15s}
+.stab.active{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{background:#f8f9fb;padding:9px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2);border-bottom:1px solid var(--border);text-align:left}
+table.dt td{padding:10px 12px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+table.dt tr:last-child td{border-bottom:none}
+table.dt tr:hover td{background:#fafafa}
+table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #fecaca}
+
+.imp-g{background:#e8f8ee;color:#1e8449;padding:2px 8px;border-radius:50px;font-size:11px;font-weight:700}
+.imp-r{background:#fde8e8;color:#c0392b;padding:2px 8px;border-radius:50px;font-size:11px;font-weight:700}
+.imp-n{background:#f3f4f6;color:var(--text2);padding:2px 8px;border-radius:50px;font-size:11px;font-weight:700}
+
+#omanMap{height:440px;border-radius:0 0 var(--radius) var(--radius)}
+
+/* heatmap */
+.hm-wrap{overflow-x:auto}
+.hm-table{border-collapse:collapse;font-size:11px;width:100%}
+.hm-table th{background:var(--navy);color:#fff;padding:8px 6px;text-align:center;font-size:10px;font-weight:600}
+.hm-table th:first-child{text-align:left;min-width:160px;padding-left:10px}
+.hm-table td{padding:6px;text-align:center;border:1px solid #f0f2f5}
+.hm-cell{border-radius:4px;padding:5px 4px;font-weight:700;min-height:32px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px}
+.hm-cell small{font-size:9px;opacity:0.75;font-weight:500}
+
+/* zone compliance */
+.zcard{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:18px 18px 18px 22px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.zcard-bar{position:absolute;left:0;top:0;bottom:0;width:4px}
+.zcard.compliant .zcard-bar{background:var(--green)}
+.zcard.atrisk .zcard-bar{background:var(--amber)}
+.zcard.breach .zcard-bar{background:var(--red)}
+
+/* toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 20px;border-radius:50px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* password modal */
+#pw-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#pw-modal.open{display:flex}
+.pw-box{background:#fff;border-radius:16px;padding:28px;max-width:320px;width:90%;text-align:center}
+.pw-box h3{font-size:17px;font-weight:700;margin-bottom:6px;color:var(--navy)}
+.pw-box p{font-size:13px;color:var(--text2);margin-bottom:16px}
+.pw-box input{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;margin-bottom:12px;color:var(--text)}
+.pw-box input:focus{border-color:var(--red)}
+.pw-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pw-cancel{padding:9px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'Inter',sans-serif}
+.pw-confirm{padding:9px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
+
+@keyframes spin{to{transform:rotate(360deg)}}
 @media print{#sidebar,#topbar .admin-btn{display:none}#main{margin-left:0}}
 </style>
 </head>
 <body>
+
+<!-- DEV ENVIRONMENT BANNER -->
+<div id="dev-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:999999;background:#e67e22;color:#fff;text-align:center;font-size:12px;font-weight:700;padding:6px;font-family:'Inter',sans-serif;letter-spacing:0.5px">
+  🔧 DEV — Testing Environment · Not visible to users · <a href="https://nedc-qsi-dashboard.pages.dev" style="color:#fff;text-decoration:underline">Go to Production →</a>
+</div>
 
 <!-- PASSWORD MODAL -->
 <div id="pw-modal">
@@ -251,7 +459,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <div class="wstat" style="min-width:120px"><strong id="ws-best-saifi" style="font-size:13px;line-height:1.2;color:#27ae60">—</strong><span>Best SAIFI Reduction</span></div>
       <div class="wstat" style="min-width:120px"><strong id="ws-worst-saidi" style="font-size:13px;line-height:1.2;color:#e74c3c">—</strong><span>Worst SAIDI Perf.</span></div>
       <div class="wstat" style="min-width:120px"><strong id="ws-worst-saifi" style="font-size:13px;line-height:1.2;color:#e74c3c">—</strong><span>Worst SAIFI Perf.</span></div>
-    </div>
+          </div>
     <button class="btn btn-red" id="enter-btn">
       <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
       Enter Dashboard
@@ -260,6 +468,12 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
       Admin · Update Data
     </button>
+  </div>
+
+  <!-- Visitor counter at bottom -->
+  <div style="text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+    <span id="ws-visitors" style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.3px">—</span>
+    <span style="font-size:11px;color:rgba(255,255,255,0.25)"> visitors</span>
   </div>
 </div>
 
@@ -289,6 +503,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <span id="test-jsonbin-result" style="font-size:12px;color:rgba(255,255,255,0.6)">Click to test</span>
     </div>
 
+    <!-- Manage History -->
+    <div style="margin:0 0 12px;padding:14px 16px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.1)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:10px">🗂 Manage History Archive</div>
+      <div id="admin-history-list" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35)">No archived months yet</div>
+      </div>
+    </div>
+
     <!-- Custom announcement message -->
     <div style="margin:16px 0 8px;padding:16px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.1)">
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:8px">
@@ -299,6 +521,11 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     </div>
 
     <!-- Connection Test -->
+    <div style="margin:0 0 8px;display:flex;gap:8px">
+      <button id="refresh-history-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">
+        🔄 Refresh History List
+      </button>
+    </div>
     <div style="margin:0 0 14px">
       <button id="test-jsonbin-btn" style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
         🔌 Test Cloud Connection
@@ -344,6 +571,10 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z"/></svg>
         <span class="sitem-label">Improvements</span>
       </button>
+      <button class="sitem" data-view="govfocus" data-tooltip="Governorate Focus">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.079 3.43-4.793 3.43-8.083 0-3.866-3.066-7-6.846-7-3.78 0-6.846 3.134-6.846 7 0 3.29 1.487 6.004 3.43 8.083a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+        <span class="sitem-label">Gov Focus</span>
+      </button>
     </div>
     <div class="sdivider"></div>
     <button class="stoggle" id="sidebar-toggle">
@@ -359,6 +590,12 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <span class="period-tag" id="period-tag">YTD</span>
       </div>
       <div class="topbar-right">
+        <!-- Historical month selector -->
+        <div id="history-container" style="display:none;align-items:center;gap:8px">
+          <select id="history-sel" onchange="loadHistoricalMonth(this.value)" style="border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-family:'Inter',sans-serif;background:#fff;cursor:pointer">
+            <option value="">📅 View Past Month</option>
+          </select>
+        </div>
         <div class="file-info"><span class="file-dot"></span><span id="file-label">Demo Data</span></div>
         <button class="admin-btn" id="admin-topbar-btn">
           <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
@@ -572,6 +809,104 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       </div>
     </div>
 
+    <!-- GOV FOCUS VIEW -->
+    <div class="view" id="view-govfocus">
+
+      <!-- GOV REPORT TITLE — full width at top -->
+      <div id="gf-title-block" style="display:none;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:16px;margin-bottom:20px;border-bottom:3px solid #0c1e35;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">Governorate Focus Report · NEDC Network Performance</div>
+          <div id="gf-gov-title" style="font-size:34px;font-weight:800;color:#0c1e35;line-height:1.1"></div>
+          <div id="gf-group-badge" style="display:inline-block;margin-top:8px;padding:4px 14px;background:linear-gradient(135deg,#0c1e35,#1a3a5c);color:#fff;border-radius:20px;font-size:12px;font-weight:600"></div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--text3);display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <button id="gf-pdf-btn-inner" onclick="exportGovFocusPDF()" style="display:none;background:#c0392b;color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:7px">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:15px;height:15px"><path d="M5 4v3H4a2 2 0 00-2 2v4a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v4H6v-4zm8-4a1 1 0 110 2 1 1 0 010-2z"/></svg>
+            Export PDF
+          </button>
+          <div id="gf-ytd-label" style="font-weight:700;font-size:14px;color:var(--text2)"></div>
+          <div>NEDC Network Performance Dashboard</div>
+        </div>
+      </div>
+
+      <!-- Header with gov selector -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:6px">Select Governorate</div>
+          <select id="gf-selector" onchange="renderGovFocus()" style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;color:var(--text1);min-width:220px;cursor:pointer">
+            <option value="">— Choose Governorate —</option>
+          </select>
+        </div>
+
+      
+      </div>
+
+      <!-- Placeholder when no gov selected -->
+      <div id="gf-placeholder" style="text-align:center;padding:60px 20px;color:var(--text3)">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:48px;height:48px;margin:0 auto 16px;opacity:0.3"><path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.079 3.43-4.793 3.43-8.083 0-3.866-3.066-7-6.846-7-3.78 0-6.846 3.134-6.846 7 0 3.29 1.487 6.004 3.43 8.083a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px">Select a Governorate</div>
+        <div style="font-size:13px">Choose from the dropdown above to view all performance details</div>
+      </div>
+
+      <!-- Gov content (hidden until selected) -->
+      <div id="gf-content" style="display:none">
+
+        <!-- KPI Summary Cards -->
+        <div id="gf-kpi-cards" class="kgrid" style="margin-bottom:20px"></div>
+
+        <!-- SAIDI & SAIFI detail + Planned vs Unplanned -->
+        <div class="g2" style="margin-bottom:20px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+            <div class="card-title">📊 SAIDI Breakdown</div>
+            <div id="gf-saidi-breakdown" style="margin-top:12px"></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+            <div class="card-title">📊 SAIFI Breakdown</div>
+            <div id="gf-saifi-breakdown" style="margin-top:12px"></div>
+          </div>
+        </div>
+
+        <!-- Ranking & Contribution -->
+        <div class="g2" style="margin-bottom:20px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+            <div class="card-title">🏆 Network Ranking</div>
+            <div id="gf-ranking" style="margin-top:12px"></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+            <div class="card-title">🔌 NEDC Contribution</div>
+            <div id="gf-contribution" style="margin-top:12px"></div>
+          </div>
+        </div>
+
+        <!-- Outage Driver Heatmap for this gov -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px">
+          <div class="card-title">⚡ Outage Drivers</div>
+          <div id="gf-drivers" style="margin-top:12px;overflow-x:auto"></div>
+        </div>
+
+        <!-- MV Sustained & Transient -->
+        <div class="g2" style="margin-bottom:20px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+            <div class="card-title">📉 MV Sustained Outages (Year Comparison)</div>
+            <div id="gf-sustained" style="margin-top:12px"></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+            <div class="card-title">⏱ Transient Duration</div>
+            <div id="gf-transient" style="margin-top:12px"></div>
+          </div>
+        </div>
+
+        <!-- 2026 Action Plan -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px">
+          <div class="card-title">🎯 2026 Action Plan & KPI Targets</div>
+          <div id="gf-action-plan" style="margin-top:12px;overflow-x:auto"></div>
+        </div>
+
+      </div>
+    </div>
+
+
+
     <!-- TREND MODAL -->
     <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:60;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
       <div style="background:#fff;border-radius:16px;max-width:860px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
@@ -746,6 +1081,7 @@ var D = {
     "Musandam":["Musandam"]
   },
   customMsg:'',
+  visitCount:0,
     govKpi:{
     "Muscat":[
       {t:"Planned",a:"Connect Generator for planned programs >60 customers & >5hrs",r25:"79",imp:"34%",w:"10%",tgt:"52",y25:"38",y26:"20"},
@@ -882,6 +1218,8 @@ function showAdmin(){
     // Pre-fill message textarea
     var mi=document.getElementById('admin-msg-input');
     if(mi&&D.customMsg)mi.value=D.customMsg;
+    // Refresh history list
+    if(USE_WORKER){loadHistoryIndex().then(renderAdminHistory);}
   });
 }
 
@@ -971,12 +1309,13 @@ document.getElementById('pw-input').onkeydown=function(e){
 // ═══════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════
-var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements'};
+var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','govfocus':'Governorate Focus','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements'};
 
 function updateWelcomeStats(){
   // Period
   var wp=document.getElementById('ws-period');
   if(wp)wp.textContent=D.period||'YTD 2026';
+  updateVisitorDisplay();
 
   // 2026 YTD SAIDI — latest non-null value
   var saidiArr=D.saidi&&D.saidi.y2026_ytd||[];
@@ -1024,6 +1363,157 @@ function updateWelcomeStats(){
   }
 }
 
+// ══ VISITOR COUNTER ══
+var VISIT_BIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID; // reuse same bin
+
+async function trackVisitor(){
+  try{
+    // sessionStorage clears when browser/tab closes — reopening = new visit counted
+    if(sessionStorage.getItem('nedc_visited'))return;
+    sessionStorage.setItem('nedc_visited','1');
+
+    if(USE_WORKER){
+      var vres=await fetch(WORKER_URL+'/track-visit',{method:'POST'});
+      if(vres.ok){
+        var vd=await vres.json();
+        var el=document.getElementById('ws-visitors');
+        if(el)el.textContent=(vd.count||0).toLocaleString();
+      }
+    }else{
+      var curCount=(parseInt((document.getElementById('ws-visitors')||{}).textContent)||0)+1;
+      var el2=document.getElementById('ws-visitors');
+      if(el2)el2.textContent=curCount.toLocaleString();
+    }
+  }catch(e){console.log('Visitor track error:',e);}
+}
+
+function updateVisitorDisplay(){
+  var el=document.getElementById('ws-visitors');
+  if(el)el.textContent=(D.visitCount||0).toLocaleString();
+}
+
+// ══════════════════════════════════
+// HISTORY — load past months
+// ══════════════════════════════════
+var historyIndex=[];
+
+async function deleteArchivedMonth(key){
+  if(!confirm('Delete '+key+' from archive? This cannot be undone.'))return;
+  try{
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/'),{
+      method:'DELETE',
+      headers:{'X-Admin-Secret':WORKER_SECRET}
+    });
+    if(res.ok){
+      // Remove from local index
+      historyIndex=historyIndex.filter(function(m){return m.key!==key;});
+      buildHistoryDropdown();
+      renderAdminHistory();
+    }else{
+      alert('Delete failed: '+(await res.text()));
+    }
+  }catch(e){alert('Delete error: '+e.message);}
+}
+
+function renderAdminHistory(){
+  var el=document.getElementById('admin-history-list');
+  if(!el)return;
+  el.innerHTML='';
+  if(!historyIndex||historyIndex.length===0){
+    el.innerHTML='<div style="font-size:12px;color:rgba(255,255,255,0.35)">No archived months yet</div>';
+    return;
+  }
+  historyIndex.forEach(function(m){
+    var date=m.updatedAt?new Date(m.updatedAt).toLocaleDateString():'';
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);border-radius:7px;padding:7px 10px';
+    var info=document.createElement('div');
+    info.innerHTML='<span style="font-size:13px;font-weight:600;color:#fff">'+m.period+'</span>'+(date?'<span style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:8px">saved '+date+'</span>':'');
+    var btn=document.createElement('button');
+    btn.textContent='Delete';
+    btn.style.cssText='background:rgba(192,57,43,0.3);border:1px solid rgba(192,57,43,0.5);color:#f87171;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif';
+    btn.addEventListener('click',(function(key){return function(){deleteArchivedMonth(key);};})(m.key));
+    row.appendChild(info);
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
+
+async function loadHistoryIndex(){
+  if(!USE_WORKER)return;
+  try{
+    var res=await fetch(WORKER_URL+'/index?t='+Date.now());
+    if(!res.ok)return;
+    var raw=await res.json();
+    historyIndex=raw.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
+    buildHistoryDropdown();
+    renderAdminHistory();
+  }catch(e){console.log('History index error:',e);}
+}
+
+function buildHistoryDropdown(){
+  var sel=document.getElementById('history-sel');
+  var container=document.getElementById('history-container');
+  if(!sel)return;
+  if(!historyIndex||historyIndex.length===0){
+    if(container)container.style.display='none';
+    return;
+  }
+  sel.innerHTML='<option value="">📅 View Past Month</option>'+
+    historyIndex.map(function(m){
+      return '<option value="'+m.key+'">'+m.period+'</option>';
+    }).join('');
+  if(container)container.style.display='flex';
+}
+
+async function loadHistoricalMonth(key){
+  if(!key){
+    // Reset to current
+    if(_histViewingArchive){
+      _histViewingArchive=false;
+      document.getElementById('hist-banner').style.display='none';
+      await loadLive();
+      refreshAllViews();
+      updateWelcomeStats();
+    }
+    return;
+  }
+  try{
+    document.getElementById('hist-banner').style.display='flex';
+    document.getElementById('hist-banner-text').textContent=key.replace(':',' / ');
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?t='+Date.now());
+    if(!res.ok){
+      // Data deleted — remove from dropdown silently
+      var selEl=document.getElementById('history-sel');
+      if(selEl){var opt=selEl.querySelector('option[value="'+key+'"]');if(opt)opt.remove();}
+      document.getElementById('hist-banner').style.display='none';
+      return;
+    }
+    var data=await res.json();
+    var live=data.nedc_data||data;
+    if(live&&live.saidi){
+      D=live;
+      _histViewingArchive=true;
+      refreshAllViews();
+      updateWelcomeStats();
+      console.log('Historical data loaded:',D.period);
+    }
+  }catch(e){console.log('Load history error:',e);}
+}
+
+var _histViewingArchive=false;
+
+function refreshAllViews(){
+  Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
+  try{renderSummary();}catch(e){}
+  try{renderKpi();}catch(e){}
+  try{renderOutage();}catch(e){}
+  try{renderDriver();}catch(e){}
+  try{renderZones();}catch(e){}
+  try{renderQsi();}catch(e){}
+  setPeriod();
+}
+
 function showAnnouncement(){
   var msg=D&&D.customMsg?String(D.customMsg).trim():'';
   if(!msg||msg.length===0)return; // No message — skip popup
@@ -1040,9 +1530,313 @@ function showAnnouncement(){
   // No auto-dismiss — user must close manually
 }
 
+
+// ══════════════════════════════════════════════════════
+// GOV FOCUS VIEW
+// ══════════════════════════════════════════════════════
+function populateGovFocusSelector(){
+  var pdfB=document.getElementById('gf-pdf-btn-inner')||document.getElementById('gf-pdf-btn');
+  if(pdfB&&!pdfB._wired){pdfB._wired=true;pdfB.addEventListener('click',exportGovFocusPDF);}
+  var sel=document.getElementById('gf-selector');
+  if(!sel)return;
+  var govs=[...new Set((D.govData||[]).filter(function(g){return !g.isGroup&&g.ind==='SAIDI';}).map(function(g){return g.gov;}))].sort();
+  var cur=sel.value;
+  sel.innerHTML='<option value="">— Choose Governorate —</option>'+govs.map(function(g){
+    return '<option value="'+g+'"'+(g===cur?' selected':'')+'>'+g+'</option>';
+  }).join('');
+}
+
+function renderGovFocus(){
+  var gov=document.getElementById('gf-selector').value;
+  document.getElementById('gf-placeholder').style.display=gov?'none':'block';
+  document.getElementById('gf-content').style.display=gov?'block':'none';
+  var titleBlk=document.getElementById('gf-title-block');
+  var titleBlk2=document.getElementById('gf-title-block');if(titleBlk2)titleBlk2.style.display=gov?'flex':'none';
+  var pdfBtnEl=document.getElementById('gf-pdf-btn-inner');
+  if(pdfBtnEl)pdfBtnEl.style.display=gov?'flex':'none';
+  if(!gov)return;
+
+  // ── Name alias map (handles spelling variants across all sheets) ──
+  var GOV_ALIASES={
+    'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA'],
+    'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA'],
+    'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S'],
+    'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North','Sharqiyah North'],
+    'Al Buraimi':['Buraimi','AL BURAIMI','BUR'],
+    'North Batinah':['N Batinah','NORTH BATINAH','NB'],
+    'South Batinah':['SOUTH-B','SOUTH BATINAH','SOUTH-BATINAH'],
+    'Wusta':['Wusta','WUSTA','Al Wusta','AL WUSTA'],
+    'Al Wusta':['Wusta','WUSTA','AL WUSTA'],
+    'Ad Dhahira':['Dhahira','AD DHAHIRA','DHR'],
+    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR'],
+    'Musandam':['MDM','MUSANDAM'],
+    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR']};
+  function findGovIdx(labels,name){
+    var idx=labels.findIndex(function(g){return g===name;});if(idx>=0)return idx;
+    var aliases=GOV_ALIASES[name]||[];
+    for(var ai=0;ai<aliases.length;ai++){idx=labels.findIndex(function(g){return g===aliases[ai];});if(idx>=0)return idx;}
+    var skip={al:1,ad:1};
+    var words=name.split(' ').filter(function(w){return !skip[w.toLowerCase()];});
+    var key=words[0]?words[0].toLowerCase().substring(0,5):'';
+    return key?labels.findIndex(function(g){
+      var gw=g.split(/[ \-_]+/).filter(function(w){return !skip[w.toLowerCase()];});
+      return gw.some(function(w){return w.toLowerCase().substring(0,5)===key;});
+    }):-1;
+  }
+
+  // Update page title
+  var pt=document.getElementById('page-title');
+  if(pt)pt.textContent=gov+' — Governorate Focus';
+
+  // Big gov title + group badge
+  var sRow=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});
+  var titleBlock=document.getElementById('gf-title-block');
+  var govTitle=document.getElementById('gf-gov-title');
+  var badge=document.getElementById('gf-group-badge');
+  if(titleBlock)titleBlock.style.display='flex';
+  if(govTitle)govTitle.textContent=gov;
+  // Set period and YTD label
+  var yLbl=document.getElementById('gf-ytd-label');
+  if(yLbl){
+    var mp=D.period?D.period.replace('YTD ','').split(' '):[];
+    var fp=mp.length===2?mp[0].charAt(0)+mp[0].slice(1).toLowerCase()+' '+mp[1]:'YTD Report';
+    yLbl.textContent=fp;
+  }
+  if(badge&&sRow&&sRow.group){
+    badge.textContent='Group: '+sRow.group;
+    badge.style.display='inline-block';
+  }else if(badge){badge.style.display='none';}
+
+  // ── KPI CARDS ──
+  var sfRow=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIFI'&&!g.isGroup;});
+  var cards=[];
+  if(sRow){
+    var sGood=sRow.t26>0&&sRow.r26<=sRow.t26;
+    cards.push({lbl:'SAIDI 2026 YTD',val:sRow.y26?sRow.y26.toFixed(2):'—',unit:'min',sub:'Rolling: '+(sRow.r26?sRow.r26.toFixed(1):'—')+' min',color:sGood?'green':'red'});
+    cards.push({lbl:'SAIDI Target',val:sRow.t26||'—',unit:'min',sub:'Improvement: '+impBadge(sRow.imp),color:'navy'});
+  }
+  if(sfRow){
+    var sfGood=sfRow.t26>0&&sfRow.r26<=sfRow.t26;
+    cards.push({lbl:'SAIFI 2026 YTD',val:sfRow.y26?sfRow.y26.toFixed(3):'—',unit:'freq',sub:'Rolling: '+(sfRow.r26?sfRow.r26.toFixed(2):'—'),color:sfGood?'green':'red'});
+    cards.push({lbl:'SAIFI Target',val:sfRow.t26||'—',unit:'freq',sub:'Improvement: '+impBadge(sfRow.imp),color:'navy'});
+  }
+  var kcEl=document.getElementById('gf-kpi-cards');
+  if(kcEl)kcEl.innerHTML=cards.map(function(c){
+    return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div>'+
+      '<div class="kvalue">'+c.val+'<span class="kunit">'+c.unit+'</span></div>'+
+      '<div class="kmeta" style="font-size:11px">'+c.sub+'</div></div>';
+  }).join('');
+
+  // ── SAIDI/SAIFI BREAKDOWN (Planned vs Unplanned) ──
+  function makeBreakdown(ind,elId){
+    var el=document.getElementById(elId);if(!el)return;
+    var bd=D.breakdown&&D.breakdown[gov]?D.breakdown[gov][ind]:null;
+    var row=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind===ind&&!g.isGroup;});
+    if(!bd&&!row){el.innerHTML='<p style="color:var(--text3);font-size:13px">No data available</p>';return;}
+    var rows='';
+    if(row){
+      rows+='<tr><td>2025 YTD</td><td style="font-weight:700">'+( row.y25?row.y25.toFixed(2):'—')+'</td></tr>';
+      rows+='<tr><td>2026 YTD</td><td style="font-weight:700;color:#c0392b">'+(row.y26?row.y26.toFixed(2):'—')+'</td></tr>';
+      rows+='<tr><td>2026 Rolling</td><td style="font-weight:700;color:#1a5276">'+(row.r26?row.r26.toFixed(2):'—')+'</td></tr>';
+      rows+='<tr><td>2026 Target</td><td style="font-weight:700;color:'+(row.t26&&row.r26<=row.t26?'#27ae60':'#e74c3c')+'">'+(row.t26||'—')+'</td></tr>';
+    }
+    if(bd){
+      rows+='<tr><td colspan="2" style="padding-top:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">Planned vs Unplanned</td></tr>';
+      rows+='<tr><td>Planned</td><td style="font-weight:600">'+bd.p+'</td></tr>';
+      rows+='<tr><td>Unplanned</td><td style="font-weight:600">'+bd.u+'</td></tr>';
+      var total=bd.p+bd.u;
+      if(total>0){
+        var pPct=Math.round(bd.p/total*100);var uPct=100-pPct;
+        rows+='<tr><td colspan="2"><div style="display:flex;gap:2px;height:8px;border-radius:4px;overflow:hidden;margin-top:4px">'+
+          '<div style="width:'+pPct+'%;background:#2980b9"></div>'+
+          '<div style="width:'+uPct+'%;background:#c0392b"></div></div>'+
+          '<div style="display:flex;gap:12px;font-size:10px;margin-top:3px;color:var(--text3)">'+
+          '<span style="color:#2980b9">■ Planned '+pPct+'%</span>'+
+          '<span style="color:#c0392b">■ Unplanned '+uPct+'%</span></div></td></tr>';
+      }
+    }
+    el.innerHTML='<table style="width:100%;border-collapse:collapse">'+
+      '<colgroup><col style="width:55%"><col style="width:45%"></colgroup>'+
+      rows.replace(/<tr>/g,'<tr style="border-bottom:1px solid var(--border)">').replace(/<td>/g,'<td style="padding:7px 4px;font-size:13px;color:var(--text2)">').replace(/<td style="font-weight/g,'<td style="text-align:right;font-size:14px;font-weight')+
+      '</table>';
+  }
+  makeBreakdown('SAIDI','gf-saidi-breakdown');
+  makeBreakdown('SAIFI','gf-saifi-breakdown');
+
+  // ── RANKING ──
+  var rankEl=document.getElementById('gf-ranking');
+  if(rankEl){
+    var allS=(D.govData||[]).filter(function(g){return g.ind==='SAIDI'&&!g.isGroup&&g.r26>0;}).sort(function(a,b){return a.r26-b.r26;});
+    var rankS=allS.findIndex(function(g){return g.gov===gov;})+1;
+    var allSf=(D.govData||[]).filter(function(g){return g.ind==='SAIFI'&&!g.isGroup&&g.r26>0;}).sort(function(a,b){return a.r26-b.r26;});
+    var rankSf=allSf.findIndex(function(g){return g.gov===gov;})+1;
+    var total=allS.length;
+    function rankColor(r,t){return r<=Math.ceil(t/3)?'#27ae60':r<=Math.ceil(t*2/3)?'#e67e22':'#c0392b';}
+    rankEl.innerHTML='<div style="display:flex;flex-direction:column;gap:14px">'+
+      '<div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">SAIDI Ranking (Rolling)</div>'+
+      '<div style="display:flex;align-items:baseline;gap:8px">'+
+      '<span style="font-size:36px;font-weight:800;color:'+rankColor(rankS,total)+'">'+rankS+'</span>'+
+      '<span style="font-size:14px;color:var(--text3)">of '+total+' governorates</span></div>'+
+      '<div style="background:var(--border);border-radius:4px;height:6px;margin-top:6px">'+
+      '<div style="background:'+rankColor(rankS,total)+';height:6px;border-radius:4px;width:'+(((total-rankS+1)/total)*100).toFixed(0)+'%"></div></div></div>'+
+      '<div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">SAIFI Ranking (Rolling)</div>'+
+      '<div style="display:flex;align-items:baseline;gap:8px">'+
+      '<span style="font-size:36px;font-weight:800;color:'+rankColor(rankSf,allSf.length)+'">'+rankSf+'</span>'+
+      '<span style="font-size:14px;color:var(--text3)">of '+allSf.length+' governorates</span></div>'+
+      '<div style="background:var(--border);border-radius:4px;height:6px;margin-top:6px">'+
+      '<div style="background:'+rankColor(rankSf,allSf.length)+';height:6px;border-radius:4px;width:'+(((allSf.length-rankSf+1)/allSf.length)*100).toFixed(0)+'%"></div></div></div>'+
+      '</div>';
+  }
+
+  // ── CONTRIBUTION ──
+  var contEl=document.getElementById('gf-contribution');
+  if(contEl){
+    var cS=D.contrib&&D.contrib.SAIDI?D.contrib.SAIDI.values[D.contrib.SAIDI.labels.indexOf(gov)]:null;
+    var cSf=D.contrib&&D.contrib.SAIFI?D.contrib.SAIFI.values[D.contrib.SAIFI.labels.indexOf(gov)]:null;
+    // Also from govData
+    if(cS===null||cS===undefined){var cr=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});if(cr)cS=cr.cont;}
+    contEl.innerHTML='<div style="display:flex;flex-direction:column;gap:16px">'+
+      '<div><div style="font-size:11px;color:var(--text3);margin-bottom:6px">SAIDI Contribution to NEDC</div>'+
+      '<div style="font-size:32px;font-weight:800;color:#c0392b">'+(cS!==null&&cS!==undefined?cS+'%':'—')+'</div>'+
+      (cS?'<div style="background:var(--border);border-radius:4px;height:8px;margin-top:6px"><div style="background:#c0392b;height:8px;border-radius:4px;width:'+Math.min(100,cS)+'%"></div></div>':'')+'</div>'+
+      '<div><div style="font-size:11px;color:var(--text3);margin-bottom:6px">SAIFI Contribution to NEDC</div>'+
+      '<div style="font-size:32px;font-weight:800;color:#2980b9">'+(cSf!==null&&cSf!==undefined?cSf+'%':'—')+'</div>'+
+      (cSf?'<div style="background:var(--border);border-radius:4px;height:8px;margin-top:6px"><div style="background:#2980b9;height:8px;border-radius:4px;width:'+Math.min(100,cSf)+'%"></div></div>':'')+'</div>'+
+      '</div>';
+  }
+
+  // ── OUTAGE DRIVERS for this gov ──
+  var drvEl=document.getElementById('gf-drivers');
+  if(drvEl&&D.driverMatrix&&D.driverMatrix.govs){
+    var govIdx=findGovIdx(D.driverMatrix.govs,gov);
+    if(govIdx>=0){
+      var govDrivers=D.driverMatrix.rows.map(function(r){return {d:r.d,n:r.v[govIdx]||0};}).filter(function(r){return r.n>0;}).sort(function(a,b){return b.n-a.n;});
+      var total=govDrivers.reduce(function(s,r){return s+r.n;},0);
+      drvEl.innerHTML='<table style="width:100%;border-collapse:collapse">'+
+        govDrivers.slice(0,8).map(function(r){
+          var pct=total>0?Math.round(r.n/total*100):0;
+          return '<tr style="border-bottom:1px solid var(--border)">'+
+            '<td style="padding:7px 4px;font-size:13px;color:var(--text2);width:45%">'+r.d+'</td>'+
+            '<td style="padding:7px 4px;text-align:right;font-weight:700;width:15%">'+r.n+'</td>'+
+            '<td style="padding:7px 8px;width:40%"><div style="background:var(--border);border-radius:3px;height:6px">'+
+            '<div style="background:#e67e22;height:6px;border-radius:3px;width:'+pct+'%"></div></div></td></tr>';
+        }).join('')+'</table>';
+    }else{drvEl.innerHTML='<p style="color:var(--text3);font-size:13px">No driver data available for this governorate</p>';}
+  }
+
+  // ── MV SUSTAINED ──
+  var susEl=document.getElementById('gf-sustained');
+  if(susEl&&D.outageComp&&D.outageComp.labels){
+    var susIdx=findGovIdx(D.outageComp.labels,gov);
+    if(susIdx>=0){
+      var s26=D.outageComp.y2026[susIdx],s25=D.outageComp.y2025[susIdx],s24=D.outageComp.y2024?D.outageComp.y2024[susIdx]:null;
+      var maxV=Math.max(s26||0,s25||0,s24||0)||1;
+      susEl.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+
+        (s24!==null&&s24!==undefined?'<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--text3)">2024 YTD</span><span style="font-weight:700">'+s24+'</span></div><div style="background:var(--border);border-radius:3px;height:8px"><div style="background:#95a5a6;height:8px;border-radius:3px;width:'+(s24/maxV*100).toFixed(0)+'%"></div></div></div>':'')+
+        '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--text3)">2025 YTD</span><span style="font-weight:700">'+s25+'</span></div><div style="background:var(--border);border-radius:3px;height:8px"><div style="background:#2980b9;height:8px;border-radius:3px;width:'+(s25/maxV*100).toFixed(0)+'%"></div></div></div>'+
+        '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--text3)">2026 YTD</span><span style="font-weight:700;color:#c0392b">'+s26+'</span></div><div style="background:var(--border);border-radius:3px;height:8px"><div style="background:#c0392b;height:8px;border-radius:3px;width:'+(s26/maxV*100).toFixed(0)+'%"></div></div></div>'+
+        '</div>';
+    }else{susEl.innerHTML='<p style="color:var(--text3);font-size:13px">No data available</p>';}
+  }
+
+  // ── TRANSIENT ──
+  var transEl=document.getElementById('gf-transient');
+  if(transEl&&D.transient&&D.transient.labels){
+    var tIdx=findGovIdx(D.transient.labels,gov);
+    var nedcIdx=D.transient.labels.findIndex(function(g){return g==='NEDC';});
+    if(tIdx>=0){
+      var tDur=D.transient.times[tIdx];
+      var nedcDur=nedcIdx>=0?D.transient.times[nedcIdx]:null;
+      function toMins(t){var p=t.split(':');return parseInt(p[0])*60+parseInt(p[1]);}
+      var tMins=toMins(tDur);var nedcMins=nedcDur?toMins(nedcDur):null;
+      var isAboveNedc=nedcMins&&tMins>nedcMins;
+      transEl.innerHTML='<div style="text-align:center;padding:16px 0">'+
+        '<div style="font-size:48px;font-weight:800;color:'+(isAboveNedc?'#c0392b':'#27ae60')+'">'+tDur+'</div>'+
+        '<div style="font-size:12px;color:var(--text3);margin-top:4px">hours:minutes</div>'+
+        (nedcDur?'<div style="margin-top:16px;padding:10px;background:var(--border);border-radius:8px;font-size:12px">'+
+          'NEDC Average: <strong>'+nedcDur+'</strong> · '+
+          '<span style="color:'+(isAboveNedc?'#c0392b':'#27ae60')+';font-weight:700">'+
+          (isAboveNedc?'▲ Above NEDC average':'✅ Below NEDC average')+'</span></div>':'')+
+        '</div>';
+    }else{transEl.innerHTML='<p style="color:var(--text3);font-size:13px">No transient data available</p>';}
+  }
+
+  // ── ACTION PLAN — same theme as QSI Gov KPIs tab ──
+  var apEl=document.getElementById('gf-action-plan');
+  if(apEl){
+    var kpiKey=Object.keys(D.govKpi||{}).find(function(k){
+      if(k===gov)return true;
+      // Check if k is an alias of gov or gov is an alias of k
+      var aliases=GOV_ALIASES[gov]||[];
+      if(aliases.indexOf(k)>=0)return true;
+      var kAliases=GOV_ALIASES[k]||[];
+      if(kAliases.indexOf(gov)>=0)return true;
+      // Keyword match
+      return findGovIdx([k],gov)>=0;
+    });
+    var kpiData=kpiKey?D.govKpi[kpiKey]:null;
+    if(kpiData&&kpiData.length>0){
+      var apRows=kpiData.map(function(item){
+        var t26n=parseFloat(String(item.tgt).replace(/[^\d.-]/g,''));
+        var y26n=parseFloat(String(item.y26).replace(/[^\d.-]/g,''));
+        var y25n=parseFloat(String(item.y25).replace(/[^\d.-]/g,''));
+        var exc=!isNaN(y26n)&&!isNaN(t26n)&&y26n>t26n;
+        var yi=!isNaN(y25n)&&!isNaN(y26n)&&y25n!==0?((y26n-y25n)/y25n*100):null;
+        var tc=item.t==='Planned'?'#1a5276':'#c0392b';
+        var tbg=item.t==='Planned'?'#eff6ff':'#fff5f5';
+        return '<tr style="'+(exc?'background:#fff5f5':'')+'">'+
+          '<td><span style="background:'+tbg+';color:'+tc+';padding:2px 9px;border-radius:50px;font-size:11px;font-weight:700">'+item.t+'</span></td>'+
+          '<td style="font-size:12px;color:var(--text2)">'+item.a+'</td>'+
+          '<td style="text-align:center;font-size:12px">'+item.r25+'</td>'+
+          '<td style="text-align:center;font-weight:700;color:#27ae60">↓ '+item.imp+'</td>'+
+          '<td style="text-align:center;font-size:12px;color:var(--text2)">'+item.w+'</td>'+
+          '<td style="text-align:center;font-weight:800;color:#1d4ed8;background:#eff6ff">'+item.tgt+'</td>'+
+          '<td style="text-align:center;background:#f8f9fb">'+item.y25+'</td>'+
+          '<td style="text-align:center;font-weight:700;'+(exc?'color:#c0392b;background:#fff5f5':'background:#f8f9fb')+'">'+( exc?'★ ':'')+item.y26+'</td>'+
+          '<td style="text-align:center">'+(yi!==null?impBadge(yi):'<span class="imp-n">—</span>')+'</td></tr>';
+      }).join('');
+      apEl.innerHTML='<table class="dt"><thead><tr>'+
+        '<th>Type</th><th style="width:28%">Action</th>'+
+        '<th style="text-align:center">Record 25</th>'+
+        '<th style="text-align:center">Target Imp</th>'+
+        '<th style="text-align:center">Weight</th>'+
+        '<th style="text-align:center;background:#eff6ff;color:#1d4ed8">2026 Target</th>'+
+        '<th style="text-align:center">2025 YTD</th>'+
+        '<th style="text-align:center">2026 YTD</th>'+
+        '<th style="text-align:center">YTD Imp</th>'+
+        '</tr></thead><tbody>'+apRows+'</tbody></table>';
+    }else{
+      apEl.innerHTML='<p style="color:var(--text3);font-size:13px;padding:12px 0">No action plan data available. Upload the latest Excel to populate.</p>';
+    }
+  }
+}
+
+function exportGovFocusPDF(){
+  var gov=document.getElementById('gf-selector').value;
+  if(!gov){alert('Please select a governorate first');return;}
+  var el=document.getElementById('view-govfocus');
+  var origTitle=document.title;
+  document.title='NEDC — '+gov+' Governorate Report — '+(D.period||'2026');
+  if(el)el.classList.add('printing-gov');
+  window.print();
+  setTimeout(function(){
+    document.title=origTitle;
+    if(el)el.classList.remove('printing-gov');
+  },3000);
+}
+
+function renderGovFocusView(){
+  populateGovFocusSelector();
+  var cur=document.getElementById('gf-selector').value;
+  if(cur)renderGovFocus();
+}
+
+
 function goView(v){
   document.querySelectorAll('.view').forEach(function(el){el.classList.remove('active');});
   document.querySelectorAll('.sitem').forEach(function(el){el.classList.remove('active');});
+  if(v==='govfocus'){setTimeout(function(){renderGovFocusView();},30);}
+  else{var pt2=document.getElementById('page-title');var titles={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements','govfocus':'Governorate Focus'};if(pt2&&titles[v])pt2.textContent=titles[v];}
   var ve=document.getElementById('view-'+v);
   var ne=document.querySelector('.sitem[data-view="'+v+'"]');
   if(ve)ve.classList.add('active');
@@ -1363,11 +2157,11 @@ function buildOutageComp(){
   var d=D.outageComp;
   var labels=d.labels,y26=d.y2026,y25=d.y2025,y24=d.y2024;
   if(f!=='All'){var i=labels.indexOf(f);if(i>=0){labels=[labels[i]];y26=[y26[i]];y25=[y25[i]];y24=[y24[i]];}}
-  mkChart('outage-comp-chart',{type:'bar',data:{labels:labels,datasets:[{label:'2026 YTD',data:y26,backgroundColor:'#c0392b',borderRadius:3},{label:'2025',data:y25,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:y24,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10}}},scales:{y:{beginAtZero:true,title:{display:true,text:'No. of MV Sustained Outages'}}}}});
+  mkChart('outage-comp-chart',{type:'bar',data:{labels:labels,datasets:[{label:'2026 YTD',data:y26,backgroundColor:'#c0392b',borderRadius:3},{label:'2025 YTD',data:y25,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:y24,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10}}},scales:{y:{beginAtZero:true,title:{display:true,text:'No. of MV Sustained Outages'}}}}});
 }
 function buildPlannedExceed(){
   var d=D.plannedExceed;
-  mkChart('planned-exceed-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'2026 YTD',data:d.y2026,backgroundColor:'#c0392b',borderRadius:3},{label:'2025',data:d.y2025,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:d.y2024,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v>0?v:'';},font:{size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'>5hr Planned'}}}}});
+  mkChart('planned-exceed-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'2026 YTD',data:d.y2026,backgroundColor:'#c0392b',borderRadius:3},{label:'2025 YTD',data:d.y2025,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:d.y2024,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v>0?v:'';},font:{size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'>5hr Planned'}}}}});
 }
 function buildTransient(){
   var d=D.transient;
@@ -1533,79 +2327,75 @@ var _justPublished=false; // flag to prevent loadLive overwriting fresh data
 
 async function loadLive(){
   if(_justPublished)return false;
-  try{
-    var ctrl=new AbortController();
-    var t=setTimeout(function(){ctrl.abort();},8000);
-    var url=JSONBIN_URL+'/latest?t='+Date.now();
-    var res=await fetch(url,{
-      headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'},
-      signal:ctrl.signal
-    });
-    clearTimeout(t);
-    console.log('loadLive status:',res.status);
-    if(res.ok){
-      var s=await res.json();
-      var bin=s.record||s;
-      var live=null;
-      if(bin&&bin.nedc_data&&bin.nedc_data.saidi)live=bin.nedc_data;
-      else if(bin&&bin.data&&bin.data.saidi)live=bin.data;
-      else if(bin&&bin.saidi)live=bin;
-      if(live){
-        // Compare timestamps: only use JSONBin data if it's newer than localStorage
-        var lsSaved=localStorage.getItem('nedc_dashboard_saved')||'';
-        var jbSaved=live.updatedAt||'';
-        console.log('localStorage saved:',lsSaved,'JSONBin saved:',jbSaved);
-        if(!lsSaved||jbSaved>=lsSaved){
-          // JSONBin is newer or equal — use it and update localStorage
-          D=live;
-          try{
-            localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));
-            localStorage.setItem('nedc_dashboard_saved',jbSaved||new Date().toISOString());
-          }catch(e){}
-          console.log('Using JSONBin data:',D.period);
-        }else{
-          console.log('localStorage is newer — keeping local data:',D.period);
-        }
-        return true;
-      }
-      return false;
-    }
-    return false;
-  }catch(e){
-    if(e.name==='AbortError'){
-      console.log('loadLive: timeout — retrying once…');
-      // Retry once with longer timeout
-      try{
-        var res2=await fetch(JSONBIN_URL+'/latest?t='+Date.now(),{
-          headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache'}
-        });
-        if(res2.ok){
-          var s2=await res2.json();
-          var bin2=s2.record||s2;
-          var live2=null;
-          if(bin2&&bin2.nedc_data&&bin2.nedc_data.saidi)live2=bin2.nedc_data;
-          else if(bin2&&bin2.saidi)live2=bin2;
-          if(live2){
-            var lsSaved2=localStorage.getItem('nedc_dashboard_saved')||'';
-            var jbSaved2=live2.updatedAt||'';
-            if(!lsSaved2||jbSaved2>=lsSaved2){
-              D=live2;
-              try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',jbSaved2||new Date().toISOString());}catch(e2){}
-              console.log('loadLive retry OK:',D.period);
+  if(USE_WORKER){
+    try{
+      // Step 1: get index to find the LATEST month chronologically
+      var idxRes=await fetch(WORKER_URL+'/index?t='+Date.now());
+      if(idxRes.ok){
+        var idxData=await idxRes.json();
+        if(idxData&&idxData.length>0){
+          // Sort descending and pick the latest key
+          var sorted=idxData.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
+          var latestKey=sorted[0].key; // e.g. "2026:04"
+          var parts=latestKey.split(':'); // ["2026","04"]
+          var archRes=await fetch(WORKER_URL+'/archive/'+parts[0]+'/'+parts[1]+'?t='+Date.now());
+          if(archRes.ok){
+            var s=await archRes.json();
+            var live=s.nedc_data||s;
+            if(live&&live.saidi){
+              D=live;
+              try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',live.updatedAt||new Date().toISOString());}catch(e){}
+              console.log('Loaded latest month from archive:',D.period,'key:',latestKey);
               return true;
             }
           }
         }
-      }catch(e2){console.log('loadLive retry failed:',e2.message);}
-    }else{
-      console.log('loadLive error:',e.message);
-    }
-    return false;
+      }
+      // Fallback to /current if index empty
+      var res=await fetch(WORKER_URL+'/current?t='+Date.now());
+      if(res.ok){
+        var s2=await res.json();
+        var live2=s2.nedc_data||s2.record||s2;
+        if(live2&&live2.saidi){
+          D=live2;
+          try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',live2.updatedAt||new Date().toISOString());}catch(e){}
+          console.log('Loaded from /current:',D.period);
+          return true;
+        }
+      }
+    }catch(e){console.log('loadLive Worker error:',e.message);}
+  }else{
+    // JSONBin fallback
+    try{
+      var res3=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':JSONBIN_API_KEY,'X-Bin-Meta':'false','Cache-Control':'no-cache,no-store'}});
+      if(res3.ok){
+        var s3=await res3.json();
+        var bin=s3.record||s3;
+        var live3=bin&&bin.nedc_data&&bin.nedc_data.saidi?bin.nedc_data:bin&&bin.saidi?bin:null;
+        if(live3){D=live3;try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));}catch(e){}return true;}
+      }
+    }catch(e){console.log('loadLive JSONBin error:',e.message);}
   }
+  // Final fallback: localStorage
+  try{
+    var lsData=localStorage.getItem('nedc_dashboard_data');
+    if(lsData){var lsParsed=JSON.parse(lsData);if(lsParsed&&lsParsed.saidi){D=lsParsed;console.log('Fallback localStorage:',D.period);return true;}}
+  }catch(e){}
+  return false;
 }
 
 window.addEventListener('load', function(){
   console.log('%c NEDC Dashboard v1.5 — Build 2026-04-29 ', 'background:#c0392b;color:#fff;font-size:13px;font-weight:bold;padding:4px 8px;border-radius:4px');
+
+  // Show dev banner only on dev environment
+  if(window.location.hostname.indexOf('dev')>=0||window.location.hostname.indexOf('localhost')>=0){
+    var devBanner=document.getElementById('dev-banner');
+    if(devBanner){
+      devBanner.style.display='block';
+      // Push all content down so banner doesn't overlap
+      document.body.style.paddingTop='32px';
+    }
+  }
   // ── LOGIN ──
   var AUTH_USER='DCC', AUTH_PASS='DCC@2026';
   var loginScreen=document.getElementById('login-screen');
@@ -1649,12 +2439,18 @@ window.addEventListener('load', function(){
   var enterBtn=document.getElementById('enter-btn');
   if(enterBtn){
     enterBtn.addEventListener('click',function(){
-      document.getElementById('welcome').style.display='none';
-      document.getElementById('app').style.display='block';
-      setPeriod();
-      goView('summary');
-      // Show announcement if set
-      setTimeout(function(){showAnnouncement();},600);
+      var btn=document.getElementById('enter-btn');
+      if(btn){btn.disabled=true;btn.textContent='Loading…';}
+      // Wait for live data to load before rendering
+      Promise.resolve(_livePromise).then(function(){
+        document.getElementById('welcome').style.display='none';
+        document.getElementById('app').style.display='block';
+        setPeriod();
+        goView('summary');
+        if(btn){btn.disabled=false;btn.innerHTML=btn._origHTML||'Enter Dashboard';}
+        setTimeout(function(){showAnnouncement();},600);
+        setTimeout(function(){trackVisitor();},1000);
+      });
     });
   }
   // Admin buttons
@@ -1702,9 +2498,19 @@ window.addEventListener('load', function(){
 
   // Load live data in background — never blocks UI
   updateWelcomeStats();
-  loadLive().then(function(ok){
-    // Update welcome stats with live data (period, YTD values)
+  var _livePromise=loadLive();
+  _livePromise.then(function(ok){
     updateWelcomeStats();
+    if(USE_WORKER){
+      loadHistoryIndex();
+      // Fetch visitor count to display on welcome page
+      fetch(WORKER_URL+'/visit-count?t='+Date.now())
+        .then(function(r){return r.json();})
+        .then(function(d){
+          var el=document.getElementById('ws-visitors');
+          if(el&&d.count)el.textContent=(d.count).toLocaleString();
+        }).catch(function(){});
+    }
     if(ok&&document.getElementById('app').style.display==='block'){
       console.log('loadLive: refreshing with',D.period);
       Object.keys(charts).forEach(function(id){try{if(charts[id]){charts[id].destroy();delete charts[id];}}catch(e){}});
@@ -1829,6 +2635,16 @@ window.addEventListener('load', function(){
       }
     }catch(e){res_el.textContent='❌ Error: '+e.message;res_el.style.color='#f87171';}
   });}
+
+  var rhBtn=document.getElementById('refresh-history-btn');
+  if(rhBtn)rhBtn.addEventListener('click',function(){
+    historyIndex=[];
+    loadHistoryIndex().then(function(){
+      renderAdminHistory();
+      rhBtn.textContent='✅ Refreshed';
+      setTimeout(function(){rhBtn.textContent='🔄 Refresh History List';},2000);
+    });
+  });
 
   var acx=document.getElementById('announce-close-x');
   var acb2=document.getElementById('announce-close-btn');
@@ -2406,27 +3222,38 @@ var JSONBIN_BIN_ID='69ef2181856a6821897900bf';
 var JSONBIN_API_KEY='$2a$10$KZ6toRvfR1C3w8huI1Pks.L37vzCDUc5bivRY4iMi9FQwpCK6n11G';
 var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
 
+// ── Cloudflare Worker (replaces JSONBin for save/load) ──
+var WORKER_URL='https://frosty-leaf-9497.abu-munia.workers.dev'; // Set after deploying Worker
+var WORKER_SECRET='NEDC_WORKER_2026';
+var USE_WORKER=WORKER_URL!=='__WORKER_URL__'; // Auto-enabled once URL is set
+
 async function publishData(){
   var saveBar=document.getElementById('save-status-bar');
   function setSaveBar(msg,color){if(saveBar){saveBar.style.display='flex';saveBar.querySelector('.ssb-msg').textContent=msg;saveBar.style.background=color;}}
   setSaveBar('Saving to cloud…','rgba(41,128,185,0.95)');
   try{
-    // No timeout on save - let it complete
-    var res=await fetch(JSONBIN_URL,{method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false','Cache-Control':'no-cache'},
-      body:JSON.stringify({nedc_data:D,updatedAt:D.updatedAt||new Date().toISOString(),period:D.period})});
+    var res;
+    if(USE_WORKER){
+      res=await fetch(WORKER_URL+'/save',{method:'POST',
+        headers:{'Content-Type':'application/json','X-Admin-Secret':WORKER_SECRET},
+        body:JSON.stringify({nedc_data:D,period:D.period,updatedAt:D.updatedAt||new Date().toISOString()})});
+    }else{
+      res=await fetch(JSONBIN_URL,{method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Versioning':'false','Cache-Control':'no-cache'},
+        body:JSON.stringify({nedc_data:D,updatedAt:D.updatedAt||new Date().toISOString(),period:D.period})});
+    }
     if(res.ok){
-      var saved=await res.json();
-      console.log('JSONBin save OK:',D.period,'size:',JSON.stringify({nedc_data:D}).length,'bytes');
+      console.log('Save OK:',D.period);
       setSaveBar('✅ Data saved — '+D.period+' now live for all visitors','rgba(39,174,96,0.95)');
+      if(USE_WORKER)setTimeout(function(){loadHistoryIndex();},1000);
     }else{
       var err=await res.text();
-      console.error('JSONBin save FAILED:',res.status,err);
-      setSaveBar('❌ Save failed ('+res.status+') — refresh and try again','rgba(192,57,43,0.95)');
+      console.error('Save FAILED:',res.status,err);
+      setSaveBar('❌ Save failed ('+res.status+') — try again','rgba(192,57,43,0.95)');
     }
   }catch(e){
     console.error('publishData error:',e);
-    setSaveBar('⚠️ No internet — data not saved to cloud','rgba(192,57,43,0.95)');
+    setSaveBar('⚠️ No internet — data not saved','rgba(192,57,43,0.95)');
   }
 }
 
@@ -2448,6 +3275,12 @@ document.addEventListener('DOMContentLoaded',function(){
 </script>
 
 
+
+<!-- HISTORICAL VIEW BANNER — inline in topbar, no layout shift -->
+<div id="hist-banner" style="display:none;position:fixed;top:10px;right:160px;z-index:99999;background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;padding:5px 12px 5px 10px;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;align-items:center;gap:8px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,0.25)">
+  <span>📅 <span id="hist-banner-text">Historical</span></span>
+  <button onclick="document.getElementById('history-sel').value='';loadHistoricalMonth('')" style="background:rgba(255,255,255,0.25);border:none;color:#fff;border-radius:10px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;font-family:'Inter',sans-serif">✕ Current</button>
+</div>
 
 <!-- ANNOUNCEMENT POPUP -->
 <div id="announce-popup" style="display:none;position:fixed;bottom:24px;right:24px;z-index:99990;max-width:380px;width:calc(100% - 48px);animation:slideInRight 0.4s ease">
