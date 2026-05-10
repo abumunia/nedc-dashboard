@@ -1400,7 +1400,7 @@ var historyIndex=[];
 async function deleteArchivedMonth(key){
   if(!confirm('Delete '+key+' from archive? This cannot be undone.'))return;
   try{
-    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/'),{
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?env='+WORKER_ENV,{
       method:'DELETE',
       headers:{'X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV}
     });
@@ -1481,7 +1481,7 @@ async function loadHistoricalMonth(key){
   try{
     document.getElementById('hist-banner').style.display='flex';
     document.getElementById('hist-banner-text').textContent=key.replace(':',' / ');
-    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?t='+Date.now());
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?env='+WORKER_ENV+'&t='+Date.now());
     if(!res.ok){
       // Data deleted — remove from dropdown silently
       var selEl=document.getElementById('history-sel');
