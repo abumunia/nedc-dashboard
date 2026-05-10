@@ -1405,10 +1405,14 @@ async function deleteArchivedMonth(key){
       headers:{'X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV}
     });
     if(res.ok){
-      // Remove from local index
+      // Remove from local index immediately
       historyIndex=historyIndex.filter(function(m){return m.key!==key;});
       buildHistoryDropdown();
       renderAdminHistory();
+      // Reload from KV to confirm sync (after short delay for KV to propagate)
+      setTimeout(function(){
+        loadHistoryIndex();
+      },800);
     }else{
       alert('Delete failed: '+(await res.text()));
     }
