@@ -1373,7 +1373,7 @@ async function trackVisitor(){
     sessionStorage.setItem('nedc_visited','1');
 
     if(USE_WORKER){
-      var vres=await fetch(WORKER_URL+'/track-visit',{method:'POST',headers:{'X-Dashboard-Env':WORKER_ENV}});
+      var vres=await fetch(WORKER_URL+'/track-visit?env='+WORKER_ENV,{method:'POST'});
       if(vres.ok){
         var vd=await vres.json();
         var el=document.getElementById('ws-visitors');
@@ -1442,7 +1442,7 @@ function renderAdminHistory(){
 async function loadHistoryIndex(){
   if(!USE_WORKER)return;
   try{
-    var res=await fetch(WORKER_URL+'/index?t='+Date.now());
+    var res=await fetch(WORKER_URL+'/index?env='+WORKER_ENV+'&t='+Date.now());
     if(!res.ok)return;
     var raw=await res.json();
     historyIndex=raw.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
@@ -2330,7 +2330,7 @@ async function loadLive(){
   if(USE_WORKER){
     try{
       // Step 1: get index to find the LATEST month chronologically
-      var idxRes=await fetch(WORKER_URL+'/index?t='+Date.now());
+      var idxRes=await fetch(WORKER_URL+'/index?env='+WORKER_ENV+'&t='+Date.now());
       if(idxRes.ok){
         var idxData=await idxRes.json();
         if(idxData&&idxData.length>0){
@@ -2338,7 +2338,7 @@ async function loadLive(){
           var sorted=idxData.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
           var latestKey=sorted[0].key; // e.g. "2026:04"
           var parts=latestKey.split(':'); // ["2026","04"]
-          var archRes=await fetch(WORKER_URL+'/archive/'+parts[0]+'/'+parts[1]+'?t='+Date.now());
+          var archRes=await fetch(WORKER_URL+'/archive/'+parts[0]+'/'+parts[1]+'?env='+WORKER_ENV+'&t='+Date.now());
           if(archRes.ok){
             var s=await archRes.json();
             var live=s.nedc_data||s;
@@ -2352,7 +2352,7 @@ async function loadLive(){
         }
       }
       // Fallback to /current if index empty
-      var res=await fetch(WORKER_URL+'/current?t='+Date.now());
+      var res=await fetch(WORKER_URL+'/current?env='+WORKER_ENV+'&t='+Date.now());
       if(res.ok){
         var s2=await res.json();
         var live2=s2.nedc_data||s2.record||s2;
@@ -2504,7 +2504,7 @@ window.addEventListener('load', function(){
     if(USE_WORKER){
       loadHistoryIndex();
       // Fetch visitor count to display on welcome page
-      fetch(WORKER_URL+'/visit-count?t='+Date.now())
+      fetch(WORKER_URL+'/visit-count?env='+WORKER_ENV+'&t='+Date.now())
         .then(function(r){return r.json();})
         .then(function(d){
           var el=document.getElementById('ws-visitors');
@@ -3236,7 +3236,7 @@ async function publishData(){
   try{
     var res;
     if(USE_WORKER){
-      res=await fetch(WORKER_URL+'/save',{method:'POST',
+      res=await fetch(WORKER_URL+'/save?env='+WORKER_ENV,{method:'POST',
         headers:{'Content-Type':'application/json','X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV},
         body:JSON.stringify({nedc_data:D,period:D.period,updatedAt:D.updatedAt||new Date().toISOString()})});
     }else{
