@@ -3228,6 +3228,7 @@ var WORKER_SECRET='NEDC_WORKER_2026';
 var USE_WORKER=WORKER_URL!=='__WORKER_URL__';
 var IS_DEV=window.location.hostname.indexOf('dev-nedc')>=0||window.location.hostname==='localhost';
 var WORKER_ENV=IS_DEV?'dev':'prod';
+console.log('%c ENV CHECK hostname='+window.location.hostname+' IS_DEV='+IS_DEV+' WORKER_ENV='+WORKER_ENV,'background:navy;color:yellow;font-size:14px;padding:4px');
 
 async function publishData(){
   var saveBar=document.getElementById('save-status-bar');
