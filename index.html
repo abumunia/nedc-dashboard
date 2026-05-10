@@ -2388,7 +2388,7 @@ window.addEventListener('load', function(){
   console.log('%c NEDC Dashboard v1.5 — Build 2026-04-29 ', 'background:#c0392b;color:#fff;font-size:13px;font-weight:bold;padding:4px 8px;border-radius:4px');
 
   // Show dev banner only on dev environment
-  if(window.location.hostname.indexOf('dev-nedc')>=0||window.location.hostname.indexOf('localhost')>=0){
+  if(window.location.hostname!=='nedc-qsi-dashboard.pages.dev'&&(window.location.hostname.indexOf('dev')>=0||window.location.hostname.indexOf('localhost')>=0)){
     var devBanner=document.getElementById('dev-banner');
     if(devBanner){
       devBanner.style.display='block';
