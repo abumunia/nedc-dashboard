@@ -3226,7 +3226,7 @@ var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
 var WORKER_URL='https://frosty-leaf-9497.abu-munia.workers.dev';
 var WORKER_SECRET='NEDC_WORKER_2026';
 var USE_WORKER=WORKER_URL!=='__WORKER_URL__';
-var IS_DEV=window.location.hostname.startsWith('dev.')||window.location.hostname==='localhost';
+var IS_DEV=window.location.hostname.indexOf('dev-nedc')>=0||window.location.hostname==='localhost';
 var WORKER_ENV=IS_DEV?'dev':'prod';
 
 async function publishData(){
