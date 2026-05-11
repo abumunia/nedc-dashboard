@@ -1902,7 +1902,7 @@ function renderGovMap(gov){
   // Precise OSM search names per governorate
   var govSearchMap={
     'Muscat':['Muscat Governorate Oman','محافظة مسقط'],
-    'South Batinah':['South Al Batinah Governorate Oman','Al Batinah South Oman','Janub Al Batinah Oman','محافظة جنوب الباطنة'],
+    'South Batinah':['Al Batinah South Governorate Oman','South Al Batinah Governorate Oman','محافظة جنوب الباطنة'],
     'North Batinah':['North Al Batinah Governorate Oman','Al Batinah North Oman','Shamal Al Batinah Oman','محافظة شمال الباطنة'],
     'Al Buraimi':['Al Buraimi Governorate Oman','Buraimi Governorate Oman','محافظة البريمي'],
     'Musandam':['Musandam Governorate Oman','Musandam Peninsula Oman','محافظة مسندم'],
@@ -1910,22 +1910,24 @@ function renderGovMap(gov){
     'Ad Dakhliyah':['Ad Dakhiliyah Governorate Oman','Ad Dakhliyah Oman','محافظة الداخلية'],
     'Dhahira':['Ad Dhahirah Governorate Oman','Dhahira Oman','Al Dhahirah Oman','محافظة الظاهرة'],
     'Ad Dhahira':['Ad Dhahirah Governorate Oman','Al Dhahirah Oman','محافظة الظاهرة'],
-    'Wusta':['Al Wusta Governorate Oman','Al-Wusta Oman','محافظة الوسطى'],
+    'Wusta':['Al Wusta Governorate Oman','Al-Wusta Governorate Oman','محافظة الوسطى'],
     'Al Wusta':['Al Wusta Governorate Oman','Al-Wusta Oman','محافظة الوسطى'],
-    'North Sharqiya':['North Al Sharqiyah Governorate Oman','Al Sharqiyah North Oman','Ash Sharqiyah North Oman','محافظة شمال الشرقية'],
-    'South Sharqiyah':['South Al Sharqiyah Governorate Oman','Al Sharqiyah South Oman','Ash Sharqiyah South Oman','محافظة جنوب الشرقية']
+    'North Sharqiya':['Ash Sharqiyah North Governorate Oman','Al Sharqiyah North Governorate Oman','محافظة شمال الشرقية'],
+    'South Sharqiyah':['Ash Sharqiyah South Governorate Oman','Al Sharqiyah South Governorate Oman','محافظة جنوب الشرقية'],'South Sharqyia':['Ash Sharqiyah South Governorate Oman','Al Sharqiyah South Governorate Oman','محافظة جنوب الشرقية']
   };
   var govNames=govSearchMap[gov]||[gov+' Governorate Oman',gov+' Oman'];
 
   function tryNominatim(names,idx){
     if(idx>=names.length)return;
     var q=encodeURIComponent(names[idx]);
-    var url='https://nominatim.openstreetmap.org/search?q='+q+'&format=json&polygon_geojson=1&limit=3&countrycodes=om';
+    var url='https://nominatim.openstreetmap.org/search?q='+q+'&format=json&polygon_geojson=1&limit=5&countrycodes=om&featuretype=state';
     console.log('Nominatim try '+idx+':',names[idx]);
     fetch(url).then(function(r){return r.json();}).then(function(results){
       console.log('Nominatim results:',results.length, results.map(function(r){return r.display_name+' type:'+r.type;}));
       // Find result with a polygon (not just a point)
-      var poly=results.find(function(r){return r.geojson&&(r.geojson.type==='Polygon'||r.geojson.type==='MultiPolygon');});
+      var poly=results.find(function(r){
+        return r.geojson&&(r.geojson.type==='Polygon'||r.geojson.type==='MultiPolygon')&&r.class==='boundary'&&r.type==='administrative';
+      });
       if(poly){
         console.log('Boundary found:', poly.display_name);
         var boundary=L.geoJSON(poly.geojson,{
