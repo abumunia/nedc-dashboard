@@ -1373,7 +1373,7 @@ async function trackVisitor(){
     sessionStorage.setItem('nedc_visited','1');
 
     if(USE_WORKER){
-      var vres=await fetch(WORKER_URL+'/track-visit',{method:'POST',headers:{'X-Dashboard-Env':WORKER_ENV}});
+      var vres=await fetch(WORKER_URL+'/track-visit?env='+WORKER_ENV,{method:'POST'});
       if(vres.ok){
         var vd=await vres.json();
         var el=document.getElementById('ws-visitors');
@@ -1400,12 +1400,12 @@ var historyIndex=[];
 async function deleteArchivedMonth(key){
   if(!confirm('Delete '+key+' from archive? This cannot be undone.'))return;
   try{
-    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/'),{
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?env='+WORKER_ENV,{
       method:'DELETE',
       headers:{'X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV}
     });
     if(res.ok){
-      // Remove from local index
+      // Remove from local index — immediate update, no KV reload needed
       historyIndex=historyIndex.filter(function(m){return m.key!==key;});
       buildHistoryDropdown();
       renderAdminHistory();
@@ -1442,10 +1442,21 @@ function renderAdminHistory(){
 async function loadHistoryIndex(){
   if(!USE_WORKER)return;
   try{
-    var res=await fetch(WORKER_URL+'/index?t='+Date.now());
+    var res=await fetch(WORKER_URL+'/index?env='+WORKER_ENV+'&t='+Date.now());
     if(!res.ok)return;
     var raw=await res.json();
-    historyIndex=raw.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
+    var sorted=raw.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
+    // Verify each entry actually exists in KV — remove stale ones
+    var valid=[];
+    for(var vi=0;vi<sorted.length;vi++){
+      var kp=sorted[vi].key.split(':');
+      try{
+        var chk=await fetch(WORKER_URL+'/archive/'+kp[0]+'/'+kp[1]+'?env='+WORKER_ENV+'&t='+Date.now());
+        if(chk.ok)valid.push(sorted[vi]);
+        else console.log('Stale entry removed from dropdown:',sorted[vi].key);
+      }catch(e){valid.push(sorted[vi]);}
+    }
+    historyIndex=valid;
     buildHistoryDropdown();
     renderAdminHistory();
   }catch(e){console.log('History index error:',e);}
@@ -1481,7 +1492,7 @@ async function loadHistoricalMonth(key){
   try{
     document.getElementById('hist-banner').style.display='flex';
     document.getElementById('hist-banner-text').textContent=key.replace(':',' / ');
-    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?t='+Date.now());
+    var res=await fetch(WORKER_URL+'/archive/'+key.replace(':','/').replace(':','/')+'?env='+WORKER_ENV+'&t='+Date.now());
     if(!res.ok){
       // Data deleted — remove from dropdown silently
       var selEl=document.getElementById('history-sel');
@@ -2330,7 +2341,7 @@ async function loadLive(){
   if(USE_WORKER){
     try{
       // Step 1: get index to find the LATEST month chronologically
-      var idxRes=await fetch(WORKER_URL+'/index?t='+Date.now());
+      var idxRes=await fetch(WORKER_URL+'/index?env='+WORKER_ENV+'&t='+Date.now());
       if(idxRes.ok){
         var idxData=await idxRes.json();
         if(idxData&&idxData.length>0){
@@ -2338,7 +2349,7 @@ async function loadLive(){
           var sorted=idxData.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
           var latestKey=sorted[0].key; // e.g. "2026:04"
           var parts=latestKey.split(':'); // ["2026","04"]
-          var archRes=await fetch(WORKER_URL+'/archive/'+parts[0]+'/'+parts[1]+'?t='+Date.now());
+          var archRes=await fetch(WORKER_URL+'/archive/'+parts[0]+'/'+parts[1]+'?env='+WORKER_ENV+'&t='+Date.now());
           if(archRes.ok){
             var s=await archRes.json();
             var live=s.nedc_data||s;
@@ -2352,7 +2363,7 @@ async function loadLive(){
         }
       }
       // Fallback to /current if index empty
-      var res=await fetch(WORKER_URL+'/current?t='+Date.now());
+      var res=await fetch(WORKER_URL+'/current?env='+WORKER_ENV+'&t='+Date.now());
       if(res.ok){
         var s2=await res.json();
         var live2=s2.nedc_data||s2.record||s2;
@@ -2504,7 +2515,7 @@ window.addEventListener('load', function(){
     if(USE_WORKER){
       loadHistoryIndex();
       // Fetch visitor count to display on welcome page
-      fetch(WORKER_URL+'/visit-count?t='+Date.now())
+      fetch(WORKER_URL+'/visit-count?env='+WORKER_ENV+'&t='+Date.now())
         .then(function(r){return r.json();})
         .then(function(d){
           var el=document.getElementById('ws-visitors');
@@ -3226,8 +3237,9 @@ var JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID;
 var WORKER_URL='https://frosty-leaf-9497.abu-munia.workers.dev';
 var WORKER_SECRET='NEDC_WORKER_2026';
 var USE_WORKER=WORKER_URL!=='__WORKER_URL__';
-var IS_DEV=window.location.hostname.startsWith('dev.')||window.location.hostname==='localhost';
+var IS_DEV=window.location.hostname.indexOf('dev-nedc')>=0||window.location.hostname==='localhost';
 var WORKER_ENV=IS_DEV?'dev':'prod';
+console.log('%c ENV CHECK hostname='+window.location.hostname+' IS_DEV='+IS_DEV+' WORKER_ENV='+WORKER_ENV,'background:navy;color:yellow;font-size:14px;padding:4px');
 
 async function publishData(){
   var saveBar=document.getElementById('save-status-bar');
@@ -3236,7 +3248,7 @@ async function publishData(){
   try{
     var res;
     if(USE_WORKER){
-      res=await fetch(WORKER_URL+'/save',{method:'POST',
+      res=await fetch(WORKER_URL+'/save?env='+WORKER_ENV,{method:'POST',
         headers:{'Content-Type':'application/json','X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV},
         body:JSON.stringify({nedc_data:D,period:D.period,updatedAt:D.updatedAt||new Date().toISOString()})});
     }else{
