@@ -454,8 +454,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     <p>Strategic KPI monitoring · Reliability analytics · <span id="ws-period">Loading…</span></p>
     <div class="wstats">
       <div class="wstat"><strong id="ws-saidi">—</strong><span>2026 YTD SAIDI</span></div>
-      <div class="wstat"><strong id="ws-customers" style="font-size:20px;color:#2980b9">—</strong><span>Total Customers</span></div>
-    <div class="wstat"><strong id="ws-saifi">—</strong><span>2026 YTD SAIFI</span></div>
+      <div class="wstat"><strong id="ws-saifi">—</strong><span>2026 YTD SAIFI</span></div>
       <div class="wstat" style="min-width:120px"><strong id="ws-best-saidi" style="font-size:13px;line-height:1.2;color:#27ae60">—</strong><span>Best SAIDI Reduction</span></div>
       <div class="wstat" style="min-width:120px"><strong id="ws-best-saifi" style="font-size:13px;line-height:1.2;color:#27ae60">—</strong><span>Best SAIFI Reduction</span></div>
       <div class="wstat" style="min-width:120px"><strong id="ws-worst-saidi" style="font-size:13px;line-height:1.2;color:#e74c3c">—</strong><span>Worst SAIDI Perf.</span></div>
@@ -666,36 +665,52 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
           </div>
         </div>
       </div>
-      <div class="section-hdr">Zonal Compliance Status</div>
-      <div class="g3" id="zone-cards"></div>
-    
       <!-- CUSTOMER DISTRIBUTION & GROWTH -->
-      <div id="customer-section" style="margin-top:24px">
-        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:16px;display:flex;align-items:center;gap:10px">
-          👥 Customer Distribution &amp; Growth
-          <span id="cust-total-badge" style="font-size:12px;font-weight:600;background:#2980b9;color:#fff;padding:3px 10px;border-radius:20px"></span>
-        </div>
-        <div class="g2" style="margin-bottom:20px">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
-            <div class="card-title">📈 Monthly Customer Growth</div>
-            <div style="position:relative;height:200px;margin-top:12px"><canvas id="cust-trend-chart"></canvas></div>
-          </div>
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
-            <div class="card-title">🍩 Customer Share by Governorate</div>
-            <div style="position:relative;height:200px;margin-top:12px"><canvas id="cust-donut-chart"></canvas></div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-hdr">
+          <div>
+            <div class="card-title">Customer Distribution &amp; Growth</div>
+            <div class="card-sub">Total customers, share by governorate &amp; normalized impact</div>
           </div>
         </div>
-        <div class="g2" style="margin-bottom:20px">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
-          <div class="card-title">⚡ SAIDI per 1,000 Customers</div>
-          <div style="position:relative;height:220px;margin-top:12px"><canvas id="cust-saidi-norm-chart"></canvas></div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
-          <div class="card-title">🔁 SAIFI per 1,000 Customers</div>
-          <div style="position:relative;height:220px;margin-top:12px"><canvas id="cust-saifi-norm-chart"></canvas></div>
+        <div class="card-body" style="background:#fafafa">
+          <!-- Customer banner -->
+          <div id="ov-customer-banner" style="background:linear-gradient(135deg,#1a3a5c,#2980b9);border-radius:12px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.6);margin-bottom:4px">Total Customers</div>
+              <div id="ov-customers-top" style="font-size:36px;font-weight:800;color:#fff">--</div>
+            </div>
+            <div id="ov-customers-mom" style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.9)"></div>
+            <div id="ov-customers-months" style="display:flex;gap:16px;flex-wrap:wrap"></div>
+          </div>
+          <!-- Growth + Share -->
+          <div class="g2" style="margin-bottom:16px">
+            <div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">Monthly Customer Growth</div>
+              <div style="height:200px"><canvas id="cust-trend-chart"></canvas></div>
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">Customer Share by Governorate</div>
+              <div style="height:200px"><canvas id="cust-donut-chart"></canvas></div>
+            </div>
+          </div>
+          <!-- SAIDI/1K + SAIFI/1K -->
+          <div class="g2">
+            <div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">SAIDI per 1,000 Customers</div>
+              <div style="height:220px"><canvas id="cust-saidi-norm-chart"></canvas></div>
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">SAIFI per 1,000 Customers</div>
+              <div style="height:220px"><canvas id="cust-saifi-norm-chart"></canvas></div>
+            </div>
+          </div>
         </div>
       </div>
-      </div>
+      <!-- ZONAL COMPLIANCE -->
+      <div class="section-hdr" style="margin-top:8px">Zonal Compliance Status</div>
+      <div class="g3" id="zone-cards"></div>
+
 </div>
 
     <!-- KPI VIEW -->
@@ -1367,8 +1382,7 @@ function updateWelcomeStats(){
   // Period
   var wp=document.getElementById('ws-period');
   if(wp)wp.textContent=D.period||'YTD 2026';
-  var wcEl=document.getElementById('ws-customers');
-  if(wcEl&&D.customers&&D.customers.total&&D.customers.total.length>0)wcEl.textContent=(D.customers.total[D.customers.total.length-1]||0).toLocaleString();
+
   updateVisitorDisplay();
 
   // 2026 YTD SAIDI — latest non-null value
@@ -2100,8 +2114,18 @@ function buildCustomerCharts(){
   console.log('SAIDI govs with r26>0:',saidiGovs.filter(function(g){return g.r26>0;}).map(function(g){return g.gov+'='+g.r26;}));
   var colors=['#c0392b','#2980b9','#27ae60','#e67e22','#8e44ad','#16a085','#2c3e50','#d35400','#7f8c8d','#1abc9c'];
   var latI=c.labels.length-1;
-  var badge=document.getElementById('cust-total-badge');
-  if(badge&&c.total&&c.total.length>0)badge.textContent=(c.total[latI]||0).toLocaleString()+' customers';
+  // Populate overview customer banner
+  var ovTop=document.getElementById('ov-customers-top');
+  var ovMom=document.getElementById('ov-customers-mom');
+  var ovMonths=document.getElementById('ov-customers-months');
+  if(ovTop&&c.total&&c.total.length>0){
+    var ovLatest=c.total[latI];
+    var ovPrev=c.total.length>1?c.total[latI-1]:null;
+    var ovG=ovPrev?(((ovLatest-ovPrev)/ovPrev)*100).toFixed(2):null;
+    ovTop.textContent=ovLatest.toLocaleString();
+    if(ovMom&&ovG)ovMom.innerHTML='<span style="color:'+(parseFloat(ovG)>=0?'#7dffb3':'#ff9999')+'">'+( parseFloat(ovG)>=0?'+ ':'')+ovG+'% MoM</span>';
+    if(ovMonths)ovMonths.innerHTML=c.labels.map(function(l,i){return '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,0.5)">'+l+'</div><div style="font-size:13px;font-weight:600;color:#fff">'+(c.total[i]||0).toLocaleString()+'</div></div>';}).join('');
+  }
   // Line: total growth
   mkChart('cust-trend-chart',{type:'line',data:{labels:c.labels,datasets:[{label:'Total Customers',data:c.total,borderColor:'#2980b9',backgroundColor:'rgba(41,128,185,0.1)',borderWidth:2.5,pointRadius:4,fill:true,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false}},scales:{y:{beginAtZero:false,ticks:{callback:function(v){return (v/1000).toFixed(0)+'K';}}}}}});
   // Donut: share by gov
@@ -2138,11 +2162,7 @@ function renderSumKPIs(){
   var o26=D.outages.y2026_ytd[idx],o25=D.outages.y2025[idx];
   var oi=o26&&o25?((o26-o25)/o25*100):null;
   var topDrv=D.drivers[0];
-  var custTotal=D.customers&&D.customers.total&&D.customers.total.length>0?D.customers.total[D.customers.total.length-1]:null;
-  var custPrev=D.customers&&D.customers.total&&D.customers.total.length>1?D.customers.total[D.customers.total.length-2]:null;
-  var custMoMVal=custTotal&&custPrev?((custTotal-custPrev)/custPrev*100):null;
   var cards=[
-    {lbl:'Total Customers',val:custTotal?custTotal.toLocaleString():'--',unit:'',sub:custMoMVal!==null?(custMoMVal>=0?'+':'')+custMoMVal.toFixed(2)+'% MoM':'Latest month',imp:null,color:'blue'},
     {lbl:'SAIDI ('+D.period+')',val:s26?s26.toFixed(2):'--',unit:'min',sub:'Rolling: '+(sr?sr.toFixed(1):'--')+' min',imp:si,color:'red'},
     {lbl:'SAIFI ('+D.period+')',val:sf26?sf26.toFixed(3):'--',unit:'freq',sub:'Rolling: '+(sfr?sfr.toFixed(2):'--'),imp:sfi,color:'blue'},
     {lbl:'Total Outages (YTD)',val:o26?o26.toLocaleString():'--',unit:'events',sub:'2025: '+(o25?o25.toLocaleString():'--'),imp:oi,color:'amber'},
