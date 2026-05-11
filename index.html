@@ -685,10 +685,16 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
             <div style="position:relative;height:200px;margin-top:12px"><canvas id="cust-donut-chart"></canvas></div>
           </div>
         </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px">
-          <div class="card-title">⚡ SAIDI per 1,000 Customers - Normalized Network Impact</div>
+        <div class="g2" style="margin-bottom:20px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+          <div class="card-title">⚡ SAIDI per 1,000 Customers</div>
           <div style="position:relative;height:220px;margin-top:12px"><canvas id="cust-saidi-norm-chart"></canvas></div>
         </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+          <div class="card-title">🔁 SAIFI per 1,000 Customers</div>
+          <div style="position:relative;height:220px;margin-top:12px"><canvas id="cust-saifi-norm-chart"></canvas></div>
+        </div>
+      </div>
       </div>
 </div>
 
@@ -2097,8 +2103,28 @@ function buildCustomerCharts(){
   mkChart('cust-donut-chart',{type:'doughnut',data:{labels:gk,datasets:[{data:dd,backgroundColor:colors,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:12}},datalabels:{display:true,formatter:function(v){var t=dd.reduce(function(a,b){return a+b;},0);return t>0?Math.round(v/t*100)+'%':'';},color:'#fff',font:{size:10,weight:'bold'}}}}});
   var sg=(D.govData||[]).filter(function(g){return g.ind==='SAIDI'&&!g.isGroup;});var nd=[];
   sg.forEach(function(g,i){var ck=gk.find(function(k){var kn=k.toLowerCase().replace(/[^a-z]/g,'');var gn=g.gov.toLowerCase().replace(/[^a-z]/g,'');return kn===gn||kn.indexOf(gn.substring(0,5))>=0||gn.indexOf(kn.substring(0,5))>=0;});if(ck&&g.r26>0){var cu=c.govs[ck][latI]||0;if(cu>0)nd.push({l:g.gov,v:g.r26/cu*1000,c:colors[i%colors.length]});}});
-  nd.sort(function(a,b){return b.v-a.v;});
+  n
+  // SAIFI per 1,000 customers
+  var sfg=(D.govData||[]).filter(function(g){return g.ind==='SAIFI'&&!g.isGroup;});
+  var ndsf=[];
+  sfg.forEach(function(g,i){
+    var ck=gk.find(function(k){var kn=k.toLowerCase().replace(/[^a-z]/g,'');var gn=g.gov.toLowerCase().replace(/[^a-z]/g,'');return kn===gn||kn.indexOf(gn.substring(0,5))>=0||gn.indexOf(kn.substring(0,5))>=0;});
+    if(ck&&g.r26>0){var cu=c.govs[ck][latI]||0;if(cu>0)ndsf.push({l:g.gov,v:g.r26/cu*1000,c:colors[i%colors.length]});}
+  });
+  ndsf.sort(function(a,b){return b.v-a.v;});
+  mkChart('cust-saifi-norm-chart',{type:'bar',data:{labels:ndsf.map(function(s){return s.l;}),datasets:[{label:'SAIFI/1K Customers',data:ndsf.map(function(s){return parseFloat(s.v.toFixed(4));}),backgroundColor:ndsf.map(function(s){return s.c;}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',formatter:function(v){return v.toFixed(4);},font:{size:11,weight:'bold'}}},scales:{x:{beginAtZero:true,title:{display:true,text:'Interruptions per 1,000 Customers'}},y:{grid:{display:false}}}}});
+d.sort(function(a,b){return b.v-a.v;});
   mkChart('cust-saidi-norm-chart',{type:'bar',data:{labels:nd.map(function(s){return s.l;}),datasets:[{label:'SAIDI/1K Customers',data:nd.map(function(s){return parseFloat(s.v.toFixed(3));}),backgroundColor:nd.map(function(s){return s.c;}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',formatter:function(v){return v.toFixed(3);},font:{size:11,weight:'bold'}}},scales:{x:{beginAtZero:true,title:{display:true,text:'Minutes per 1,000 Customers'}},y:{grid:{display:false}}}}});
+
+  // SAIFI per 1000 customers
+  var sfg=(D.govData||[]).filter(function(g){return g.ind==='SAIFI'&&!g.isGroup;});
+  var ndsf=[];
+  sfg.forEach(function(g,i){
+    var ck=gk.find(function(k){var kn=k.toLowerCase().replace(/[^a-z]/g,'');var gn=g.gov.toLowerCase().replace(/[^a-z]/g,'');return kn===gn||kn.indexOf(gn.substring(0,5))>=0||gn.indexOf(kn.substring(0,5))>=0;});
+    if(ck&&g.r26>0){var cu=c.govs[ck][latI]||0;if(cu>0)ndsf.push({l:g.gov,v:g.r26/cu*1000,c:colors[i%colors.length]});}
+  });
+  ndsf.sort(function(a,b){return b.v-a.v;});
+  mkChart('cust-saifi-norm-chart',{type:'bar',data:{labels:ndsf.map(function(s){return s.l;}),datasets:[{label:'SAIFI/1K Customers',data:ndsf.map(function(s){return parseFloat(s.v.toFixed(4));}),backgroundColor:ndsf.map(function(s){return s.c;}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',formatter:function(v){return v.toFixed(4);},font:{size:11,weight:'bold'}}},scales:{x:{beginAtZero:true,title:{display:true,text:'Interruptions per 1,000 Customers'}},y:{grid:{display:false}}}}});
 }
 
 function renderSummary(){
