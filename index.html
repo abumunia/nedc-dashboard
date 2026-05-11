@@ -3310,8 +3310,38 @@ function parseWorkbook(wb,fileName){
     var custRows=gs('Customer Data')||gs('Customers');
     if(custRows){
       var cLabels=[],cTotal=[],cGovs={},hFound=false;
-      custRows.forEach(function(row){if(!row)return;var nn=row.filter(function(c){return c!==null&&c!==undefined;});if(nn.length<2)return;var first=cl(nn[0]);if(!hFound&&first.toLowerCase().indexOf('gov')>=0){cLabels=nn.slice(1).map(function(c){return cl(c);}).filter(Boolean);hFound=true;return;}if(!hFound)return;if(first.toLowerCase().indexOf('total')>=0){nn.slice(1).forEach(function(v,i){var n=parseFloat(cl(v).replace(/,/g,''));if(!isNaN(n))cTotal[i]=n;});return;}var vals=[];nn.slice(1).forEach(function(v){var n=parseFloat(cl(v).replace(/,/g,''));vals.push(isNaN(n)?0:n);});if(vals.some(function(v){return v>0;}))cGovs[first]=vals;});
-      if(cLabels.length>0&&Object.keys(cGovs).length>0){pCustomers={labels:cLabels,total:cTotal,govs:cGovs};console.log('Customer parse:',Object.keys(cGovs).length,'govs');}
+      // Convert Excel serial date to month label e.g. 46023 -> "Jan-26"
+      function excelDateToLabel(v){
+        if(typeof v==='string'&&isNaN(parseFloat(v)))return v; // already text
+        var n=parseFloat(v);
+        if(isNaN(n)||n<40000)return cl(v); // not a date
+        // Excel serial: days since 1900-01-01 (with leap year bug)
+        var d=new Date((n-25569)*86400*1000);
+        var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return months[d.getUTCMonth()]+'-'+String(d.getUTCFullYear()).slice(2);
+      }
+      custRows.forEach(function(row){
+        if(!row)return;
+        var nn=row.filter(function(c){return c!==null&&c!==undefined;});
+        if(nn.length<2)return;
+        var first=cl(nn[0]);
+        // Header row: first cell = 'Governorate' or contains 'gov'
+        if(!hFound&&(first.toLowerCase().indexOf('gov')>=0||first.toLowerCase()==='governorate')){
+          cLabels=nn.slice(1).map(function(c){return excelDateToLabel(c);}).filter(Boolean);
+          hFound=true;return;
+        }
+        if(!hFound)return;
+        if(first.toLowerCase().indexOf('total')>=0){
+          nn.slice(1).forEach(function(v,i){var n=parseFloat(String(v).replace(/,/g,''));if(!isNaN(n))cTotal[i]=n;});return;
+        }
+        var vals=[];
+        nn.slice(1).forEach(function(v){var n=parseFloat(String(v).replace(/,/g,''));vals.push(isNaN(n)?0:n);});
+        if(vals.some(function(v){return v>0;}))cGovs[first]=vals;
+      });
+      if(cLabels.length>0&&Object.keys(cGovs).length>0){
+        pCustomers={labels:cLabels,total:cTotal,govs:cGovs};
+        console.log('Customer parse:',Object.keys(cGovs).length,'govs, labels:',cLabels);
+      }
     }
     // ── GOV GROUPS — dynamic column detection ──
     var gSheets=[
