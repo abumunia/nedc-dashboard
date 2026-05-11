@@ -1405,14 +1405,10 @@ async function deleteArchivedMonth(key){
       headers:{'X-Admin-Secret':WORKER_SECRET,'X-Dashboard-Env':WORKER_ENV}
     });
     if(res.ok){
-      // Remove from local index immediately
+      // Remove from local index — immediate update, no KV reload needed
       historyIndex=historyIndex.filter(function(m){return m.key!==key;});
       buildHistoryDropdown();
       renderAdminHistory();
-      // Reload from KV to confirm sync (after short delay for KV to propagate)
-      setTimeout(function(){
-        loadHistoryIndex();
-      },800);
     }else{
       alert('Delete failed: '+(await res.text()));
     }
@@ -1449,7 +1445,18 @@ async function loadHistoryIndex(){
     var res=await fetch(WORKER_URL+'/index?env='+WORKER_ENV+'&t='+Date.now());
     if(!res.ok)return;
     var raw=await res.json();
-    historyIndex=raw.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
+    var sorted=raw.slice().sort(function(a,b){return b.key>a.key?1:b.key<a.key?-1:0;});
+    // Verify each entry actually exists in KV — remove stale ones
+    var valid=[];
+    for(var vi=0;vi<sorted.length;vi++){
+      var kp=sorted[vi].key.split(':');
+      try{
+        var chk=await fetch(WORKER_URL+'/archive/'+kp[0]+'/'+kp[1]+'?env='+WORKER_ENV+'&t='+Date.now());
+        if(chk.ok)valid.push(sorted[vi]);
+        else console.log('Stale entry removed from dropdown:',sorted[vi].key);
+      }catch(e){valid.push(sorted[vi]);}
+    }
+    historyIndex=valid;
     buildHistoryDropdown();
     renderAdminHistory();
   }catch(e){console.log('History index error:',e);}
