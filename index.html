@@ -183,6 +183,8 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 .pw-confirm{padding:9px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
 
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.shake{animation:shake 0.42s cubic-bezier(.36,.07,.19,.97) both}
 @media print{
   /* ── Hide everything except gov focus content ── */
   #sidebar,#topbar,#dev-banner,#gf-pdf-btn,#gf-pdf-btn-inner,
@@ -454,9 +456,9 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M8.161 2.58a1.875 1.875 0 011.678 0l4.993 2.498c.106.052.23.052.336 0l3.869-1.935A1.875 1.875 0 0121.75 4.82v12.485c0 .71-.401 1.36-1.037 1.677l-4.875 2.437a1.875 1.875 0 01-1.676 0l-4.994-2.497a.375.375 0 00-.336 0l-3.868 1.935A1.875 1.875 0 012.25 19.18V6.695c0-.71.401-1.36 1.036-1.677l4.875-2.437zM9 6a.75.75 0 01.75.75V15a.75.75 0 01-1.5 0V6.75A.75.75 0 019 6zm6.75 3a.75.75 0 00-1.5 0v8.25a.75.75 0 001.5 0V9z" clip-rule="evenodd"/></svg>
         <span class="sitem-label">NPI &amp; Zones</span>
       </button>
-      <button class="sitem" data-view="omap" data-tooltip="Oman Map">
+      <button class="sitem" data-view="omap" data-tooltip="Performance Map">
         <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.079 3.45-4.797 3.45-8.123a8.25 8.25 0 00-16.5 0c0 3.326 1.507 6.044 3.45 8.123a19.58 19.58 0 002.683 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
-        <span class="sitem-label">Oman Map</span>
+        <span class="sitem-label">Performance Map</span>
       </button>
       <button class="sitem" data-view="qsi" data-tooltip="Improvements">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z"/></svg>
@@ -883,7 +885,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
     <div class="view" id="view-omap" style="padding:20px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
         <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text1)">Oman Network Map</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text1)">Performance Map</div>
           <div style="font-size:13px;color:var(--text3);margin-top:3px">Governorate performance overview — click a governorate to view details</div>
         </div>
         <div style="display:flex;gap:10px;align-items:center">
@@ -1225,9 +1227,8 @@ function setPeriod(){
 }
 
 function showAdmin(){
-  askPassword().then(function(pw){
+  askPassword(function(pw){return pw==='Humaid@1234';}).then(function(pw){
     if(!pw)return;
-    if(pw!=='Humaid@1234'){showMsg('err','Incorrect password.');return;}
     document.getElementById('upload-msg').style.display='none';
     document.getElementById('admin-panel').style.display='flex';
     if(omanMap){omanMap.remove();omanMap=null;}
@@ -1261,16 +1262,7 @@ function impBadge(v){
 }
 
 // ── PASSWORD MODAL ──
-var pwResolve=null;
-function askPassword(){
-  return new Promise(function(resolve){
-    pwResolve=resolve;
-    document.getElementById('pw-input').value='';
-    document.getElementById('pw-err').style.display='none';
-    document.getElementById('pw-modal').classList.add('open');
-    setTimeout(function(){document.getElementById('pw-input').focus();},100);
-  });
-}
+// (Definition lives below in the consolidated PASSWORD MODAL block.)
 
 // ═══════════════════════════════════════════════════
 // STATE
@@ -1299,33 +1291,57 @@ function mkChart(id,cfg){dc(id);var ctx=document.getElementById(id);if(!ctx)retu
 // ═══════════════════════════════════════════════════
 // PASSWORD MODAL
 // ═══════════════════════════════════════════════════
-var pwResolve=null;
-function askPassword(){
+var pwResolve=null, pwVerify=null;
+// askPassword(verify) — if `verify(pw)` is provided and returns false, keeps
+// the modal open and shows the inline error (with shake) instead of resolving.
+// Without `verify`, resolves with whatever the user typed.
+function askPassword(verify){
+  pwVerify=(typeof verify==='function')?verify:null;
   return new Promise(function(resolve){
     pwResolve=resolve;
-    document.getElementById('pw-input').value='';
-    document.getElementById('pw-err').style.display='none';
-    document.getElementById('pw-modal').classList.add('open');
-    setTimeout(function(){document.getElementById('pw-input').focus();},100);
+    var modal=document.getElementById('pw-modal');
+    var input=document.getElementById('pw-input');
+    var err=document.getElementById('pw-err');
+    input.value='';
+    err.style.display='none';
+    err.textContent='Incorrect password';
+    modal.classList.add('open');
+    setTimeout(function(){input.focus();},100);
   });
 }
 document.getElementById('pw-cancel').onclick=function(){
   document.getElementById('pw-modal').classList.remove('open');
-  if(pwResolve)pwResolve(null);pwResolve=null;
+  if(pwResolve)pwResolve(null);
+  pwResolve=null;pwVerify=null;
 };
 document.getElementById('pw-confirm').onclick=function(){
   var pw=document.getElementById('pw-input').value;
-  document.getElementById('pw-modal').classList.remove('open');
-  if(pwResolve)pwResolve(pw);pwResolve=null;
+  var modal=document.getElementById('pw-modal');
+  var input=document.getElementById('pw-input');
+  var err=document.getElementById('pw-err');
+  var box=modal.querySelector('.pw-box');
+  // If a verifier was attached, run it and keep the modal open on failure
+  if(pwVerify && !pwVerify(pw)){
+    err.style.display='block';
+    err.textContent=pw?'Incorrect password':'Please enter a password';
+    input.value='';
+    input.focus();
+    if(box){box.classList.remove('shake');void box.offsetWidth;box.classList.add('shake');}
+    return;
+  }
+  modal.classList.remove('open');
+  if(pwResolve)pwResolve(pw);
+  pwResolve=null;pwVerify=null;
 };
 document.getElementById('pw-input').onkeydown=function(e){
   if(e.key==='Enter')document.getElementById('pw-confirm').click();
+  if(e.key==='Escape')document.getElementById('pw-cancel').click();
 };
 
 // ═══════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════
-var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','govfocus':'Governorate Focus','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements','omap':'Oman Map'};
+var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','govfocus':'Governorate Focus','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements','omap':'Performance Map'};
 
 function updateWelcomeStats(){
   // Period
@@ -2443,7 +2459,7 @@ function renderOmanMap(){
   // Layout: 3-column flex inside container
   container.innerHTML=
     '<div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:16px 16px 0 0">'+
-      '<b style="font-size:13px;color:var(--navy)">Oman Network Performance Map — '+ind+' Rolling 2026</b>'+
+      '<b style="font-size:13px;color:var(--navy)">Performance Map — '+ind+' Rolling 2026</b>'+
       '<span style="font-size:11px;color:var(--text3);margin-left:auto">Click any callout to open the Governorate Focus report in a new window</span>'+
     '</div>'+
     '<div id="omap-stage" style="position:relative;display:flex;gap:0;height:640px;background:#f3f6fa;justify-content:center">'+
@@ -3324,8 +3340,18 @@ window.addEventListener('load', function(){
       loginScreen.style.display='none';
       loginErr.style.display='none';
     }else{
+      // Build a specific message so the user knows WHY it failed
+      var msg='Incorrect username or password';
+      if(!u && !p) msg='Please enter your username and password';
+      else if(!u) msg='Please enter your username';
+      else if(!p) msg='Please enter your password';
+      loginErr.textContent=msg;
       loginErr.style.display='block';
+      // Shake the card so the error is obviously linked to the action
+      var card=loginScreen.querySelector('div');
+      if(card){card.classList.remove('shake');void card.offsetWidth;card.classList.add('shake');}
       document.getElementById('login-pass').value='';
+      document.getElementById('login-pass').focus();
     }
   }
 
@@ -4143,21 +4169,15 @@ var JSONBIN_API_KEY=(function(){try{return localStorage.getItem('nedc_jsonbin_ke
 var JSONBIN_URL=JSONBIN_BIN_ID?('https://api.jsonbin.io/v3/b/'+JSONBIN_BIN_ID):'';
 
 // ── Cloudflare Worker (primary save/load path) ──
-// Worker URL is public. Admin secret is fetched from localStorage so it stays out of source:
-//   localStorage.setItem('nedc_worker_secret', '<your secret>')
-// If unset, admins will be prompted on first publish attempt.
+// Admin secret is embedded so admins can publish without entering it each time.
 var WORKER_URL='https://frosty-leaf-9497.abu-munia.workers.dev';
-var WORKER_SECRET=(function(){try{return localStorage.getItem('nedc_worker_secret')||'';}catch(_){return '';}})();
+var WORKER_SECRET='NEDC_WORKER_2026';
+try{localStorage.setItem('nedc_worker_secret',WORKER_SECRET);}catch(_){}
 var USE_WORKER=!!WORKER_URL && WORKER_URL!=='__WORKER_URL__';
 
-// Lazy prompt for the worker secret the first time it's actually needed
+// Always returns the embedded secret — no prompt needed
 function ensureWorkerSecret(){
-  if(WORKER_SECRET) return WORKER_SECRET;
-  var s=window.prompt('Enter Worker admin secret to publish data. (Stored locally, never sent to anyone else.)');
-  if(!s) return '';
-  WORKER_SECRET=s;
-  try{localStorage.setItem('nedc_worker_secret',s);}catch(_){}
-  return s;
+  return WORKER_SECRET;
 }
 var IS_DEV=window.location.hostname.indexOf('dev-nedc')>=0||window.location.hostname==='localhost';
 var WORKER_ENV=IS_DEV?'dev':'prod';
