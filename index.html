@@ -985,8 +985,8 @@ var D = {
     {group:"Musandam",gov:"Musandam",ind:"SAIFI",y24:1.33,y25:0.33,y26:0.35,r26:2.9,t26:3.56,imp:-75.0,cont:3}
   ],
   contrib:{
-    SAIDI:{labels:["North Batinah","North Sharqiyyah","AL Dakhliya","Muscat","South Sharqiyyah","South Batinah","AL Wusta","Al Dhahra","Birami","Musandam"],values:[18,16,15,14,14,11,7,3,1,1]},
-    SAIFI:{labels:["North Batinah","Muscat","AL Dakhliya","South Batinah","South Sharqiyyah","North Sharqiyyah","Al Dhahra","Birami","AL Wusta","Musandam"],values:[24,16,13,12,11,8,5,5,4,2]}
+    SAIDI:{labels:["North Batinah","North Sharqiya","Al Dakilyah","Muscat","South Sharqiyah","South Batinah","Wusta","Dhahira","Al Buraimi","Musandam"],values:[18,16,15,14,14,11,7,3,1,1]},
+    SAIFI:{labels:["North Batinah","Muscat","Al Dakilyah","South Batinah","South Sharqiyah","North Sharqiya","Dhahira","Al Buraimi","Wusta","Musandam"],values:[24,16,13,12,11,8,5,5,4,2]}
   },
   voltage:{
     SAIDI:{labels:['LV','11Kv','33Kv'],values:[1.5,37,11]},
@@ -1603,19 +1603,20 @@ function renderGovFocus(){
 
   // ── Name alias map (handles spelling variants across all sheets) ──
   var GOV_ALIASES={
-    'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA'],
-    'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA'],
-    'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S'],
-    'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North','Sharqiyah North'],
-    'Al Buraimi':['Buraimi','AL BURAIMI','BUR'],
-    'North Batinah':['N Batinah','NORTH BATINAH','NB'],
-    'South Batinah':['SOUTH-B','SOUTH BATINAH','SOUTH-BATINAH'],
-    'Wusta':['Wusta','WUSTA','Al Wusta','AL WUSTA'],
-    'Al Wusta':['Wusta','WUSTA','AL WUSTA'],
-    'Ad Dhahira':['Dhahira','AD DHAHIRA','DHR'],
-    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR'],
+    'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA','AL Dakhliya','Al Dakhlia','Dakhliyah'],
+    'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA','AL Dakhliya','Al Dakhlia'],
+    'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S','South Sharqiyyah','South Sharqiyya'],
+    'South Sharqyia':['South Sharqiyah','South Sharqiyyah','SHARQIYA-SOUTH'],
+    'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North','Sharqiyah North','North Sharqiyyah','North Sharqiyya'],
+    'Al Buraimi':['Buraimi','AL BURAIMI','BUR','Birami','Biraimi','Al Buraimi'],
+    'North Batinah':['N Batinah','NORTH BATINAH','NB','North Al Batinah'],
+    'South Batinah':['SOUTH-B','SOUTH BATINAH','SOUTH-BATINAH','South Al Batinah'],
+    'Wusta':['WUSTA','Al Wusta','AL WUSTA','Al-Wusta'],
+    'Al Wusta':['Wusta','WUSTA','AL WUSTA','Al-Wusta'],
+    'Ad Dhahira':['Dhahira','AD DHAHIRA','DHR','Al Dhahra','Dhahra','Dhahirah'],
+    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR','Al Dhahra','Dhahra','Dhahirah'],
     'Musandam':['MDM','MUSANDAM'],
-    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR']};
+    'Muscat':['Muscat Governorate','MUSCAT']};
   function findGovIdx(labels,name){
     var idx=labels.findIndex(function(g){return g===name;});if(idx>=0)return idx;
     var aliases=GOV_ALIASES[name]||[];
@@ -1739,8 +1740,8 @@ function renderGovFocus(){
   // ── CONTRIBUTION ──
   var contEl=document.getElementById('gf-contribution');
   if(contEl){
-    var cS=D.contrib&&D.contrib.SAIDI?D.contrib.SAIDI.values[D.contrib.SAIDI.labels.indexOf(gov)]:null;
-    var cSf=D.contrib&&D.contrib.SAIFI?D.contrib.SAIFI.values[D.contrib.SAIFI.labels.indexOf(gov)]:null;
+    var cS=D.contrib&&D.contrib.SAIDI?D.contrib.SAIDI.values[findGovIdx(D.contrib.SAIDI.labels,gov)]:null;
+    var cSf=D.contrib&&D.contrib.SAIFI?D.contrib.SAIFI.values[findGovIdx(D.contrib.SAIFI.labels,gov)]:null;
     // Also from govData
     if(cS===null||cS===undefined){var cr=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});if(cr)cS=cr.cont;}
     contEl.innerHTML='<div style="display:flex;flex-direction:column;gap:16px">'+
@@ -3667,8 +3668,29 @@ function parseWorkbook(wb,fileName){
         if(nameCol<0||valCol<0)return;
         var gName=cl(row[nameCol]);var pct=Math.round(nv(row[valCol])*100);
         if(!gName||isNaN(pct)||pct<=0)return;
-        if(csec==='s'){sc.labels.push(gName);sc.values.push(pct);}
-        else{sfc.labels.push(gName);sfc.values.push(pct);}});
+        // Normalize gov name to canonical form using reverse alias lookup
+        var knownGovs=(D.govData||[]).filter(function(g){return !g.isGroup;}).map(function(g){return g.gov;});
+        var uniq=[]; knownGovs.forEach(function(g){if(uniq.indexOf(g)<0)uniq.push(g);});
+        var matched=null;
+        // Direct match first
+        if(uniq.indexOf(gName)>=0)matched=gName;
+        // Check if gName is an alias for a canonical gov
+        if(!matched){Object.keys(GOV_ALIASES).forEach(function(canon){
+          if(!matched&&(GOV_ALIASES[canon]||[]).some(function(a){return a.toLowerCase()===gName.toLowerCase();}))matched=canon;
+        });}
+        // Fuzzy: first 5 chars of first significant word
+        if(!matched&&gName){
+          var skip={al:1,ad:1};
+          var gw=gName.split(' ').filter(function(w){return !skip[w.toLowerCase()];});
+          var gkey=gw[0]?gw[0].toLowerCase().substring(0,5):'';
+          if(gkey)matched=uniq.find(function(u){
+            var uw=u.split(' ').filter(function(w){return !skip[w.toLowerCase()];});
+            return uw.some(function(w){return w.toLowerCase().substring(0,5)===gkey;});
+          })||null;
+        }
+        var finalName=matched||gName;
+        if(csec==='s'){sc.labels.push(finalName);sc.values.push(pct);}
+        else{sfc.labels.push(finalName);sfc.values.push(pct);}});
       if(sc.labels.length>0)pContrib={SAIDI:sc,SAIFI:sfc};}
 
     // ── VOLTAGE — find LV/11K/33K header row, next row=values ──
