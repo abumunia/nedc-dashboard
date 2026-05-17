@@ -985,8 +985,8 @@ var D = {
     {group:"Musandam",gov:"Musandam",ind:"SAIFI",y24:1.33,y25:0.33,y26:0.35,r26:2.9,t26:3.56,imp:-75.0,cont:3}
   ],
   contrib:{
-    SAIDI:{labels:["North Batinah","North Sharqiya","Al Dakilyah","Muscat","South Sharqiyah","South Batinah","Wusta","Dhahira","Al Buraimi","Musandam"],values:[18,16,15,14,14,11,7,3,1,1]},
-    SAIFI:{labels:["North Batinah","Muscat","Al Dakilyah","South Batinah","South Sharqiyah","North Sharqiya","Dhahira","Al Buraimi","Wusta","Musandam"],values:[24,16,13,12,11,8,5,5,4,2]}
+    SAIDI:{labels:["North Batinah","North Sharqiyyah","AL Dakhliya","Muscat","South Sharqiyyah","South Batinah","AL Wusta","Al Dhahra","Birami","Musandam"],values:[18,16,15,14,14,11,7,3,1,1]},
+    SAIFI:{labels:["North Batinah","Muscat","AL Dakhliya","South Batinah","South Sharqiyyah","North Sharqiyyah","Al Dhahra","Birami","AL Wusta","Musandam"],values:[24,16,13,12,11,8,5,5,4,2]}
   },
   voltage:{
     SAIDI:{labels:['LV','11Kv','33Kv'],values:[1.5,37,11]},
@@ -1193,6 +1193,31 @@ var D = {
 
 // ── UTILITIES ──
 function latestIdx(arr){var i=0;(arr||[]).forEach(function(v,j){if(v!==null&&v!==undefined)i=j;});return i;}
+
+// Governorate name normalizer — handles every alias spelling we see in the
+// uploaded Excel data so customer/KPI lookups never cross-match between
+// different governorates that share a prefix (e.g. "South Batinah" vs
+// "South Sharqiyah" — both used to collide on the first 5 letters "south",
+// causing duplicated/wrong customer counts).
+function normGovName(s){
+  return String(s||'').toLowerCase()
+    .replace(/[^a-z]/g,'')                  // strip spaces & punctuation
+    .replace(/^(al|ad|ash|as)/,'')           // drop arabic article prefixes
+    .replace(/sharqyia/g,'sharqiya')         // common typo
+    .replace(/sharqiyah/g,'sharqiya')        // unify trailing h
+    .replace(/dakhiliyah|dakilyah|dakhliyah/g,'dakilya') // dakhiliyah variants
+    .replace(/dhahirah/g,'dhahira')          // trailing h
+    .replace(/(.+?)(north|south)$/,'$2$1');  // "sharqiyanorth" → "northsharqiya"
+}
+// Find the customer-data key for a given gov name (returns null if absent).
+function findCustomerKey(gov){
+  if(!D.customers||!D.customers.govs) return null;
+  var target=normGovName(gov);
+  if(!target) return null;
+  return Object.keys(D.customers.govs).find(function(k){
+    return normGovName(k)===target;
+  })||null;
+}
 
 function showMsg(type,txt){
   var el=document.getElementById('upload-msg');
@@ -1603,20 +1628,19 @@ function renderGovFocus(){
 
   // ── Name alias map (handles spelling variants across all sheets) ──
   var GOV_ALIASES={
-    'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA','AL Dakhliya','Al Dakhlia','Dakhliyah'],
-    'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA','AL Dakhliya','Al Dakhlia'],
-    'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S','South Sharqiyyah','South Sharqiyya'],
-    'South Sharqyia':['South Sharqiyah','South Sharqiyyah','SHARQIYA-SOUTH'],
-    'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North','Sharqiyah North','North Sharqiyyah','North Sharqiyya'],
-    'Al Buraimi':['Buraimi','AL BURAIMI','BUR','Birami','Biraimi','Al Buraimi'],
-    'North Batinah':['N Batinah','NORTH BATINAH','NB','North Al Batinah'],
-    'South Batinah':['SOUTH-B','SOUTH BATINAH','SOUTH-BATINAH','South Al Batinah'],
-    'Wusta':['WUSTA','Al Wusta','AL WUSTA','Al-Wusta'],
-    'Al Wusta':['Wusta','WUSTA','AL WUSTA','Al-Wusta'],
-    'Ad Dhahira':['Dhahira','AD DHAHIRA','DHR','Al Dhahra','Dhahra','Dhahirah'],
-    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR','Al Dhahra','Dhahra','Dhahirah'],
+    'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA'],
+    'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA'],
+    'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S'],
+    'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North','Sharqiyah North'],
+    'Al Buraimi':['Buraimi','AL BURAIMI','BUR'],
+    'North Batinah':['N Batinah','NORTH BATINAH','NB'],
+    'South Batinah':['SOUTH-B','SOUTH BATINAH','SOUTH-BATINAH'],
+    'Wusta':['Wusta','WUSTA','Al Wusta','AL WUSTA'],
+    'Al Wusta':['Wusta','WUSTA','AL WUSTA'],
+    'Ad Dhahira':['Dhahira','AD DHAHIRA','DHR'],
+    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR'],
     'Musandam':['MDM','MUSANDAM'],
-    'Muscat':['Muscat Governorate','MUSCAT']};
+    'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR']};
   function findGovIdx(labels,name){
     var idx=labels.findIndex(function(g){return g===name;});if(idx>=0)return idx;
     var aliases=GOV_ALIASES[name]||[];
@@ -1740,8 +1764,8 @@ function renderGovFocus(){
   // ── CONTRIBUTION ──
   var contEl=document.getElementById('gf-contribution');
   if(contEl){
-    var cS=D.contrib&&D.contrib.SAIDI?D.contrib.SAIDI.values[findGovIdx(D.contrib.SAIDI.labels,gov)]:null;
-    var cSf=D.contrib&&D.contrib.SAIFI?D.contrib.SAIFI.values[findGovIdx(D.contrib.SAIFI.labels,gov)]:null;
+    var cS=D.contrib&&D.contrib.SAIDI?D.contrib.SAIDI.values[D.contrib.SAIDI.labels.indexOf(gov)]:null;
+    var cSf=D.contrib&&D.contrib.SAIFI?D.contrib.SAIFI.values[D.contrib.SAIFI.labels.indexOf(gov)]:null;
     // Also from govData
     if(cS===null||cS===undefined){var cr=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});if(cr)cS=cr.cont;}
     contEl.innerHTML='<div style="display:flex;flex-direction:column;gap:16px">'+
@@ -1817,7 +1841,7 @@ function renderGovFocus(){
   var gcMomEl=document.getElementById('gf-customers-mom');
   var gcMonthsEl=document.getElementById('gf-customers-months');
   if(D.customers&&D.customers.govs){
-    var gcKey2=Object.keys(D.customers.govs).find(function(k){var kn=k.toLowerCase().replace(/[^a-z]/g,'');var gn=gov.toLowerCase().replace(/[^a-z]/g,'');return kn===gn||kn.indexOf(gn.substring(0,5))>=0||gn.indexOf(kn.substring(0,5))>=0;});
+    var gcKey2=findCustomerKey(gov);
     var gcData=gcKey2?D.customers.govs[gcKey2]:null;
     if(gcData&&gcData.length>0){
       var gcL=gcData[gcData.length-1];
@@ -2054,7 +2078,7 @@ function printGovReport(opts){
 
   // Customer
   var custLabels=D.customers&&D.customers.labels?D.customers.labels:[];
-  var custKey=D.customers?Object.keys(D.customers.govs||{}).find(function(k){var kn=k.toLowerCase().replace(/[^a-z]/g,'');var gn=gov.toLowerCase().replace(/[^a-z]/g,'');return kn===gn||kn.indexOf(gn.substring(0,5))>=0||gn.indexOf(kn.substring(0,5))>=0;}):null;
+  var custKey=findCustomerKey(gov);
   var custData=custKey?D.customers.govs[custKey]:null;
   var custLatest=custData&&custData.length>0?custData[custData.length-1]:null;
   var custPrev=custData&&custData.length>1?custData[custData.length-2]:null;
@@ -2769,17 +2793,23 @@ function buildCustomerCharts(){
   }
   // Line: total growth
   mkChart('cust-trend-chart',{type:'line',data:{labels:c.labels,datasets:[{label:'Total Customers',data:c.total,borderColor:'#2980b9',backgroundColor:'rgba(41,128,185,0.1)',borderWidth:2.5,pointRadius:4,fill:true,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false}},scales:{y:{beginAtZero:false,ticks:{callback:function(v){return (v/1000).toFixed(0)+'K';}}}}}});
-  // Donut: share by gov
-  var gk=Object.keys(c.govs);var dd=gk.map(function(g){return c.govs[g][latI]||0;});
+  // Donut: share by gov — dedupe alias keys (e.g. "Wusta" / "Al Wusta" point
+  // to the same data; without dedup the donut double-counts and totals > 100%).
+  var seen={}, gk=[];
+  Object.keys(c.govs).forEach(function(k){
+    var n=normGovName(k);
+    if(n && !seen[n]){ seen[n]=1; gk.push(k); }
+  });
+  var dd=gk.map(function(g){return c.govs[g][latI]||0;});
   mkChart('cust-donut-chart',{type:'doughnut',data:{labels:gk,datasets:[{data:dd,backgroundColor:colors,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:12}},datalabels:{display:true,formatter:function(v){var t=dd.reduce(function(a,b){return a+b;},0);return t>0?Math.round(v/t*100)+'%':'';},color:'#fff',font:{size:10,weight:'bold'}}}}});
   // SAIDI per 1000 customers
   var sg=(D.govData||[]).filter(function(g){return g.ind==='SAIDI'&&!g.isGroup;});var nd=[];
-  sg.forEach(function(g,i){var ck=gk.find(function(k){var kn=k.toLowerCase().replace(/[^a-z]/g,'');var gn=g.gov.toLowerCase().replace(/[^a-z]/g,'');return kn===gn||kn.indexOf(gn.substring(0,5))>=0||gn.indexOf(kn.substring(0,5))>=0;});if(ck&&g.r26>0){var cu=c.govs[ck][latI]||0;if(cu>0)nd.push({l:g.gov,v:g.r26/cu*1000,c:colors[i%colors.length]});}});
+  sg.forEach(function(g,i){var ck=findCustomerKey(g.gov);if(ck&&g.r26>0){var cu=c.govs[ck][latI]||0;if(cu>0)nd.push({l:g.gov,v:g.r26/cu*1000,c:colors[i%colors.length]});}});
   nd.sort(function(a,b){return b.v-a.v;});
   mkChart('cust-saidi-norm-chart',{type:'bar',data:{labels:nd.map(function(s){return s.l;}),datasets:[{label:'SAIDI/1K Customers',data:nd.map(function(s){return parseFloat(s.v.toFixed(3));}),backgroundColor:nd.map(function(s){return s.c;}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',formatter:function(v){return v.toFixed(3);},font:{size:11,weight:'bold'}}},scales:{x:{beginAtZero:true,title:{display:true,text:'Minutes per 1,000 Customers'}},y:{grid:{display:false}}}}});
   // SAIFI per 1000 customers
   var sfg=(D.govData||[]).filter(function(g){return g.ind==='SAIFI'&&!g.isGroup;});var ndsf=[];
-  sfg.forEach(function(g,i){var ck=gk.find(function(k){var kn=k.toLowerCase().replace(/[^a-z]/g,'');var gn=g.gov.toLowerCase().replace(/[^a-z]/g,'');return kn===gn||kn.indexOf(gn.substring(0,5))>=0||gn.indexOf(kn.substring(0,5))>=0;});if(ck&&g.r26>0){var cu=c.govs[ck][latI]||0;if(cu>0)ndsf.push({l:g.gov,v:g.r26/cu*1000,c:colors[i%colors.length]});}});
+  sfg.forEach(function(g,i){var ck=findCustomerKey(g.gov);if(ck&&g.r26>0){var cu=c.govs[ck][latI]||0;if(cu>0)ndsf.push({l:g.gov,v:g.r26/cu*1000,c:colors[i%colors.length]});}});
   ndsf.sort(function(a,b){return b.v-a.v;});
   mkChart('cust-saifi-norm-chart',{type:'bar',data:{labels:ndsf.map(function(s){return s.l;}),datasets:[{label:'SAIFI/1K Customers',data:ndsf.map(function(s){return parseFloat(s.v.toFixed(4));}),backgroundColor:ndsf.map(function(s){return s.c;}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',formatter:function(v){return v.toFixed(4);},font:{size:11,weight:'bold'}}},scales:{x:{beginAtZero:true,title:{display:true,text:'Interruptions per 1,000 Customers'}},y:{grid:{display:false}}}}});
 }
@@ -3668,29 +3698,8 @@ function parseWorkbook(wb,fileName){
         if(nameCol<0||valCol<0)return;
         var gName=cl(row[nameCol]);var pct=Math.round(nv(row[valCol])*100);
         if(!gName||isNaN(pct)||pct<=0)return;
-        // Normalize gov name to canonical form using reverse alias lookup
-        var knownGovs=(D.govData||[]).filter(function(g){return !g.isGroup;}).map(function(g){return g.gov;});
-        var uniq=[]; knownGovs.forEach(function(g){if(uniq.indexOf(g)<0)uniq.push(g);});
-        var matched=null;
-        // Direct match first
-        if(uniq.indexOf(gName)>=0)matched=gName;
-        // Check if gName is an alias for a canonical gov
-        if(!matched){Object.keys(GOV_ALIASES).forEach(function(canon){
-          if(!matched&&(GOV_ALIASES[canon]||[]).some(function(a){return a.toLowerCase()===gName.toLowerCase();}))matched=canon;
-        });}
-        // Fuzzy: first 5 chars of first significant word
-        if(!matched&&gName){
-          var skip={al:1,ad:1};
-          var gw=gName.split(' ').filter(function(w){return !skip[w.toLowerCase()];});
-          var gkey=gw[0]?gw[0].toLowerCase().substring(0,5):'';
-          if(gkey)matched=uniq.find(function(u){
-            var uw=u.split(' ').filter(function(w){return !skip[w.toLowerCase()];});
-            return uw.some(function(w){return w.toLowerCase().substring(0,5)===gkey;});
-          })||null;
-        }
-        var finalName=matched||gName;
-        if(csec==='s'){sc.labels.push(finalName);sc.values.push(pct);}
-        else{sfc.labels.push(finalName);sfc.values.push(pct);}});
+        if(csec==='s'){sc.labels.push(gName);sc.values.push(pct);}
+        else{sfc.labels.push(gName);sfc.values.push(pct);}});
       if(sc.labels.length>0)pContrib={SAIDI:sc,SAIFI:sfc};}
 
     // ── VOLTAGE — find LV/11K/33K header row, next row=values ──
