@@ -1234,13 +1234,14 @@ function latestIdx(arr){var i=0;(arr||[]).forEach(function(v,j){if(v!==null&&v!=
 // causing duplicated/wrong customer counts).
 function normGovName(s){
   return String(s||'').toLowerCase()
-    .replace(/[^a-z]/g,'')                  // strip spaces & punctuation
-    .replace(/^(al|ad|ash|as)/,'')           // drop arabic article prefixes
-    .replace(/sharqyia/g,'sharqiya')         // common typo
-    .replace(/sharqiyah/g,'sharqiya')        // unify trailing h
-    .replace(/dakhiliyah|dakilyah|dakhliyah/g,'dakilya') // dakhiliyah variants
-    .replace(/dhahirah/g,'dhahira')          // trailing h
-    .replace(/(.+?)(north|south)$/,'$2$1');  // "sharqiyanorth" → "northsharqiya"
+    .replace(/[^a-z]/g,'')                   // strip spaces & punctuation
+    .replace(/^(al|ad|ash|as)/,'')            // drop arabic article prefixes
+    .replace(/yy/g,'y')                       // collapse double-y (Dakhliyyah, Sharqiyyah → Dakhliyah, Sharqiyah)
+    .replace(/sharqyia/g,'sharqiya')          // common typo
+    .replace(/sharqiyah/g,'sharqiya')         // unify trailing h
+    .replace(/dakhiliyah|dakilyah|dakhliyah|dakhliya|dakhiliya/g,'dakilya') // dakhiliyah variants
+    .replace(/dhahirah/g,'dhahira')           // trailing h
+    .replace(/(.+?)(north|south)$/,'$2$1');   // "sharqiyanorth" → "northsharqiya"
 }
 // Find the customer-data key for a given gov name (returns null if absent).
 function findCustomerKey(gov){
