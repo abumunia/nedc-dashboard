@@ -133,9 +133,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .section-hdr{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .section-hdr::before{content:'';display:block;width:4px;height:16px;background:var(--red);border-radius:2px;flex-shrink:0}
 
-.subtabs{display:flex;gap:4px;background:#f3f4f6;padding:4px;border-radius:10px;width:fit-content}
-.stab{padding:7px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border:none;background:transparent;font-family:'Inter',sans-serif;transition:all 0.15s}
-.stab.active{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.subtabs{display:inline-flex;gap:4px;background:#e6ebf2;padding:5px;border-radius:12px;width:fit-content;border:1px solid #d2d9e3;box-shadow:inset 0 1px 2px rgba(12,30,53,0.04)}
+.stab{padding:9px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#516276;border:1px solid transparent;background:transparent;font-family:'Inter',sans-serif;transition:all 0.18s;letter-spacing:0.2px;display:inline-flex;align-items:center;gap:7px;line-height:1}
+.stab:hover{color:var(--navy);background:rgba(255,255,255,0.6)}
+.stab.active{background:#fff;color:var(--navy);box-shadow:0 2px 8px rgba(12,30,53,0.14),0 0 0 1px #cfd6e4;border-color:#cfd6e4}
+.stab.active::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2px rgba(192,57,43,0.18)}
 
 table.dt{width:100%;border-collapse:collapse;font-size:13px}
 table.dt th{background:#f8f9fb;padding:9px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2);border-bottom:1px solid var(--border);text-align:left}
@@ -1071,9 +1073,9 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 
       <!-- PRINT HEADER (only visible when printing) -->
       <div id="gf-print-header" style="display:none">
-        <div>
-          <div class="ph-logo">NEDC</div>
-          <div style="font-size:10px;color:#666;margin-top:2px">Nama Electricity Distribution Company</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img id="gf-print-logo" alt="NEDC" style="height:42px;width:auto;display:block"/>
+          <div style="font-size:10px;color:#666">Nama Electricity Distribution Company</div>
         </div>
         <div class="ph-meta">
           <strong id="ph-gov-name">Governorate Report</strong>
@@ -1167,13 +1169,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
         <div>
           <div style="font-size:22px;font-weight:800;color:var(--text1)">Performance Map</div>
-          <div style="font-size:13px;color:var(--text3);margin-top:3px">Governorate performance overview — click a governorate to view details</div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <select id="omap-indicator" onchange="renderOmanMap()" style="border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;background:#fff;color:var(--text1)">
-            <option value="SAIDI">SAIDI Rolling</option>
-            <option value="SAIFI">SAIFI Rolling</option>
-          </select>
+          <div style="font-size:13px;color:var(--text3);margin-top:3px">Governorate performance overview — SAIDI &amp; SAIFI shown side-by-side · Click a callout for details</div>
         </div>
       </div>
       <div id="omap-container" style="position:relative;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;min-height:500px">
@@ -2498,9 +2494,20 @@ function printGovReport(opts){
     }
   }
 
-  // Action plan
-  var gkpi=D.govKpi&&D.govKpi[gov]?D.govKpi[gov]:null;
-  var actions=gkpi&&gkpi.actions?gkpi.actions:[];
+  // Action plan — match the on-screen Gov Focus lookup so the print can find
+  // the right action-plan record even when names differ slightly.
+  var gkpiKey=Object.keys(D.govKpi||{}).find(function(k){
+    if(k===gov)return true;
+    var aliases=(typeof GOV_ALIASES!=='undefined'&&GOV_ALIASES[gov])||[];
+    if(aliases.indexOf(k)>=0)return true;
+    var kAliases=(typeof GOV_ALIASES!=='undefined'&&GOV_ALIASES[k])||[];
+    if(kAliases.indexOf(gov)>=0)return true;
+    return findGovIdx([k],gov)>=0;
+  });
+  // govKpi[gov] is either an Array of actions, or an Object {actions:[...]} —
+  // support both shapes so older saved files keep working.
+  var gkpi=gkpiKey?D.govKpi[gkpiKey]:null;
+  var actions=Array.isArray(gkpi)?gkpi:(gkpi&&gkpi.actions?gkpi.actions:[]);
 
   // MV Unplanned (latest)
   var mvUnp=null;
@@ -2547,7 +2554,15 @@ function printGovReport(opts){
   function kcard(lbl,val,unit,sub,cls){return '<div class="kcard '+cls+'"><div class="klbl">'+lbl+'</div><div class="kval">'+val+'<span class="kunit"> '+unit+'</span></div><div class="ksub">'+sub+'</div></div>';}
   function rankBadge(r,t){if(!r)return '--';var c=r<=Math.ceil(t/3)?'#27ae60':r<=Math.ceil(t*2/3)?'#e67e22':'#c0392b';return '<span style="font-size:22px;font-weight:900;color:'+c+'">'+r+'</span><span style="font-size:11px;color:#888"> / '+t+'</span>';}
   function pageHdr(){
-    return '<div class="ph"><div><div class="logo">NEDC</div><div class="co">Nama Electricity Distribution Company</div></div>'+
+    // The topbar logo (lives on a light background) is the full-color mark.
+    // The sidebar/welcome logo is white-on-dark — using it on the PDF's white
+    // page makes it disappear, so we explicitly prefer the topbar source.
+    var logoEl=document.querySelector('.topbar-left img')||document.querySelector('.slogo img')||document.querySelector('#welcome img');
+    var logoSrc=logoEl?logoEl.src:'';
+    var logoHtml=logoSrc
+      ? '<img src="'+logoSrc+'" alt="NEDC" style="height:44px;width:auto;display:block;-webkit-print-color-adjust:exact;print-color-adjust:exact"/>'
+      : '<div class="logo">NEDC</div>';
+    return '<div class="ph"><div style="display:flex;align-items:center;gap:12px">'+logoHtml+'<div class="co">Nama Electricity Distribution Company</div></div>'+
       '<div style="text-align:right;font-size:9px;color:#666"><strong style="font-size:13px;color:#0c1e35;display:block">'+gov+' Governorate</strong>'+period+' &nbsp;|&nbsp; Printed: '+printDate+'</div></div>';
   }
 
@@ -2628,17 +2643,26 @@ function printGovReport(opts){
       '<div class="cmonths">'+custLabels.map(function(l,i){return '<div><div class="cml">'+l+'</div><div class="cmv">'+(custData[i]||0).toLocaleString()+'</div></div>';}).join('')+'</div></div>';
   }
 
-  // KPI cards
+  // KPI cards — Imp: shown with arrow + color so improvement direction is
+  // legible on the printed report (mirrors on-screen impBadge but inline so
+  // print-color-adjust keeps the color when saving as PDF).
+  function pImp(v){
+    if(v===null||v===undefined||v===''||v==='--')return '<span style="color:#888">Imp: --</span>';
+    var n=parseFloat(String(v).replace(/[^\d.-]/g,''));
+    if(isNaN(n))return '<span style="color:#888">Imp: '+v+'</span>';
+    var good=n<=0,c=good?'#1e8449':'#c0392b',bg=good?'#e8f8ee':'#fde8e8',arr=good?'▼':'▲';
+    return '<span style="background:'+bg+';color:'+c+';padding:1px 7px;border-radius:50px;font-weight:800;font-size:9px;-webkit-print-color-adjust:exact;print-color-adjust:exact">'+arr+' '+Math.abs(n).toFixed(1)+'%</span>';
+  }
   var kpiHtml='<div class="kgrid">';
   if(sRow){
     var sg=sRow.t26>0&&sRow.r26<=sRow.t26;
     kpiHtml+=kcard('SAIDI 2026 YTD',sRow.y26?sRow.y26.toFixed(2):'--','min','Rolling: '+(sRow.r26?sRow.r26.toFixed(1):'--')+' min',sg?'green':'red');
-    kpiHtml+=kcard('SAIDI Target',sRow.t26||'--','min','Imp: '+(sRow.imp||'--'),'navy');
+    kpiHtml+=kcard('SAIDI Target',sRow.t26||'--','min',pImp(sRow.imp),'navy');
   }
   if(sfRow){
     var sfg=sfRow.t26>0&&sfRow.r26<=sfRow.t26;
     kpiHtml+=kcard('SAIFI 2026 YTD',sfRow.y26?sfRow.y26.toFixed(3):'--','freq','Rolling: '+(sfRow.r26?sfRow.r26.toFixed(2):'--'),sfg?'green':'red');
-    kpiHtml+=kcard('SAIFI Target',sfRow.t26||'--','freq','Imp: '+(sfRow.imp||'--'),'navy');
+    kpiHtml+=kcard('SAIFI Target',sfRow.t26||'--','freq',pImp(sfRow.imp),'navy');
   }
   kpiHtml+='</div>';
 
@@ -2726,11 +2750,50 @@ function printGovReport(opts){
     '</tbody></table>':'';
 
   // Action plan
-  var apHtml=actions.length>0?
-    '<table style="table-layout:fixed"><colgroup><col style="width:12%"><col style="width:36%"><col style="width:8%"><col style="width:8%"><col style="width:10%"><col style="width:11%"><col style="width:8%"><col style="width:7%"></colgroup>'+
-    '<thead><tr><th>Type</th><th>Action</th><th style="text-align:right">Target</th><th style="text-align:right">2025</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">Imp%</th><th style="text-align:right">Weight</th></tr></thead><tbody>'+
-    actions.map(function(a){return '<tr><td>'+esc(a.t)+'</td><td>'+esc(a.a)+'</td><td class="rv">'+esc(a.tgt)+'</td><td class="rv">'+esc(a.r25)+'</td><td class="rv">'+esc(a.y26||'--')+'</td><td class="rv">'+esc(a.imp)+'</td><td class="rv">'+esc(a.w)+'</td></tr>';}).join('')+
-    '</tbody></table>':'';
+  var apHtml='';
+  if(actions.length>0){
+    // Pre-compute per-row analytics: target-exceeded + YTD improvement %
+    var apRows=actions.map(function(a){
+      var t26n=parseFloat(String(a.tgt).replace(/[^\d.-]/g,''));
+      var y26n=parseFloat(String(a.y26).replace(/[^\d.-]/g,''));
+      var y25n=parseFloat(String(a.r25).replace(/[^\d.-]/g,''));
+      var exc=!isNaN(y26n)&&!isNaN(t26n)&&y26n>t26n;
+      var yi=!isNaN(y25n)&&!isNaN(y26n)&&y25n!==0?((y26n-y25n)/y25n*100):null;
+      var typeColor=a.t==='Planned'?'#1a5276':'#c0392b';
+      var typeBg=a.t==='Planned'?'#eff6ff':'#fff5f5';
+      var impBadge=yi!==null
+        ? (function(){var good=yi<=0,c=good?'#1e8449':'#c0392b',bg=good?'#e8f8ee':'#fde8e8',arr=good?'▼':'▲';
+            return '<span style="background:'+bg+';color:'+c+';padding:1px 6px;border-radius:50px;font-weight:800;font-size:9px;-webkit-print-color-adjust:exact;print-color-adjust:exact">'+arr+' '+Math.abs(yi).toFixed(1)+'%</span>';})()
+        : '<span style="color:#aaa">--</span>';
+      return '<tr'+(exc?' style="background:#fff5f5;-webkit-print-color-adjust:exact;print-color-adjust:exact"':'')+'>'+
+        '<td><span style="display:inline-block;background:'+typeBg+';color:'+typeColor+';padding:1px 7px;border-radius:50px;font-size:9px;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact">'+esc(a.t)+'</span></td>'+
+        '<td style="font-size:10px;line-height:1.35">'+esc(a.a)+'</td>'+
+        '<td class="rv" style="color:#1d4ed8;background:#eff6ff;-webkit-print-color-adjust:exact;print-color-adjust:exact">'+esc(a.tgt)+'</td>'+
+        '<td class="rv" style="color:#666">'+esc(a.r25)+'</td>'+
+        '<td class="rv" style="font-weight:800;'+(exc?'color:#c0392b':'color:#0c1e35')+'">'+(exc?'★ ':'')+esc(a.y26||'--')+'</td>'+
+        '<td class="rv">'+esc(a.imp)+'</td>'+
+        '<td class="rv">'+impBadge+'</td>'+
+        '<td class="rv" style="color:#666">'+esc(a.w)+'</td></tr>';
+    }).join('');
+    // Summary chips: planned/unplanned count + how many exceed target
+    var plannedN=actions.filter(function(a){return a.t==='Planned';}).length;
+    var unplannedN=actions.filter(function(a){return a.t==='Unplanned';}).length;
+    var exceededN=actions.filter(function(a){
+      var t=parseFloat(String(a.tgt).replace(/[^\d.-]/g,''));
+      var y=parseFloat(String(a.y26).replace(/[^\d.-]/g,''));
+      return !isNaN(t)&&!isNaN(y)&&y>t;
+    }).length;
+    apHtml='<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;font-size:9px">'+
+      '<span style="background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:50px;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact">Planned actions: '+plannedN+'</span>'+
+      '<span style="background:#fff5f5;color:#c0392b;padding:3px 10px;border-radius:50px;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact">Unplanned actions: '+unplannedN+'</span>'+
+      (exceededN>0?'<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:50px;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact">★ '+exceededN+' exceeding 2026 target</span>':'<span style="background:#e8f8ee;color:#1e8449;padding:3px 10px;border-radius:50px;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact">All within target</span>')+
+      '</div>'+
+      '<table style="table-layout:fixed"><colgroup><col style="width:11%"><col style="width:32%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:9%"><col style="width:13%"><col style="width:7%"></colgroup>'+
+      '<thead><tr><th>Type</th><th>Action</th><th style="text-align:right">2026 Target</th><th style="text-align:right">2025 YTD</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">Imp%</th><th style="text-align:right">YTD vs 25</th><th style="text-align:right">Weight</th></tr></thead><tbody>'+
+      apRows+
+      '</tbody></table>'+
+      '<div style="font-size:8.5px;color:#888;margin-top:6px;line-height:1.5">★ marks actions where 2026 YTD has already exceeded the full-year target. <strong>YTD vs 25</strong> shows the year-over-year change (green ▼ = improvement, red ▲ = worse).</div>';
+  }
 
   // Assemble HTML
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
@@ -2812,7 +2875,6 @@ var OM_DOTS={
 var _omapInst=null, _omapMarkers=[], _omapLines=null, _omapResizeHandler=null;
 
 function renderOmanMap(){
-  var ind=(document.getElementById('omap-indicator')||{value:'SAIDI'}).value;
   var container=document.getElementById('omap-container');
   if(!container) return;
   if(typeof L==='undefined'){
@@ -2820,96 +2882,126 @@ function renderOmanMap(){
     return;
   }
 
-  var govRows=(D.govData||[]).filter(function(g){return g.ind===ind && !g.isGroup;});
-  var withData=govRows.filter(function(g){return g.r26>0;}).slice().sort(function(a,b){return a.r26-b.r26;});
-  if(!withData.length){
-    container.innerHTML='<div style="padding:40px;text-align:center;color:var(--text2)">No data available for '+ind+'.</div>';
+  // Pull SAIDI + SAIFI rows in parallel — every callout shows BOTH metrics.
+  var rowsSaidi=(D.govData||[]).filter(function(g){return g.ind==='SAIDI' && !g.isGroup;});
+  var rowsSaifi=(D.govData||[]).filter(function(g){return g.ind==='SAIFI' && !g.isGroup;});
+  var withSaidi=rowsSaidi.filter(function(g){return g.r26>0;}).slice().sort(function(a,b){return a.r26-b.r26;});
+  var withSaifi=rowsSaifi.filter(function(g){return g.r26>0;}).slice().sort(function(a,b){return a.r26-b.r26;});
+  if(!withSaidi.length && !withSaifi.length){
+    container.innerHTML='<div style="padding:40px;text-align:center;color:var(--text2)">No data available.</div>';
     return;
   }
-  // Tolerant lookup: normalise gov names so spelling variants
-  // ("South Sharqiyah"/"South Sharqyia", "North Sharqiyah"/"Sharqiyah North"/"North Sharqiya",
-  //  "Ad Dakhiliyah"/"Al Dakilyah", "Ad Dhahira"/"Dhahira", "Al Wusta"/"Wusta") all match.
   function norm(s){
     return String(s||'').toLowerCase()
-      .replace(/[^a-z]/g,'')                 // strip spaces/punct
-      .replace(/^(al|ad|ash|as)/,'')          // drop arabic article prefixes
-      .replace(/sharqyia/g,'sharqiya')        // fix common typo
-      .replace(/sharqiyah/g,'sharqiya')       // unify trailing h
-      .replace(/(.+)(north|south)$/,'$2$1')   // "sharqiyanorth" ↔ "northsharqiya"
+      .replace(/[^a-z]/g,'')
+      .replace(/^(al|ad|ash|as)/,'')
+      .replace(/sharqyia/g,'sharqiya')
+      .replace(/sharqiyah/g,'sharqiya')
+      .replace(/(.+)(north|south)$/,'$2$1')
       .replace(/dakhiliyah|dakilyah|dakhliyah/g,'dakilya');
   }
-  var rowByGov={};
-  govRows.forEach(function(g){ rowByGov[norm(g.gov)]=g; });
-  var unit=ind==='SAIDI'?'min':'freq';
+  var sIdx={}, sfIdx={};
+  rowsSaidi.forEach(function(g){ sIdx[norm(g.gov)]=g; });
+  rowsSaifi.forEach(function(g){ sfIdx[norm(g.gov)]=g; });
 
-  // Build entry list using ONLY govs that are both in OM_DOTS and in data
+  // Build entry list with both metrics + composite rank
   var entries=[];
   Object.keys(OM_DOTS).forEach(function(name){
-    var row=rowByGov[norm(name)]; if(!row || !row.r26) return;
-    var rank=withData.findIndex(function(r){return r.gov===row.gov;})+1;
-    // Use the data's actual gov spelling so click-through / focus work.
-    entries.push({name:row.gov, displayName:name, row:row, rank:rank, ll:OM_DOTS[name].ll, side:OM_DOTS[name].side});
+    var s=sIdx[norm(name)], sf=sfIdx[norm(name)];
+    if(!s && !sf) return;
+    var sRank=s?(withSaidi.findIndex(function(r){return r.gov===s.gov;})+1):null;
+    var sfRank=sf?(withSaifi.findIndex(function(r){return r.gov===sf.gov;})+1):null;
+    var comp=(sRank&&sfRank)?(sRank+sfRank)/2:(sRank||sfRank||99);
+    entries.push({
+      name:(s||sf).gov, displayName:name,
+      saidi:s, saifi:sf, sRank:sRank, sfRank:sfRank, comp:comp,
+      ll:OM_DOTS[name].ll, side:OM_DOTS[name].side
+    });
   });
+  var totalGovs=Math.max(withSaidi.length, withSaifi.length, 1);
 
-  // Color by rank tier (best/mid/worst)
   function tierColor(rank,total){
+    if(rank===null||rank===undefined)return '#9ca3af';
     var p=rank/total;
-    if(p<=0.33) return '#1e8449';   // best — green
-    if(p<=0.66) return '#e67e22';   // mid — amber
-    return '#c0392b';               // worst — red
+    if(p<=0.33) return '#1e8449';
+    if(p<=0.66) return '#e67e22';
+    return '#c0392b';
   }
 
-  // Layout: 3-column flex inside container
+  // Header + 3-col stage. Side columns flex to fill available space, map
+  // stays fixed-width in the middle so geography reads correctly.
   container.innerHTML=
-    '<div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:16px 16px 0 0">'+
-      '<b style="font-size:13px;color:var(--navy)">Performance Map — '+ind+' Rolling 2026</b>'+
+    '<div style="padding:9px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:16px 16px 0 0">'+
+      '<b style="font-size:13px;color:var(--navy)">Performance Map — SAIDI &amp; SAIFI Rolling 2026</b>'+
       '<span style="font-size:11px;color:var(--text3);margin-left:auto">Click any callout to open the Governorate Focus report in a new window</span>'+
     '</div>'+
-    '<div id="omap-stage" style="position:relative;display:flex;gap:0;height:640px;background:#f3f6fa;justify-content:center">'+
-      '<div id="omap-col-L" style="width:230px;flex-shrink:0;padding:14px 8px;display:flex;flex-direction:column;gap:8px;overflow:hidden;background:var(--surface)"></div>'+
+    '<div id="omap-stage" style="position:relative;display:flex;gap:0;height:720px;background:#f3f6fa">'+
+      '<div id="omap-col-L" style="flex:1 1 0;min-width:300px;padding:14px 12px;display:flex;flex-direction:column;gap:9px;overflow:hidden;background:var(--surface)"></div>'+
       '<div id="omap-leaflet" style="width:420px;flex:0 0 420px;height:100%;position:relative;z-index:1;background:#f3f6fa"></div>'+
-      '<div id="omap-col-R" style="width:230px;flex-shrink:0;padding:14px 8px;display:flex;flex-direction:column;gap:8px;overflow:hidden;background:var(--surface)"></div>'+
+      '<div id="omap-col-R" style="flex:1 1 0;min-width:300px;padding:14px 12px;display:flex;flex-direction:column;gap:9px;overflow:hidden;background:var(--surface)"></div>'+
       '<svg id="omap-leaders" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5"></svg>'+
     '</div>'+
-    '<div style="display:flex;align-items:center;justify-content:center;gap:18px;padding:9px;border-top:1px solid var(--border);font-size:11px;background:var(--surface);border-radius:0 0 16px 16px">'+
-      '<b style="color:var(--text2)">Performance Tier:</b>'+
+    '<div style="display:flex;align-items:center;justify-content:center;gap:18px;padding:9px;border-top:1px solid var(--border);font-size:11px;background:var(--surface);border-radius:0 0 16px 16px;flex-wrap:wrap">'+
+      '<b style="color:var(--text2)">Composite Rank Tier:</b>'+
       '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1e8449;margin-right:5px;vertical-align:middle"></span>Best (top 33%)</span>'+
       '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e67e22;margin-right:5px;vertical-align:middle"></span>Mid</span>'+
       '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#c0392b;margin-right:5px;vertical-align:middle"></span>Worst (bottom 33%)</span>'+
-      '<span style="margin-left:14px;color:var(--text3)">Circle size ∝ value</span>'+
+      '<span style="margin-left:14px;color:var(--text3)">Tier = avg of SAIDI &amp; SAIFI ranks · Marker size ∝ SAIDI rolling</span>'+
     '</div>';
 
-  // Build cards in side columns (sorted N→S using lat desc)
   var leftEntries=entries.filter(function(e){return e.side==='L';}).slice().sort(function(a,b){return b.ll[0]-a.ll[0];});
   var rightEntries=entries.filter(function(e){return e.side==='R';}).slice().sort(function(a,b){return b.ll[0]-a.ll[0];});
   var colL=document.getElementById('omap-col-L');
   var colR=document.getElementById('omap-col-R');
 
+  // Build a card that shows BOTH metrics — SAIDI and SAIFI rows side-by-side.
+  function metricRow(label, row, unit, decimals){
+    if(!row||!row.r26)return '<div style="flex:1;background:#f8f9fb;border-radius:6px;padding:6px 9px;border:1px solid #e5e7eb"><div style="font-size:9px;font-weight:800;letter-spacing:0.5px;color:var(--text3);text-transform:uppercase;margin-bottom:2px">'+label+'</div><div style="font-size:13px;color:#9ca3af">No data</div></div>';
+    var tgt=row.t26||0;
+    var good=tgt>0 && row.r26<=tgt;
+    var col=good?'#1e8449':'#c0392b';
+    var bgCol=good?'#e8f8ee':'#fde8e8';
+    var arrow=good?'▼':'▲';
+    var diffPct=tgt>0?((row.r26-tgt)/tgt*100):null;
+    var val=row.r26.toFixed(decimals);
+    var tgtStr=tgt?tgt.toFixed(decimals===1?0:decimals):'—';
+    return '<div style="flex:1;background:'+bgCol+';border-radius:6px;padding:6px 9px;border:1px solid '+col+'33">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">'+
+        '<span style="font-size:9px;font-weight:800;letter-spacing:0.5px;color:var(--navy);text-transform:uppercase">'+label+'</span>'+
+        (diffPct!==null?'<span style="font-size:9px;font-weight:800;color:'+col+'">'+arrow+' '+Math.abs(diffPct).toFixed(0)+'%</span>':'')+
+      '</div>'+
+      '<div style="display:flex;align-items:baseline;gap:4px">'+
+        '<span style="font-size:17px;font-weight:900;color:'+col+';line-height:1">'+val+'</span>'+
+        '<span style="font-size:9px;color:var(--text2);font-weight:600">'+unit+'</span>'+
+      '</div>'+
+      '<div style="font-size:9px;color:var(--text2);margin-top:2px">vs target <b style="color:'+col+'">'+tgtStr+'</b></div>'+
+    '</div>';
+  }
+
   function buildCard(e){
-    var g=e.row, col=tierColor(e.rank, withData.length);
-    var good=g.t26>0 && g.r26<=g.t26;
-    var val=ind==='SAIDI'?g.r26.toFixed(1):g.r26.toFixed(2);
-    var tgt=g.t26?(ind==='SAIDI'?g.t26.toFixed(0):g.t26.toFixed(2)):'—';
-    var prev=g.y25?(ind==='SAIDI'?g.y25.toFixed(1):g.y25.toFixed(2)):'—';
+    var col=tierColor(e.comp, totalGovs);
     var card=document.createElement('div');
     card.className='omap-card';
     card.setAttribute('data-gov', e.name);
-    card.style.cssText='position:relative;background:#fff;border:1.5px solid '+col+';border-radius:8px;padding:7px 9px 7px 11px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:transform 0.12s,box-shadow 0.12s;flex-shrink:0';
-    card.onmouseenter=function(){card.style.transform='translateY(-1px)';card.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)';};
+    card.style.cssText='position:relative;background:#fff;border:1.5px solid '+col+';border-radius:10px;padding:9px 11px 9px 13px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:transform 0.12s,box-shadow 0.12s;flex-shrink:0';
+    card.onmouseenter=function(){card.style.transform='translateY(-1px)';card.style.boxShadow='0 6px 18px rgba(0,0,0,0.14)';};
     card.onmouseleave=function(){card.style.transform='';card.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)';};
     card.onclick=function(){openGovFocusPopup(e.name);};
+    var ranksHtml='';
+    if(e.sRank)ranksHtml+='<span style="font-size:9px;color:var(--text2)"><b style="color:'+tierColor(e.sRank,withSaidi.length)+'">#'+e.sRank+'</b> SAIDI</span>';
+    if(e.sfRank)ranksHtml+='<span style="font-size:9px;color:var(--text2)"><b style="color:'+tierColor(e.sfRank,withSaifi.length)+'">#'+e.sfRank+'</b> SAIFI</span>';
     card.innerHTML=
-      '<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:'+col+';border-radius:8px 0 0 8px"></div>'+
-      '<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:2px">'+
-        '<span style="background:'+col+';color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:50px;letter-spacing:0.3px">#'+e.rank+'</span>'+
-        '<span style="font-size:11px;font-weight:700;color:var(--navy);line-height:1.1">'+e.name+'</span>'+
+      '<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:'+col+';border-radius:10px 0 0 10px"></div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px">'+
+        '<div style="display:flex;align-items:center;gap:6px">'+
+          '<span style="background:'+col+';color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:50px;letter-spacing:0.3px">RANK '+Math.round(e.comp)+'</span>'+
+          '<span style="font-size:13px;font-weight:800;color:var(--navy);line-height:1.1">'+e.name+'</span>'+
+        '</div>'+
+        '<div style="display:flex;gap:8px;align-items:center">'+ranksHtml+'</div>'+
       '</div>'+
-      '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px">'+
-        '<span style="font-size:18px;font-weight:900;color:'+col+';line-height:1">'+val+'</span>'+
-        '<span style="font-size:9px;color:var(--text2);font-weight:500">'+unit+'</span>'+
-      '</div>'+
-      '<div style="font-size:9.5px;color:var(--text2);line-height:1.3">'+
-        'Target <b style="color:'+(good?'#1e8449':'#c0392b')+'">'+tgt+'</b> · 2025 '+prev+
+      '<div style="display:flex;gap:7px">'+
+        metricRow('SAIDI',e.saidi,'min',1)+
+        metricRow('SAIFI',e.saifi,'freq',2)+
       '</div>';
     return card;
   }
@@ -2929,15 +3021,10 @@ function renderOmanMap(){
     attributionControl:false,
     zoomSnap:0.25
   });
-  // Belt + braces: ensure no interaction even if a plugin re-enables it
   _omapInst.on('focus blur', function(){ _omapInst.dragging.disable(); });
-  // Light basemap tiles BELOW the Oman boundary outline (low opacity so the
-  // boundary reads as the primary shape).
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
     subdomains:'abcd', maxZoom:12, opacity:0.55
   }).addTo(_omapInst);
-  // Oman boundary on top: stroke prominent, fill transparent so tiles show through.
-  // Hardcoded simplified Oman boundary (lat/lng) — coarse but sufficient for an overview map.
   var OMAN_OUTLINE={"type":"Polygon","coordinates":[[
     [56.39,26.06],[56.40,25.55],[56.05,25.04],[55.65,24.91],[55.30,24.30],
     [55.50,23.65],[55.82,22.95],[55.42,22.31],[55.20,21.40],[54.80,20.20],
@@ -2950,7 +3037,6 @@ function renderOmanMap(){
   L.geoJSON(OMAN_OUTLINE,{
     style:{color:'#0c1e35',weight:2.5,fillColor:'#0c1e35',fillOpacity:0.04,lineJoin:'round'}
   }).addTo(_omapInst);
-  // Try to upgrade to the real Oman boundary from OSM (best-effort, ignore failures).
   (function(){
     try{
       var ctrl=new AbortController();
@@ -2960,48 +3046,49 @@ function renderOmanMap(){
         .then(function(arr){
           var f=Array.isArray(arr)?arr.find(function(x){return x.geojson&&(x.geojson.type==='Polygon'||x.geojson.type==='MultiPolygon');}):null;
           if(!f||!_omapInst)return;
-          // Remove the coarse outline and add the high-resolution one
           _omapInst.eachLayer(function(l){if(l instanceof L.GeoJSON)_omapInst.removeLayer(l);});
           var realBoundary=L.geoJSON(f.geojson,{
             style:{color:'#0c1e35',weight:2.5,fillColor:'#0c1e35',fillOpacity:0.04,lineJoin:'round'}
           }).addTo(_omapInst);
-          // Markers were added on top — re-add so they stay above the polygon
           _omapMarkers.forEach(function(m){m.marker.bringToFront();});
           try{_omapInst.fitBounds(realBoundary.getBounds().pad(0.04));}catch(_){}
           drawLeaders();
         }).catch(function(){clearTimeout(to);});
     }catch(_){}
   })();
-  // Fit initial view to the coarse polygon while real boundary loads
   try{
     var coarseLayer=L.geoJSON(OMAN_OUTLINE);
     _omapInst.fitBounds(coarseLayer.getBounds().pad(0.04));
   }catch(_){}
 
-  // Add markers — circle sized by value
+  // Markers — size based on SAIDI rolling, color = composite tier
   _omapMarkers=[];
-  var minV=withData[0].r26, maxV=withData[withData.length-1].r26;
+  var sValues=entries.map(function(e){return e.saidi?e.saidi.r26:0;}).filter(function(v){return v>0;});
+  var minV=Math.min.apply(null,sValues), maxV=Math.max.apply(null,sValues);
   function rFor(v){ var t=maxV>minV?(v-minV)/(maxV-minV):0.5; return 8+t*16; }
 
   entries.forEach(function(e){
-    var col=tierColor(e.rank, withData.length);
-    var radius=rFor(e.row.r26);
-    // Worst-tier (bottom 33%) markers get a smooth pulsing alert animation
-    var isCritical=(e.rank/withData.length)>0.66;
+    var col=tierColor(e.comp, totalGovs);
+    var sVal=e.saidi?e.saidi.r26:(e.saifi?e.saifi.r26*60:10);
+    var radius=rFor(sVal);
+    var isCritical=(e.comp/totalGovs)>0.66;
     var marker=L.circleMarker([e.ll[0],e.ll[1]],{
       color:col, weight:2.5, fillColor:col, fillOpacity:0.45, radius:radius,
       className: isCritical?'omap-marker-critical':''
     }).addTo(_omapInst);
-    var label=ind==='SAIDI'?e.row.r26.toFixed(1):e.row.r26.toFixed(2);
+    var sLabel=e.saidi?e.saidi.r26.toFixed(1)+' min':'—';
+    var sfLabel=e.saifi?e.saifi.r26.toFixed(2)+' freq':'—';
     marker.bindTooltip(
-      '<b style="color:'+col+'">'+e.name+'</b><br>'+ind+': <b>'+label+'</b> '+unit+'<br>Rank #'+e.rank+' / '+withData.length,
+      '<b style="color:'+col+'">'+e.name+'</b><br>'+
+      'SAIDI: <b>'+sLabel+'</b>'+(e.sRank?' &middot; #'+e.sRank:'')+'<br>'+
+      'SAIFI: <b>'+sfLabel+'</b>'+(e.sfRank?' &middot; #'+e.sfRank:''),
       {direction:'top',offset:[0,-radius-2],className:'omap-tt'}
     );
     marker.on('click', function(){ openGovFocusPopup(e.name); });
     _omapMarkers.push({entry:e, marker:marker, color:col});
   });
 
-  // Draw leader lines from each marker → its card
+  // Leader lines unchanged
   function drawLeaders(){
     var stage=document.getElementById('omap-stage');
     var svg=document.getElementById('omap-leaders');
@@ -3014,14 +3101,12 @@ function renderOmanMap(){
       if(!card) return;
       var pt=_omapInst.latLngToContainerPoint(m.marker.getLatLng());
       var mapEl=document.getElementById('omap-leaflet').getBoundingClientRect();
-      // marker pixel in stage coords
       var mx=(mapEl.left-stageRect.left)+pt.x;
       var my=(mapEl.top-stageRect.top)+pt.y;
       var cardRect=card.getBoundingClientRect();
       var isLeft=m.entry.side==='L';
       var cx=isLeft?(cardRect.right-stageRect.left):(cardRect.left-stageRect.left);
       var cy=(cardRect.top-stageRect.top)+cardRect.height/2;
-      // Elbow line: marker → vertical pivot at midX → card edge
       var pivotX=isLeft?(mx-(mx-cx)*0.55):(mx+(cx-mx)*0.55);
       parts.push(
         '<path d="M '+mx+','+my+' L '+pivotX+','+my+' L '+pivotX+','+cy+' L '+cx+','+cy+'" '+
@@ -4054,6 +4139,16 @@ var WILAYAT_DATA={"Muscat":[{"n":"Muscat","lat":23.6139,"lng":58.5922},{"n":"Mut
 
 window.addEventListener('load', function(){
   console.log('%c NEDC Dashboard v1.6 — Build 2026-05-11 ', 'background:#c0392b;color:#fff;font-size:13px;font-weight:bold;padding:4px 8px;border-radius:4px');
+
+  // Copy the NEDC color logo from the topbar (light background variant) to
+  // the print-only header so the on-page print path shows the same colored
+  // mark as the exported PDF — the sidebar logo is white-on-dark and would
+  // disappear on a white printed page.
+  (function(){
+    var src=((document.querySelector('.topbar-left img')||document.querySelector('.slogo img'))||{}).src;
+    var dst=document.getElementById('gf-print-logo');
+    if(src && dst) dst.src=src;
+  })();
 
   // Show dev banner only on dev environment
   if(window.location.hostname!=='nedc-qsi-dashboard.pages.dev'&&(window.location.hostname.indexOf('dev')>=0||window.location.hostname.indexOf('localhost')>=0)){
