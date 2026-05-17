@@ -1218,6 +1218,43 @@ function findCustomerKey(gov){
     return normGovName(k)===target;
   })||null;
 }
+// Governorate alias table — used everywhere we need to match a gov name to a
+// row in a labels[] array (contribution, MV outage, transient, etc).
+var GOV_ALIASES={
+  'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA','Ad Dakhiliyah'],
+  'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA','Ad Dakhiliyah'],
+  'Ad Dakhiliyah':['Al Dakilyah','Ad Dakhliyah','DAKHLYA','Dakhliya'],
+  'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S','Sharqiya South'],
+  'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North','North Sharqiyah'],
+  'Al Buraimi':['Buraimi','AL BURAIMI','BUR'],
+  'North Batinah':['N Batinah','NORTH BATINAH','NB','Batinah North'],
+  'South Batinah':['SOUTH-B','SOUTH BATINAH','SOUTH-BATINAH','Batinah South'],
+  'Wusta':['WUSTA','Al Wusta','AL WUSTA'],
+  'Al Wusta':['Wusta','WUSTA','AL WUSTA'],
+  'Ad Dhahira':['Dhahira','AD DHAHIRA','DHR','Ad Dhahirah'],
+  'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR','Ad Dhahirah'],
+  'Musandam':['MDM','MUSANDAM'],
+  'Muscat':['MUSCAT','MCT']
+};
+// Robust governorate index finder — exact → alias → normalized equality.
+// Replaces the old prefix-match approach that mixed up governorates sharing
+// the first 5 letters (South Batinah ↔ South Sharqiyah, etc.).
+function findGovIdx(labels,name){
+  if(!labels||!labels.length||!name) return -1;
+  // 1. exact string match
+  var i=labels.findIndex(function(g){return g===name;});
+  if(i>=0) return i;
+  // 2. explicit alias table
+  var al=GOV_ALIASES[name]||[];
+  for(var a=0;a<al.length;a++){
+    i=labels.findIndex(function(g){return g===al[a];});
+    if(i>=0) return i;
+  }
+  // 3. normalized equality — collapses every alias spelling to one form
+  var target=normGovName(name);
+  if(!target) return -1;
+  return labels.findIndex(function(g){return normGovName(g)===target;});
+}
 
 function showMsg(type,txt){
   var el=document.getElementById('upload-msg');
@@ -1764,8 +1801,10 @@ function renderGovFocus(){
   // ── CONTRIBUTION ──
   var contEl=document.getElementById('gf-contribution');
   if(contEl){
-    var cS=D.contrib&&D.contrib.SAIDI?D.contrib.SAIDI.values[D.contrib.SAIDI.labels.indexOf(gov)]:null;
-    var cSf=D.contrib&&D.contrib.SAIFI?D.contrib.SAIFI.values[D.contrib.SAIFI.labels.indexOf(gov)]:null;
+    var iCs=D.contrib&&D.contrib.SAIDI?findGovIdx(D.contrib.SAIDI.labels,gov):-1;
+    var iCf=D.contrib&&D.contrib.SAIFI?findGovIdx(D.contrib.SAIFI.labels,gov):-1;
+    var cS=iCs>=0?D.contrib.SAIDI.values[iCs]:null;
+    var cSf=iCf>=0?D.contrib.SAIFI.values[iCf]:null;
     // Also from govData
     if(cS===null||cS===undefined){var cr=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});if(cr)cS=cr.cont;}
     contEl.innerHTML='<div style="display:flex;flex-direction:column;gap:16px">'+
@@ -2058,16 +2097,10 @@ function printGovReport(opts){
   var gov=opts.gov||document.getElementById('gf-selector').value;
   if(!gov)return;
 
-  // GOV_ALIASES copy for use in print
-  var GOV_ALIASES={'Al Dakilyah':['Dhakhliya','DAKHLYA','Dakhliya','Ad Dakhliyah','AD DAKHLIYA'],'Ad Dakhliyah':['Dhakhliya','DAKHLYA','Dakhliya','Al Dakilyah','AD DAKHLIYA'],'South Sharqiyah':['South Sharqyia','SHARQIYA-SOUTH','SHARQIYA-S'],'North Sharqiya':['SHARQIYA-NORTH','SHARQIYA-N','Sharqiya North'],'Al Buraimi':['Buraimi','AL BURAIMI','BUR'],'North Batinah':['N Batinah','NORTH BATINAH','NB'],'South Batinah':['SOUTH-B','SOUTH BATINAH','SOUTH-BATINAH'],'Wusta':['Wusta','WUSTA','Al Wusta','AL WUSTA'],'Al Wusta':['Wusta','WUSTA','AL WUSTA'],'Ad Dhahira':['Dhahira','AD DHAHIRA','DHR'],'Dhahira':['AD DHAHIRA','Ad Dhahira','DHR'],'Musandam':['MDM','MUSANDAM']};
-  function pFindIdx(labels,name){
-    var i=labels.findIndex(function(g){return g===name;});if(i>=0)return i;
-    var al=GOV_ALIASES[name]||[];
-    for(var a=0;a<al.length;a++){i=labels.findIndex(function(g){return g===al[a];});if(i>=0)return i;}
-    var skip={al:1,ad:1};var words=name.split(' ').filter(function(w){return !skip[w.toLowerCase()];});
-    var key=words[0]?words[0].toLowerCase().substring(0,5):'';
-    return key?labels.findIndex(function(g){var gw=g.split(/[ \-_]+/).filter(function(w){return !skip[w.toLowerCase()];});return gw.some(function(w){return w.toLowerCase().substring(0,5)===key;});}): -1;
-  }
+  // GOV_ALIASES, pFindIdx, pFindByName are now provided globally via findGovIdx
+  // and the shared GOV_ALIASES table at the top of the script.
+  function pFindIdx(labels,name){return findGovIdx(labels,name);}
+  function pFindByName(arr,name){return findGovIdx(arr,name);}
 
   // Raw data
   var sRow=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});
@@ -2093,8 +2126,12 @@ function printGovReport(opts){
 
   // Contribution
   var contribS='--',contribSf='--';
-  if(D.contribution){var ci=(D.contribution.govs||[]).indexOf(gov);
-    if(ci>=0){contribS=D.contribution.saidi&&D.contribution.saidi[ci]?D.contribution.saidi[ci]+'%':'--';contribSf=D.contribution.saifi&&D.contribution.saifi[ci]?D.contribution.saifi[ci]+'%':'--';}
+  if(D.contribution){
+    var ci=pFindByName(D.contribution.govs||[],gov);
+    if(ci>=0){
+      contribS=D.contribution.saidi&&D.contribution.saidi[ci]?D.contribution.saidi[ci]+'%':'--';
+      contribSf=D.contribution.saifi&&D.contribution.saifi[ci]?D.contribution.saifi[ci]+'%':'--';
+    }
   }
 
   // Drivers (correct structure: D.driverMatrix)
