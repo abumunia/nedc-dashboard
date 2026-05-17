@@ -1188,6 +1188,39 @@ var D = {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// Preserve a deep-clone of the inline defaults. The Worker/JSONBin cloud
+// blob is sometimes saved BEFORE customer counts were added to the Excel
+// schema, so loadLive() can come back with D.customers === undefined or
+// D.customers.govs missing several spellings (Al Dakilyah / North Sharqiya /
+// South Sharqyia / Ad Dhahira). We merge missing top-level keys (and missing
+// per-gov customer rows) from these defaults so the Total Customers banner
+// and the print payout always have data to render.
+// ─────────────────────────────────────────────────────────────────────────
+var D_DEFAULTS=JSON.parse(JSON.stringify(D));
+function ensureDefaults(target){
+  if(!target||typeof target!=='object')return target;
+  // Top-level keys that must always be present
+  ['customers','govKpi','govCoords','govGroups','contrib','driverMatrix','drivers','transient','breakdown','outageType','mvUnplanned','outageComp','plannedExceed','voltage','zones'].forEach(function(k){
+    if(target[k]==null && D_DEFAULTS[k]!=null) target[k]=JSON.parse(JSON.stringify(D_DEFAULTS[k]));
+  });
+  // Customers: merge missing gov rows so partial uploads don't blank the banner
+  try{
+    if(target.customers && D_DEFAULTS.customers){
+      if(!target.customers.labels||!target.customers.labels.length){
+        target.customers.labels=D_DEFAULTS.customers.labels.slice();
+      }
+      target.customers.govs=target.customers.govs||{};
+      Object.keys(D_DEFAULTS.customers.govs).forEach(function(k){
+        var cur=target.customers.govs[k];
+        if(!cur||!cur.length){
+          target.customers.govs[k]=D_DEFAULTS.customers.govs[k].slice();
+        }
+      });
+    }
+  }catch(_){}
+  return target;
+}
 
 
 
@@ -1807,6 +1840,7 @@ function renderGovFocus(){
     var cSf=iCf>=0?D.contrib.SAIFI.values[iCf]:null;
     // Also from govData
     if(cS===null||cS===undefined){var cr=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});if(cr)cS=cr.cont;}
+    if(cSf===null||cSf===undefined){var crf=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIFI'&&!g.isGroup;});if(crf)cSf=crf.cont;}
     contEl.innerHTML='<div style="display:flex;flex-direction:column;gap:16px">'+
       '<div><div style="font-size:11px;color:var(--text3);margin-bottom:6px">SAIDI Contribution to NEDC</div>'+
       '<div style="font-size:32px;font-weight:800;color:#c0392b">'+(cS!==null&&cS!==undefined?cS+'%':'—')+'</div>'+
@@ -2316,11 +2350,25 @@ function printGovReport(opts){
   kpiHtml+='</div>';
 
   // Ranking + Contribution (SAIDI + SAIFI)
+  // Use the same data source the on-screen Gov Focus card uses (D.contrib) as
+  // a fallback so print payout never shows '--' when the data exists.
+  var contribSDisplay=(contribFromContrib.s!==null && contribFromContrib.s!==undefined)?contribFromContrib.s+'%':contribS;
   var contribSfDisplay=(contribFromContrib.sf!==null && contribFromContrib.sf!==undefined)?contribFromContrib.sf+'%':contribSf;
+  // Final fallback: pull cont% directly off govData (the very same value the
+  // QSI Gov KPIs table displays). Some uploads only populate govData.cont and
+  // skip the contrib block entirely — without this the cards stayed '--'.
+  if(contribSDisplay==='--'){
+    var _gs=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIDI'&&!g.isGroup;});
+    if(_gs&&_gs.cont!=null) contribSDisplay=_gs.cont+'%';
+  }
+  if(contribSfDisplay==='--'){
+    var _gsf=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind==='SAIFI'&&!g.isGroup;});
+    if(_gsf&&_gsf.cont!=null) contribSfDisplay=_gsf.cont+'%';
+  }
   var rankHtml='<div class="g4">'+
     '<div class="stat"><div class="slbl">SAIDI Rank</div><div class="sval">'+rankBadge(rankS,totalGovs)+'</div><div class="ssub">1st = best performer</div></div>'+
     '<div class="stat"><div class="slbl">SAIFI Rank</div><div class="sval">'+rankBadge(rankSf,totalGovs)+'</div><div class="ssub">1st = best performer</div></div>'+
-    '<div class="stat"><div class="slbl">NEDC Contribution (SAIDI)</div><div class="sval" style="font-size:18px">'+contribS+'</div><div class="ssub">Share of total network</div></div>'+
+    '<div class="stat"><div class="slbl">NEDC Contribution (SAIDI)</div><div class="sval" style="font-size:18px">'+contribSDisplay+'</div><div class="ssub">Share of total network</div></div>'+
     '<div class="stat"><div class="slbl">NEDC Contribution (SAIFI)</div><div class="sval" style="font-size:18px">'+contribSfDisplay+'</div><div class="ssub">Share of total network</div></div>'+
     '</div>';
 
@@ -3333,7 +3381,7 @@ async function loadLive(){
             var s=await archRes.json();
             var live=s.nedc_data||s;
             if(live&&live.saidi){
-              D=live;
+              D=ensureDefaults(live);
               try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',live.updatedAt||new Date().toISOString());}catch(e){}
               console.log('Loaded latest month from archive:',D.period,'key:',latestKey);
               return true;
@@ -3347,7 +3395,7 @@ async function loadLive(){
         var s2=await res.json();
         var live2=s2.nedc_data||s2.record||s2;
         if(live2&&live2.saidi){
-          D=live2;
+          D=ensureDefaults(live2);
           try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));localStorage.setItem('nedc_dashboard_saved',live2.updatedAt||new Date().toISOString());}catch(e){}
           console.log('Loaded from /current:',D.period);
           return true;
@@ -3363,14 +3411,14 @@ async function loadLive(){
         var s3=await res3.json();
         var bin=s3.record||s3;
         var live3=bin&&bin.nedc_data&&bin.nedc_data.saidi?bin.nedc_data:bin&&bin.saidi?bin:null;
-        if(live3){D=live3;try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));}catch(e){}return true;}
+        if(live3){D=ensureDefaults(live3);try{localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));}catch(e){}return true;}
       }
     }catch(e){console.log('loadLive JSONBin error:',e.message);}
   }
   // Final fallback: localStorage
   try{
     var lsData=localStorage.getItem('nedc_dashboard_data');
-    if(lsData){var lsParsed=JSON.parse(lsData);if(lsParsed&&lsParsed.saidi){D=lsParsed;console.log('Fallback localStorage:',D.period);return true;}}
+    if(lsData){var lsParsed=JSON.parse(lsData);if(lsParsed&&lsParsed.saidi){D=ensureDefaults(lsParsed);console.log('Fallback localStorage:',D.period);return true;}}
   }catch(e){}
   return false;
 }
@@ -3529,7 +3577,7 @@ window.addEventListener('load', function(){
     if(!window._pendingData)return;
     // ── UPDATE DATA IMMEDIATELY ──
     _justPublished=true;
-    D=window._pendingData;
+    D=ensureDefaults(window._pendingData);
     window._pendingData=null;
     var msgInput=document.getElementById('admin-msg-input');
     if(msgInput)D.customMsg=msgInput.value.trim();
