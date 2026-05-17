@@ -163,6 +163,168 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 .zcard{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:18px 18px 18px 22px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
 .zcard-bar{position:absolute;left:0;top:0;bottom:0;width:4px}
 .zcard.compliant .zcard-bar{background:var(--green)}
+
+/* ── NPI & Zones — Redesigned ── */
+.zone-hero{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:22px}
+@media(max-width:780px){.zone-hero{grid-template-columns:1fr}}
+.zhero{position:relative;border-radius:16px;padding:20px 20px 18px;color:#fff;overflow:hidden;box-shadow:0 6px 24px rgba(12,30,53,0.12);display:flex;flex-direction:column;gap:14px;min-width:0}
+.zhero.z1{background:linear-gradient(135deg,#0e6655 0%,#1e8449 55%,#27ae60 100%)}
+.zhero.z2{background:linear-gradient(135deg,#0c1e35 0%,#15304f 55%,#1f618d 100%)}
+.zhero.z3{background:linear-gradient(135deg,#7b241c 0%,#a93226 55%,#c0392b 100%)}
+.zhero::before{content:'';position:absolute;top:-40%;right:-20%;width:280px;height:280px;background:radial-gradient(circle,rgba(255,255,255,0.16) 0%,transparent 60%);pointer-events:none}
+.zhero-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative;z-index:1}
+.zhero-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,0.55)}
+.zhero-num{font-size:22px;font-weight:900;color:#fff;line-height:1.1;letter-spacing:-0.4px;margin-top:2px;white-space:nowrap}
+.zhero-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);padding:5px 10px;border-radius:50px;font-size:10.5px;font-weight:700;border:1px solid rgba(255,255,255,0.22);white-space:nowrap;flex-shrink:0}
+.zhero-pill.compliant{background:rgba(126,255,179,0.22);border-color:rgba(126,255,179,0.45);color:#aaffcd}
+.zhero-pill.atrisk{background:rgba(255,210,120,0.2);border-color:rgba(255,210,120,0.5);color:#ffd886}
+.zhero-pill.breach{background:rgba(255,150,150,0.22);border-color:rgba(255,150,150,0.5);color:#ffb3b3}
+.zhero-govs{display:flex;flex-wrap:wrap;gap:5px;position:relative;z-index:1}
+.zhero-chip{font-size:10.5px;font-weight:600;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.18);color:#fff;padding:3px 9px;border-radius:50px;backdrop-filter:blur(6px)}
+.zhero-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative;z-index:1}
+.zhero-metric{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:10px 12px;min-width:0}
+.zhero-mlbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:rgba(255,255,255,0.65);margin-bottom:4px}
+.zhero-mval{font-size:20px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.3px;white-space:nowrap}
+.zhero-msub{font-size:10.5px;color:rgba(255,255,255,0.7);margin-top:5px;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zhero-cust{margin-top:auto;position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,0.18);border-radius:10px;border:1px solid rgba(255,255,255,0.1)}
+.zhero-cust-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:rgba(255,255,255,0.55)}
+.zhero-cust-val{font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.3px;font-variant-numeric:tabular-nums}
+.zhero-cust-mom{font-size:11px;font-weight:700}
+
+.z-perf-table tbody td{padding:14px 12px;font-variant-numeric:tabular-nums}
+.z-perf-table .zname{font-size:14px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:8px}
+.z-perf-table .zdot{width:9px;height:9px;border-radius:50%}
+.z-yoy{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;margin-left:6px;padding:1px 6px;border-radius:50px;vertical-align:middle}
+.z-yoy.up{background:#fde8e8;color:#c0392b}
+.z-yoy.dn{background:#e8f8ee;color:#1e8449}
+.z-2026{font-weight:800;color:#1d4ed8;background:#eff6ff}
+
+/* Customer table */
+.zct{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;font-variant-numeric:tabular-nums}
+.zct thead th{background:#f8f9fb;padding:11px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2);border-bottom:2px solid var(--border)}
+.zct thead th.num{text-align:right}
+.zct tbody td{padding:10px 12px;border-bottom:1px solid #f3f4f6}
+.zct .num{text-align:right}
+.zct .gov-row td{font-size:12px;color:var(--text2);padding-left:34px}
+.zct .gov-row td:first-child{padding-left:34px}
+.zct .gov-row td:first-child::before{content:'';display:inline-block;width:8px;height:1px;background:var(--text3);margin-right:8px;vertical-align:middle}
+.zct .zone-row td{font-weight:800}
+.zct .zone-row.z1 td{background:#e8f8ee}
+.zct .zone-row.z2 td{background:#eff6ff}
+.zct .zone-row.z3 td{background:#fde8e8}
+.zct .zone-row .zdot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:middle}
+.zct tfoot td{padding:14px 12px;background:var(--navy);color:#fff;font-weight:800;font-size:13.5px}
+.zct tfoot td:first-child{border-radius:0 0 0 10px}
+.zct tfoot td:last-child{border-radius:0 0 10px 0}
+
+.z-cust-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.z-cust-summary{grid-template-columns:repeat(2,1fr)}}
+.z-cust-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:#fff;position:relative;overflow:hidden}
+.z-cust-card .bar{position:absolute;left:0;top:0;bottom:0;width:4px}
+.z-cust-card.z1 .bar{background:var(--green)}
+.z-cust-card.z2 .bar{background:#1f618d}
+.z-cust-card.z3 .bar{background:var(--red)}
+.z-cust-card.total .bar{background:var(--navy)}
+.z-cust-card .lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--text2);margin-bottom:6px;padding-left:8px}
+.z-cust-card .val{font-size:24px;font-weight:800;color:var(--navy);padding-left:8px;letter-spacing:-0.5px;font-variant-numeric:tabular-nums}
+.z-cust-card .sub{font-size:11px;color:var(--text2);margin-top:4px;padding-left:8px;display:flex;align-items:center;gap:6px}
+
+/* Regulatory cards */
+.reg-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:900px){.reg-grid{grid-template-columns:1fr}}
+.reg-col h4{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.reg-col h4::before{content:'';display:inline-block;width:4px;height:14px;border-radius:2px}
+.reg-col.saidi h4::before{background:var(--red)}
+.reg-col.saifi h4::before{background:var(--blue)}
+.reg-card{position:relative;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:#fff;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.reg-card .zlbl{font-size:13px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:8px}
+.reg-card .zlbl .dot{width:9px;height:9px;border-radius:50%}
+.reg-card .rval{font-size:26px;font-weight:800;letter-spacing:-0.5px;line-height:1}
+.reg-card .rstatus{font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;display:inline-block;margin-top:5px}
+.reg-card .rgauge{position:relative;height:6px;background:#f3f4f6;border-radius:50px;margin-top:10px;grid-column:1/-1;overflow:hidden}
+.reg-card .rgauge-fill{height:100%;border-radius:50px;transition:width 0.3s}
+.reg-card .rgauge-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:rgba(0,0,0,0.5)}
+.reg-card .rgauge-mark::after{content:attr(data-label);position:absolute;top:14px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:var(--text2);white-space:nowrap}
+.reg-card.compliant{border-color:#bce5cb}.reg-card.compliant .rval{color:#1e8449}.reg-card.compliant .rstatus{background:#e8f8ee;color:#1e8449}.reg-card.compliant .rgauge-fill{background:linear-gradient(90deg,#27ae60,#1e8449)}
+.reg-card.atrisk{border-color:#f4d4a3}.reg-card.atrisk .rval{color:#b7770d}.reg-card.atrisk .rstatus{background:#fef3e2;color:#b7770d}.reg-card.atrisk .rgauge-fill{background:linear-gradient(90deg,#e67e22,#b7770d)}
+.reg-card.breach{border-color:#f1bcb6}.reg-card.breach .rval{color:#c0392b}.reg-card.breach .rstatus{background:#fde8e8;color:#c0392b}.reg-card.breach .rgauge-fill{background:linear-gradient(90deg,#e74c3c,#c0392b)}
+
+/* ── QSI Improvement Projects — Redesigned ── */
+.qsi-hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
+@media(max-width:1100px){.qsi-hero{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.qsi-hero{grid-template-columns:1fr}}
+.qhero{position:relative;border-radius:14px;padding:18px 18px 16px;color:#fff;overflow:hidden;box-shadow:0 6px 24px rgba(12,30,53,0.12);display:flex;flex-direction:column;gap:14px;min-width:0}
+.qhero.improved{background:linear-gradient(135deg,#0e6655 0%,#1e8449 60%,#27ae60 100%)}
+.qhero.worsened{background:linear-gradient(135deg,#7b241c 0%,#a93226 60%,#c0392b 100%)}
+.qhero.flat    {background:linear-gradient(135deg,#15304f 0%,#1f618d 60%,#2980b9 100%)}
+.qhero::before{content:'';position:absolute;top:-40%;right:-20%;width:220px;height:220px;background:radial-gradient(circle,rgba(255,255,255,0.16) 0%,transparent 60%);pointer-events:none}
+.qhero-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;position:relative;z-index:1}
+.qhero-name{font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.2px;line-height:1.2;text-wrap:balance}
+.qhero-tag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.55);margin-bottom:3px}
+.qhero-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);padding:4px 9px;border-radius:50px;font-size:10.5px;font-weight:700;border:1px solid rgba(255,255,255,0.22);white-space:nowrap;flex-shrink:0}
+.qhero-pill.improved{background:rgba(126,255,179,0.22);border-color:rgba(126,255,179,0.45);color:#aaffcd}
+.qhero-pill.worsened{background:rgba(255,150,150,0.22);border-color:rgba(255,150,150,0.5);color:#ffb3b3}
+.qhero-deltaWrap{position:relative;z-index:1;display:flex;align-items:baseline;gap:8px;margin-top:auto}
+.qhero-delta{font-size:34px;font-weight:900;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums}
+.qhero-deltaLbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:rgba(255,255,255,0.65)}
+.qhero-flow{position:relative;z-index:1;display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(0,0,0,0.18);border-radius:10px;border:1px solid rgba(255,255,255,0.1);font-variant-numeric:tabular-nums}
+.qhero-flow-val{font-size:17px;font-weight:800;color:#fff}
+.qhero-flow-yr{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px}
+.qhero-flow-arr{font-size:18px;color:rgba(255,255,255,0.7);flex-shrink:0}
+
+/* Project detail table */
+.qsi-detail-table tbody td{padding:14px 12px;font-variant-numeric:tabular-nums}
+.qsi-detail-table .pname{font-size:13.5px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:10px}
+.qsi-detail-table .pdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.qsi-detail-table .num{font-size:14px;font-weight:700;color:var(--text);text-align:center}
+.qsi-detail-table .num.now{color:var(--navy);font-size:16px}
+
+/* Insight cards */
+.qsi-insights-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:880px){.qsi-insights-grid{grid-template-columns:1fr}}
+.qsi-insight{position:relative;display:flex;gap:12px;padding:14px 14px 14px 16px;border-radius:12px;border:1px solid var(--border);background:#fff;overflow:hidden}
+.qsi-insight::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.qsi-insight.good::before{background:linear-gradient(180deg,#27ae60,#1e8449)}
+.qsi-insight.bad::before{background:linear-gradient(180deg,#e74c3c,#c0392b)}
+.qsi-insight-icon{flex-shrink:0;width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800}
+.qsi-insight.good .qsi-insight-icon{background:#e8f8ee;color:#1e8449}
+.qsi-insight.bad  .qsi-insight-icon{background:#fde8e8;color:#c0392b}
+.qsi-insight-body{flex:1;min-width:0}
+.qsi-insight-name{font-size:13.5px;font-weight:800;color:var(--navy);margin-bottom:3px}
+.qsi-insight-msg{font-size:12.5px;color:var(--text2);line-height:1.5}
+.qsi-insight-msg strong{font-weight:800;color:var(--text)}
+
+/* Gov KPI header */
+.qsi-gov-header{display:flex;align-items:center;gap:16px;padding:18px 22px;background:linear-gradient(135deg,#0c1e35 0%,#15304f 100%);border-radius:14px;margin-bottom:18px;box-shadow:0 6px 24px rgba(12,30,53,0.12);color:#fff;flex-wrap:wrap;position:relative;overflow:hidden}
+.qsi-gov-header::before{content:'';position:absolute;top:-40%;right:-15%;width:280px;height:280px;background:radial-gradient(circle,rgba(192,57,43,0.25) 0%,transparent 60%);pointer-events:none}
+.qsi-gov-title{position:relative;z-index:1;flex-shrink:0}
+.qsi-gov-sub{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,0.55)}
+.qsi-gov-name{font-size:24px;font-weight:900;color:#fff;letter-spacing:-0.5px;margin-top:2px}
+.qsi-gov-summary{flex:1;display:flex;gap:10px;flex-wrap:wrap;position:relative;z-index:1}
+.qsi-gov-summary .qss{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;min-width:90px}
+.qsi-gov-summary .qss-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:rgba(255,255,255,0.55);margin-bottom:2px}
+.qsi-gov-summary .qss-val{font-size:17px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+.qsi-gov-summary .qss-sub{font-size:10px;color:rgba(255,255,255,0.6);margin-top:1px}
+.qsi-gov-select{position:relative;z-index:1;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;font-family:'Inter',sans-serif;color:#fff;cursor:pointer;backdrop-filter:blur(8px);min-width:200px}
+.qsi-gov-select option{background:#0c1e35;color:#fff}
+
+/* Gov KPI table */
+.qsi-kpi-table thead th{padding:11px 12px;font-size:10.5px}
+.qsi-kpi-table tbody td{padding:12px;vertical-align:middle;font-variant-numeric:tabular-nums}
+.qsi-kpi-table .type-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700}
+.qsi-kpi-table .type-pill.planned{background:#eff6ff;color:#1a5276}
+.qsi-kpi-table .type-pill.unplanned{background:#fff5f5;color:#c0392b}
+.qsi-kpi-table .type-pill .pdot{width:6px;height:6px;border-radius:50%}
+.qsi-kpi-table .type-pill.planned .pdot{background:#1a5276}
+.qsi-kpi-table .type-pill.unplanned .pdot{background:#c0392b}
+.qsi-kpi-table tbody tr:hover td{background:#fafafa}
+.qsi-kpi-table tbody tr.exceeded td{background:#fff5f5}
+.qsi-kpi-table tbody tr.exceeded:hover td{background:#fdebe7}
+.qsi-kpi-table .actioncell{font-size:12.5px;color:var(--text);line-height:1.4}
+.qsi-kpi-table .tgt{font-weight:800;color:#1d4ed8;background:#eff6ff;text-align:center}
+.qsi-kpi-table .y26-cell{text-align:center;font-weight:700;background:#f8f9fb}
+.qsi-kpi-table .y26-cell.exc{color:#c0392b;background:#fff5f5}
+.qsi-kpi-table .imp-target{color:#27ae60;font-weight:700;text-align:center}
 .zcard.atrisk .zcard-bar{background:var(--amber)}
 .zcard.breach .zcard-bar{background:var(--red)}
 
@@ -460,9 +622,9 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.079 3.45-4.797 3.45-8.123a8.25 8.25 0 00-16.5 0c0 3.326 1.507 6.044 3.45 8.123a19.58 19.58 0 002.683 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
         <span class="sitem-label">Performance Map</span>
       </button>
-      <button class="sitem" data-view="qsi" data-tooltip="Improvements">
+      <button class="sitem" data-view="qsi" data-tooltip="QSI Improvement Projects">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z"/></svg>
-        <span class="sitem-label">Improvements</span>
+        <span class="sitem-label">QSI Improvement Projects</span>
       </button>
       <button class="sitem" data-view="govfocus" data-tooltip="Governorate Focus">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>
@@ -687,61 +849,180 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 
     <!-- ZONES VIEW -->
     <div class="view" id="view-zones">
-      <div class="kgrid" id="zone-kpis"></div>
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-hdr"><div class="card-title">Zone Performance Detail</div></div>
-        <div style="overflow-x:auto">
-          <table class="dt" id="zone-table">
-            <thead><tr><th>Zone</th><th colspan="2" style="text-align:center">2024</th><th colspan="2" style="text-align:center">2025</th><th colspan="2" style="text-align:center;background:#eff6ff;color:#1d4ed8">2026 Rolling</th><th colspan="2" style="text-align:center">YoY Δ</th><th style="text-align:center">Status</th></tr>
-            <tr><th></th><th style="text-align:center">SAIDI</th><th style="text-align:center">SAIFI</th><th style="text-align:center">SAIDI</th><th style="text-align:center">SAIFI</th><th style="text-align:center;background:#eff6ff;color:#1d4ed8">SAIDI</th><th style="text-align:center;background:#eff6ff;color:#1d4ed8">SAIFI</th><th style="text-align:center">SAIDI</th><th style="text-align:center">SAIFI</th><th></th></tr></thead>
-            <tbody id="zone-tbody"></tbody>
-          </table>
+      <!-- Hero: Three Zone Identity Cards -->
+      <div id="zone-hero" class="zone-hero"></div>
+
+      <!-- Subtabs to switch detail focus -->
+      <div style="display:flex;justify-content:center;margin-bottom:18px">
+        <div class="subtabs">
+          <button class="stab active" id="z-tab-perf" onclick="setZoneTab('perf')">Performance</button>
+          <button class="stab" id="z-tab-cust" onclick="setZoneTab('cust')">Customers</button>
+          <button class="stab" id="z-tab-reg" onclick="setZoneTab('reg')">Regulatory Targets</button>
         </div>
       </div>
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-hdr">
-          <div><div class="card-title">Zone Trends</div><div class="card-sub">2024 vs 2025 vs 2026 Rolling</div></div>
-          <div style="display:flex;gap:10px">
-            <label style="font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px"><input type="checkbox" id="z24" checked onchange="buildZoneCharts()"> 2024</label>
-            <label style="font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--red)"><input type="checkbox" id="z25" checked onchange="buildZoneCharts()"> 2025</label>
-            <label style="font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;color:#2563eb"><input type="checkbox" id="z26" checked onchange="buildZoneCharts()"> 2026R</label>
+
+      <!-- Performance pane -->
+      <div id="z-pane-perf">
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-hdr">
+            <div><div class="card-title">Zone Performance Detail</div><div class="card-sub">SAIDI &amp; SAIFI — 2024 / 2025 / 2026 Rolling with YoY change</div></div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="dt z-perf-table" id="zone-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" style="vertical-align:middle">Zone</th>
+                  <th colspan="3" style="text-align:center;border-right:1px solid var(--border)">SAIDI (min/customer)</th>
+                  <th colspan="3" style="text-align:center">SAIFI (int/customer)</th>
+                </tr>
+                <tr>
+                  <th style="text-align:center">2024</th>
+                  <th style="text-align:center">2025</th>
+                  <th style="text-align:center;background:#eff6ff;color:#1d4ed8;border-right:1px solid var(--border)">2026 Rolling</th>
+                  <th style="text-align:center">2024</th>
+                  <th style="text-align:center">2025</th>
+                  <th style="text-align:center;background:#eff6ff;color:#1d4ed8">2026 Rolling</th>
+                </tr>
+              </thead>
+              <tbody id="zone-tbody"></tbody>
+            </table>
           </div>
         </div>
-        <div class="card-body" style="background:#fafafa"><div class="g2"><div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)"><div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">SAIDI by Zone</div><div style="height:240px"><canvas id="zone-saidi-chart"></canvas></div></div><div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)"><div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">SAIFI by Zone</div><div style="height:240px"><canvas id="zone-saifi-chart"></canvas></div></div></div></div>
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-hdr">
+            <div><div class="card-title">Zone Trends</div><div class="card-sub">SAIDI &amp; SAIFI · 2024 vs 2025 vs 2026 Rolling</div></div>
+            <div style="display:flex;gap:10px">
+              <label style="font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px"><input type="checkbox" id="z24" checked onchange="buildZoneCharts()"> 2024</label>
+              <label style="font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--red)"><input type="checkbox" id="z25" checked onchange="buildZoneCharts()"> 2025</label>
+              <label style="font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;color:#2563eb"><input type="checkbox" id="z26" checked onchange="buildZoneCharts()"> 2026R</label>
+            </div>
+          </div>
+          <div class="card-body" style="background:#fafafa">
+            <div class="g2">
+              <div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)">
+                <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">SAIDI by Zone</div>
+                <div style="height:240px"><canvas id="zone-saidi-chart"></canvas></div>
+              </div>
+              <div style="background:#fff;border-radius:10px;padding:14px;border:1px solid var(--border)">
+                <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">SAIFI by Zone</div>
+                <div style="height:240px"><canvas id="zone-saifi-chart"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card">
-        <div class="card-hdr"><div class="card-title">Regulatory Targets 2026–2029</div></div>
-        <div class="card-body" id="reg-targets-body"></div>
+
+      <!-- Customers pane -->
+      <div id="z-pane-cust" style="display:none">
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-hdr">
+            <div>
+              <div class="card-title">Customer Distribution by Zone</div>
+              <div class="card-sub">Total customers per zone aggregated from governorate counts</div>
+            </div>
+            <div id="zone-cust-period" style="font-size:11px;font-weight:600;color:var(--text3)"></div>
+          </div>
+          <div id="zone-cust-body" style="padding:18px 20px"></div>
+        </div>
+      </div>
+
+      <!-- Regulatory pane -->
+      <div id="z-pane-reg" style="display:none">
+        <div class="card">
+          <div class="card-hdr">
+            <div><div class="card-title">Regulatory Targets 2026–2029</div><div class="card-sub">Compliance status against base target &amp; penalty threshold</div></div>
+          </div>
+          <div class="card-body" id="reg-targets-body"></div>
+        </div>
       </div>
     </div>
 
     <!-- QSI VIEW -->
     <div class="view" id="view-qsi">
+      <!-- Hero: 4 QSI project cards -->
+      <div id="qsi-hero" class="qsi-hero"></div>
+
+      <!-- Subtabs -->
       <div style="display:flex;justify-content:center;margin-bottom:18px">
         <div class="subtabs">
-          <button class="stab active" id="qsi-proj-btn" onclick="setQsiTab('projects')">Improvement Projects</button>
-          <button class="stab" id="qsi-kpi-btn" onclick="setQsiTab('govkpi')">2026 Gov KPIs</button>
+          <button class="stab active" id="qsi-proj-btn" onclick="setQsiTab('projects')">Network Projects</button>
+          <button class="stab" id="qsi-kpi-btn" onclick="setQsiTab('govkpi')">Governorate Action Plans</button>
         </div>
       </div>
+
+      <!-- Projects pane -->
       <div id="qsi-projects">
-        <div class="g2" style="margin-bottom:20px">
-          <div class="card"><div class="card-hdr"><div class="card-title">QSI Projects (2025 vs 2026 YTD)</div></div><div style="overflow-x:auto"><table class="dt"><thead><tr><th>Project</th><th style="text-align:center">2025</th><th style="text-align:center">2026</th><th style="text-align:center">Change</th></tr></thead><tbody id="qsi-tbody"></tbody></table></div></div>
-          <div class="card"><div class="card-hdr"><div class="card-title">Comparison Chart</div></div><div class="card-body"><div style="height:260px"><canvas id="qsi-chart"></canvas></div></div></div>
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-hdr">
+            <div><div class="card-title">QSI Project Performance — 2025 YTD vs 2026 YTD</div><div class="card-sub">Event counts for the four core network improvement programs</div></div>
+          </div>
+          <div class="card-body" style="background:#fafafa">
+            <div class="g2" style="gap:18px;margin-bottom:0">
+              <div style="background:#fff;border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">Detail</div>
+                <table class="dt qsi-detail-table">
+                  <thead><tr>
+                    <th>Project</th>
+                    <th style="text-align:center">2025 YTD</th>
+                    <th style="text-align:center">2026 YTD</th>
+                    <th style="text-align:center">Δ</th>
+                  </tr></thead>
+                  <tbody id="qsi-tbody"></tbody>
+                </table>
+              </div>
+              <div style="background:#fff;border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">Comparison</div>
+                <div style="height:260px"><canvas id="qsi-chart"></canvas></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="card"><div class="card-hdr"><div class="card-title">Key Insights</div></div><div class="card-body" id="qsi-insights"></div></div>
-      </div>
-      <div id="qsi-govkpi" style="display:none">
         <div class="card">
           <div class="card-hdr">
-            <div><div class="card-title">2026 Action Plan &amp; KPI Targets</div></div>
-            <select id="gov-kpi-sel" onchange="renderGovKpi()" style="border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;font-family:'Inter',sans-serif;background:#fff">
-              <option>Muscat</option><option>South Batinah</option><option>North Batinah</option>
-              <option>Al Buraimi</option><option>Sharqiyah North</option><option>South Sharqiyah</option>
-              <option>Al Wusta</option><option>Ad Dakhliyah</option><option>Ad Dhahira</option><option>Musandam</option>
-            </select>
+            <div><div class="card-title">Key Insights</div><div class="card-sub">Where to focus protection &amp; maintenance interventions</div></div>
           </div>
-          <div style="overflow-x:auto"><table class="dt"><thead><tr><th>Type</th><th style="width:28%">Action</th><th style="text-align:center">Record 25</th><th style="text-align:center">Target Imp</th><th style="text-align:center">Weight</th><th style="text-align:center;background:#eff6ff;color:#1d4ed8">2026 Target</th><th style="text-align:center">2025 YTD</th><th style="text-align:center">2026 YTD</th><th style="text-align:center">YTD Imp</th></tr></thead><tbody id="gov-kpi-tbody"></tbody></table></div>
-          <div style="padding:10px 16px;font-size:11px;color:var(--text2);background:#fafafa;border-top:1px solid var(--border)">★ Highlighted rows = 2026 YTD has already exceeded the annual target</div>
+          <div class="card-body" id="qsi-insights"></div>
+        </div>
+      </div>
+
+      <!-- Gov KPI pane -->
+      <div id="qsi-govkpi" style="display:none">
+        <!-- Governorate selector header -->
+        <div class="qsi-gov-header">
+          <div class="qsi-gov-title">
+            <div class="qsi-gov-sub">Action plan for</div>
+            <div id="qsi-gov-name" class="qsi-gov-name">Muscat</div>
+          </div>
+          <div class="qsi-gov-summary" id="qsi-gov-summary"></div>
+          <select id="gov-kpi-sel" onchange="renderGovKpi()" class="qsi-gov-select">
+            <option>Muscat</option><option>South Batinah</option><option>North Batinah</option>
+            <option>Al Buraimi</option><option>Sharqiyah North</option><option>South Sharqiyah</option>
+            <option>Al Wusta</option><option>Ad Dakhliyah</option><option>Ad Dhahira</option><option>Musandam</option>
+          </select>
+        </div>
+
+        <!-- Action plan table -->
+        <div class="card">
+          <div class="card-hdr">
+            <div><div class="card-title">2026 Action Plan &amp; KPI Targets</div><div class="card-sub">Planned vs Unplanned interventions · 2026 YTD progress against annual targets</div></div>
+            <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:8px;height:8px;background:#c0392b;border-radius:50%"></span> ★ exceeded annual target</div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="dt qsi-kpi-table">
+              <thead><tr>
+                <th>Type</th>
+                <th style="width:30%">Action</th>
+                <th style="text-align:center">Record 2025</th>
+                <th style="text-align:center">Target Imp</th>
+                <th style="text-align:center">Weight</th>
+                <th style="text-align:center;background:#eff6ff;color:#1d4ed8">2026 Target</th>
+                <th style="text-align:center">2025 YTD</th>
+                <th style="text-align:center">2026 YTD</th>
+                <th style="text-align:center">YTD Imp</th>
+              </tr></thead>
+              <tbody id="gov-kpi-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1348,9 +1629,6 @@ function toast(msg){
   setTimeout(function(){t.classList.remove('show');},3000);
 }
 
-function dc(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
-function mkChart(id,cfg){dc(id);var ctx=document.getElementById(id);if(!ctx)return;charts[id]=new Chart(ctx,cfg);return charts[id];}
-
 function impBadge(v){
   if(v===null||v===undefined)return '<span class="imp-n">—</span>';
   var good=v<=0,cls=good?'imp-g':'imp-r',icon=good?'▼':'▲';
@@ -1381,7 +1659,21 @@ function toast(msg){
   t.textContent=msg;t.classList.add('show');
   setTimeout(function(){t.classList.remove('show');},3000);
 }
-function dc(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function dc(id){
+  // Destroy our cached chart
+  if(charts[id]){try{charts[id].destroy();}catch(_){};delete charts[id];}
+  // Also destroy any orphan Chart.js instance still bound to the canvas
+  // (Chart.js maintains its own registry; if a previous mkChart errored out
+  // partway, that instance can still be attached and block re-init with
+  // "Canvas is already in use" — getChart() + destroy() clears it.)
+  try{
+    var el=document.getElementById(id);
+    if(el && typeof Chart!=='undefined' && Chart.getChart){
+      var existing=Chart.getChart(el);
+      if(existing) existing.destroy();
+    }
+  }catch(_){}
+}
 function mkChart(id,cfg){dc(id);var ctx=document.getElementById(id);if(!ctx)return;charts[id]=new Chart(ctx,cfg);return charts[id];}
 
 // ═══════════════════════════════════════════════════
@@ -1437,7 +1729,7 @@ document.getElementById('pw-input').onkeydown=function(e){
 // ═══════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════
-var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','govfocus':'Governorate Focus','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements','omap':'Performance Map'};
+var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','govfocus':'Governorate Focus','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'QSI Improvement Projects','omap':'Performance Map'};
 
 function updateWelcomeStats(){
   // Period
@@ -2809,7 +3101,7 @@ function goView(v){
   document.querySelectorAll('.view').forEach(function(el){el.classList.remove('active');});
   document.querySelectorAll('.sitem').forEach(function(el){el.classList.remove('active');});
   if(v==='govfocus'){setTimeout(function(){renderGovFocusView();},30);}
-  else{var pt2=document.getElementById('page-title');var titles={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'Improvements','govfocus':'Governorate Focus'};if(pt2&&titles[v])pt2.textContent=titles[v];}
+  else{var pt2=document.getElementById('page-title');var titles={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'QSI Improvement Projects','govfocus':'Governorate Focus'};if(pt2&&titles[v])pt2.textContent=titles[v];}
   var ve=document.getElementById('view-'+v);
   var ne=document.querySelector('.sitem[data-view="'+v+'"]');
   if(ve)ve.classList.add('active');
@@ -3259,29 +3551,238 @@ function buildDriverBar(cat){
 // ZONES VIEW
 // ═══════════════════════════════════════════════════
 function renderZones(){
-  renderZoneKPIs();
+  renderZoneHero();
   renderZoneTable();
+  renderZoneCustomers();
   buildZoneCharts();
   renderRegTargets();
 }
-function renderZoneKPIs(){
-  var z=D.zones;
-  var bS=z.reduce(function(a,b){return a.s26<b.s26?a:b;});
-  var bSf=z.reduce(function(a,b){return a.sf26<b.sf26?a:b;});
-  var cards=[
-    {lbl:'Best SAIDI Zone',val:bS.name,unit:bS.s26.toFixed(1)+' min rolling',color:'red'},
-    {lbl:'Best SAIFI Zone',val:bSf.name,unit:bSf.sf26.toFixed(2)+' rolling',color:'blue'},
-    {lbl:'Zone 1 SAIDI Status',val:z[0].s26<=z[0].st?'✅ Compliant':z[0].s26<=z[0].sp?'⚠️ At Risk':'🚨 Breach',unit:'Rolling: '+z[0].s26,color:z[0].s26<=z[0].st?'green':'amber'},
-    {lbl:'Zone 3 SAIDI Status',val:z[2].s26<=z[2].st?'✅ Compliant':z[2].s26<=z[2].sp?'⚠️ At Risk':'🚨 Breach',unit:'Rolling: '+z[2].s26,color:z[2].s26<=z[2].st?'green':'red'}
+
+function setZoneTab(t){
+  ['perf','cust','reg'].forEach(function(k){
+    var pane=document.getElementById('z-pane-'+k);
+    var btn=document.getElementById('z-tab-'+k);
+    if(pane)pane.style.display=(k===t?'block':'none');
+    if(btn)btn.classList.toggle('active',k===t);
+  });
+  // Charts need a re-fit after their container becomes visible
+  if(t==='perf') setTimeout(function(){try{buildZoneCharts();}catch(_){}},30);
+}
+
+// ── Zone → Governorate mapping (per NEDC regulatory grouping) ──
+// Zone 1: Muscat
+// Zone 2: Dakhliyyah, North Sharqiyyah, South Sharqiyyah, South Batinah
+// Zone 3: North Batinah, Dhahirah, Buraimi
+var ZONE_GOVS={
+  'Zone 1':[{name:'Muscat'}],
+  'Zone 2':[
+    {name:'Dakhliyyah',        match:'Al Dakilyah'},
+    {name:'North Sharqiyyah',  match:'North Sharqiya'},
+    {name:'South Sharqiyyah',  match:'South Sharqiyah'},
+    {name:'South Batinah',     match:'South Batinah'}
+  ],
+  'Zone 3':[
+    {name:'North Batinah', match:'North Batinah'},
+    {name:'Dhahirah',      match:'Dhahira'},
+    {name:'Buraimi',       match:'Al Buraimi'}
+  ]
+};
+var ZONE_COLORS={'Zone 1':'#27ae60','Zone 2':'#1f618d','Zone 3':'#c0392b'};
+var ZONE_CLASS ={'Zone 1':'z1','Zone 2':'z2','Zone 3':'z3'};
+
+function _zoneStatusLbl(s){return s==='compliant'?'Compliant':s==='atrisk'?'At Risk':'Penalty';}
+function _zoneCustTotals(zoneName){
+  if(!D.customers||!D.customers.govs||!D.customers.labels||!D.customers.labels.length) return null;
+  var govs=ZONE_GOVS[zoneName]||[];
+  var labels=D.customers.labels;
+  var monthly=labels.map(function(_,i){
+    return govs.reduce(function(s,g){
+      var k=findCustomerKey(g.match||g.name);
+      var arr=k?D.customers.govs[k]:null;
+      return s+(arr&&arr[i]?arr[i]:0);
+    },0);
+  });
+  var lI=labels.length-1, pI=labels.length>1?labels.length-2:-1;
+  var latest=monthly[lI]||0;
+  var prev=pI>=0?monthly[pI]:null;
+  var mom=prev&&prev>0?(((latest-prev)/prev)*100):null;
+  return {monthly:monthly,latest:latest,prev:prev,mom:mom,labels:labels};
+}
+
+function renderZoneHero(){
+  var hero=document.getElementById('zone-hero');
+  if(!hero||!D.zones) return;
+  var z1=D.zones[0],z2=D.zones[1],z3=D.zones[2];
+  if(!z1||!z2||!z3) return;
+  var zones=[
+    {z:z1,key:'Zone 1',cls:'z1'},
+    {z:z2,key:'Zone 2',cls:'z2'},
+    {z:z3,key:'Zone 3',cls:'z3'}
   ];
-  document.getElementById('zone-kpis').innerHTML=cards.map(function(c){
-    return '<div class="kcard '+c.color+'"><div class="klabel">'+c.lbl+'</div><div class="kvalue" style="font-size:20px">'+c.val+'</div><div style="font-size:11px;color:var(--text3);margin-top:6px">'+c.unit+'</div></div>';
+  // Aggregate customer figures so we can show a "% of total" pill
+  var totalCust=0;
+  zones.forEach(function(o){var c=_zoneCustTotals(o.key);o.cust=c;if(c)totalCust+=c.latest;});
+
+  hero.innerHTML=zones.map(function(o){
+    var z=o.z;
+    var sStat=z.s26<=z.st?'compliant':z.s26<=z.sp?'atrisk':'breach';
+    var sfStat=z.sf26<=z.sft?'compliant':z.sf26<=z.sfp?'atrisk':'breach';
+    var overall=(sStat==='breach'||sfStat==='breach')?'breach':(sStat==='atrisk'||sfStat==='atrisk')?'atrisk':'compliant';
+    var ovIcon={'compliant':'✓','atrisk':'!','breach':'×'}[overall];
+    var sYoY=z.s25?((z.s26-z.s25)/z.s25*100):null;
+    var sfYoY=z.sf25?((z.sf26-z.sf25)/z.sf25*100):null;
+    var govs=ZONE_GOVS[o.key]||[];
+    var custHtml='';
+    if(o.cust){
+      var share=totalCust>0?(o.cust.latest/totalCust*100):0;
+      custHtml='<div class="zhero-cust">'+
+        '<div><div class="zhero-cust-lbl">Customers · '+(o.cust.labels[o.cust.labels.length-1]||'')+'</div>'+
+        '<div class="zhero-cust-val">'+o.cust.latest.toLocaleString()+'</div></div>'+
+        '<div style="text-align:right">'+
+        (o.cust.mom!=null?'<div class="zhero-cust-mom" style="color:'+(o.cust.mom>=0?'#aaffcd':'#ffb3b3')+'">'+(o.cust.mom>=0?'+ ':'')+o.cust.mom.toFixed(2)+'% MoM</div>':'')+
+        '<div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px">'+share.toFixed(1)+'% of total</div>'+
+        '</div></div>';
+    }
+
+    return '<div class="zhero '+o.cls+'">'+
+      '<div class="zhero-hdr">'+
+        '<div><div class="zhero-name">Region</div><div class="zhero-num">'+o.key+'</div></div>'+
+        '<div class="zhero-pill '+overall+'"><span>'+ovIcon+'</span> '+_zoneStatusLbl(overall)+'</div>'+
+      '</div>'+
+      '<div class="zhero-govs">'+govs.map(function(g){return '<span class="zhero-chip">'+g.name+'</span>';}).join('')+'</div>'+
+      '<div class="zhero-metrics">'+
+        '<div class="zhero-metric">'+
+          '<div class="zhero-mlbl">SAIDI 2026R</div>'+
+          '<div class="zhero-mval">'+z.s26.toFixed(1)+' <span style="font-size:11px;font-weight:600;opacity:0.7">min</span></div>'+
+          '<div class="zhero-msub">'+(sYoY!=null?(sYoY<=0?'▼':'▲')+' '+Math.abs(sYoY).toFixed(1)+'% YoY':'—')+'</div>'+
+        '</div>'+
+        '<div class="zhero-metric">'+
+          '<div class="zhero-mlbl">SAIFI 2026R</div>'+
+          '<div class="zhero-mval">'+z.sf26.toFixed(2)+' <span style="font-size:11px;font-weight:600;opacity:0.7">int</span></div>'+
+          '<div class="zhero-msub">'+(sfYoY!=null?(sfYoY<=0?'▼':'▲')+' '+Math.abs(sfYoY).toFixed(1)+'% YoY':'—')+'</div>'+
+        '</div>'+
+      '</div>'+
+      custHtml+
+    '</div>';
   }).join('');
 }
+
+function renderZoneCustomers(){
+  var body=document.getElementById('zone-cust-body');
+  var periodEl=document.getElementById('zone-cust-period');
+  if(!body) return;
+  if(!D.customers||!D.customers.govs||!D.customers.labels||!D.customers.labels.length){
+    body.innerHTML='<p style="color:var(--text3);font-size:13px;padding:14px;text-align:center">No customer data available. Upload the latest Excel.</p>';
+    if(periodEl) periodEl.textContent='';
+    return;
+  }
+  var labels=D.customers.labels;
+  var latestI=labels.length-1;
+  var prevI=labels.length>1?labels.length-2:-1;
+  if(periodEl) periodEl.textContent='Latest: '+labels[latestI]+(prevI>=0?' · MoM vs '+labels[prevI]:'');
+
+  function rowFor(g){
+    var key=findCustomerKey(g.match||g.name);
+    var arr=key?D.customers.govs[key]:null;
+    return arr&&arr.length?arr:null;
+  }
+
+  // Aggregates
+  var zoneRows=Object.keys(ZONE_GOVS).map(function(zn){
+    var govs=ZONE_GOVS[zn];
+    var monthly=labels.map(function(_,i){
+      return govs.reduce(function(s,g){var arr=rowFor(g);return s+(arr&&arr[i]?arr[i]:0);},0);
+    });
+    return {zone:zn,govs:govs,monthly:monthly};
+  });
+  var grandMonthly=labels.map(function(_,i){
+    return zoneRows.reduce(function(s,z){return s+(z.monthly[i]||0);},0);
+  });
+  var grandLatest=grandMonthly[latestI]||0;
+  var grandPrev=prevI>=0?grandMonthly[prevI]:null;
+  var grandMom=grandPrev&&grandPrev>0?(((grandLatest-grandPrev)/grandPrev)*100):null;
+
+  // ── Summary strip: 3 zone cards + grand total ──
+  var summary='<div class="z-cust-summary">';
+  zoneRows.forEach(function(z){
+    var col=ZONE_COLORS[z.zone];
+    var cls=ZONE_CLASS[z.zone];
+    var latest=z.monthly[latestI]||0;
+    var prev=prevI>=0?z.monthly[prevI]:null;
+    var mom=prev&&prev>0?(((latest-prev)/prev)*100):null;
+    var share=grandLatest>0?(latest/grandLatest*100):0;
+    summary+='<div class="z-cust-card '+cls+'"><div class="bar"></div>'+
+      '<div class="lbl">'+z.zone+' · '+share.toFixed(1)+'% share</div>'+
+      '<div class="val">'+latest.toLocaleString()+'</div>'+
+      '<div class="sub">'+(mom!=null?'<span style="color:'+(mom>=0?'#1e8449':'#c0392b')+';font-weight:700">'+(mom>=0?'+ ':'')+mom.toFixed(2)+'% MoM</span> · ':'')+z.govs.length+' gov</div>'+
+      '</div>';
+  });
+  summary+='<div class="z-cust-card total"><div class="bar"></div>'+
+    '<div class="lbl">Grand Total · Z1 + Z2 + Z3</div>'+
+    '<div class="val">'+grandLatest.toLocaleString()+'</div>'+
+    '<div class="sub">'+(grandMom!=null?'<span style="color:'+(grandMom>=0?'#1e8449':'#c0392b')+';font-weight:700">'+(grandMom>=0?'+ ':'')+grandMom.toFixed(2)+'% MoM</span>':'Latest count')+'</div>'+
+    '</div>';
+  summary+='</div>';
+
+  // ── Detail table ──
+  var hdrCells=labels.map(function(l){return '<th class="num">'+l+'</th>';}).join('');
+  var tbl='<div style="overflow-x:auto"><table class="zct">'+
+    '<thead><tr><th style="min-width:220px">Zone / Governorate</th>'+hdrCells+'<th class="num">MoM</th></tr></thead><tbody>';
+
+  zoneRows.forEach(function(z){
+    var col=ZONE_COLORS[z.zone];
+    var cls=ZONE_CLASS[z.zone];
+    var zLatest=z.monthly[latestI]||0;
+    var zPrev=prevI>=0?z.monthly[prevI]:null;
+    var zMom=zPrev&&zPrev>0?(((zLatest-zPrev)/zPrev)*100):null;
+    tbl+='<tr class="zone-row '+cls+'">'+
+      '<td><span class="zdot" style="background:'+col+'"></span>'+z.zone+'</td>'+
+      z.monthly.map(function(v){return '<td class="num" style="color:'+col+'">'+v.toLocaleString()+'</td>';}).join('')+
+      '<td class="num" style="color:'+(zMom!=null?(zMom>=0?'#1e8449':'#c0392b'):'var(--text3)')+'">'+(zMom!=null?((zMom>=0?'+':'')+zMom.toFixed(2)+'%'):'—')+'</td>'+
+      '</tr>';
+    z.govs.forEach(function(g){
+      var arr=rowFor(g);
+      if(!arr){
+        tbl+='<tr class="gov-row"><td>'+g.name+'</td>'+
+          labels.map(function(){return '<td class="num" style="color:var(--text3)">—</td>';}).join('')+
+          '<td class="num" style="color:var(--text3)">—</td></tr>';
+        return;
+      }
+      var gL=arr[latestI]||0;
+      var gP=prevI>=0?(arr[prevI]||0):null;
+      var gMom=gP&&gP>0?(((gL-gP)/gP)*100):null;
+      tbl+='<tr class="gov-row"><td>'+g.name+'</td>'+
+        labels.map(function(_,i){return '<td class="num">'+(arr[i]||0).toLocaleString()+'</td>';}).join('')+
+        '<td class="num" style="font-weight:700;color:'+(gMom!=null?(gMom>=0?'#1e8449':'#c0392b'):'var(--text3)')+'">'+(gMom!=null?((gMom>=0?'+':'')+gMom.toFixed(2)+'%'):'—')+'</td>'+
+        '</tr>';
+    });
+  });
+
+  tbl+='</tbody><tfoot><tr><td>Grand Total (Z1 + Z2 + Z3)</td>'+
+    grandMonthly.map(function(v){return '<td class="num">'+v.toLocaleString()+'</td>';}).join('')+
+    '<td class="num" style="color:'+(grandMom!=null?(grandMom>=0?'#7dffb3':'#ff9999'):'#fff')+'">'+(grandMom!=null?((grandMom>=0?'+':'')+grandMom.toFixed(2)+'%'):'—')+'</td>'+
+    '</tr></tfoot></table></div>';
+  body.innerHTML=summary+tbl;
+}
+
 function renderZoneTable(){
+  function yoyBadge(cur,prev){
+    if(prev==null||cur==null||prev===0) return '';
+    var d=(cur-prev)/prev*100;
+    var cls=d<=0?'dn':'up';var arr=d<=0?'▼':'▲';
+    return '<span class="z-yoy '+cls+'">'+arr+' '+Math.abs(d).toFixed(1)+'%</span>';
+  }
   document.getElementById('zone-tbody').innerHTML=D.zones.map(function(z){
-    var si=((z.s26-z.s25)/z.s25*100),sfi=((z.sf26-z.sf25)/z.sf25*100);
-    return '<tr><td style="font-weight:700;color:var(--navy)">'+z.name+'</td><td style="text-align:center">'+z.s24.toFixed(1)+'</td><td style="text-align:center">'+z.sf24.toFixed(2)+'</td><td style="text-align:center;font-weight:700">'+z.s25.toFixed(1)+'</td><td style="text-align:center;font-weight:700">'+z.sf25.toFixed(2)+'</td><td style="text-align:center;font-weight:700;color:#1d4ed8;background:#eff6ff">'+z.s26.toFixed(1)+'</td><td style="text-align:center;font-weight:700;color:#1d4ed8;background:#eff6ff">'+z.sf26.toFixed(2)+'</td><td style="text-align:center">'+impBadge(si)+'</td><td style="text-align:center">'+impBadge(sfi)+'</td><td style="text-align:center;font-size:11px;font-weight:700">—</td></tr>';
+    var col=ZONE_COLORS[z.name]||'#0c1e35';
+    return '<tr>'+
+      '<td><div class="zname"><span class="zdot" style="background:'+col+'"></span>'+z.name+'</div></td>'+
+      '<td style="text-align:center">'+z.s24.toFixed(1)+'</td>'+
+      '<td style="text-align:center">'+z.s25.toFixed(1)+'</td>'+
+      '<td style="text-align:center" class="z-2026">'+z.s26.toFixed(1)+yoyBadge(z.s26,z.s25)+'</td>'+
+      '<td style="text-align:center">'+z.sf24.toFixed(2)+'</td>'+
+      '<td style="text-align:center">'+z.sf25.toFixed(2)+'</td>'+
+      '<td style="text-align:center" class="z-2026">'+z.sf26.toFixed(2)+yoyBadge(z.sf26,z.sf25)+'</td>'+
+      '</tr>';
   }).join('');
 }
 function buildZoneCharts(){
@@ -3299,22 +3800,46 @@ function buildZoneCharts(){
   mkChart('zone-saifi-chart',{type:'line',data:{labels:pts.map(function(p){return p.lbl;}),datasets:mkSets(1)},options:JSON.parse(JSON.stringify(opts))});
 }
 function renderRegTargets(){
-  var html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">';
-  html+='<div><h4 style="font-size:13px;font-weight:700;color:#c0392b;margin-bottom:10px">SAIDI Targets (min/cust/year)</h4>';
-  html+=D.zones.map(function(z){
-    var s=z.s26<=z.st?'compliant':z.s26<=z.sp?'atrisk':'breach';
-    var lbl={'compliant':'✅ Compliant','atrisk':'⚠️ At Risk','breach':'🚨 Penalty'}[s];
-    var col={'compliant':'#1e8449','atrisk':'#b7770d','breach':'#c0392b'}[s];
-    return '<div style="padding:12px;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><strong>'+z.name+'</strong><span style="font-size:11px;font-weight:700;color:'+col+'">'+lbl+'</span></div><div style="font-size:20px;font-weight:800;color:'+col+'">'+z.s26.toFixed(1)+'</div><div style="font-size:11px;color:var(--text2)">Base: '+z.st+' | Penalty: '+z.sp+'</div></div>';
-  }).join('');
-  html+='</div><div><h4 style="font-size:13px;font-weight:700;color:#1a5276;margin-bottom:10px">SAIFI Targets (int/cust/year)</h4>';
-  html+=D.zones.map(function(z){
-    var s=z.sf26<=z.sft?'compliant':z.sf26<=z.sfp?'atrisk':'breach';
-    var lbl={'compliant':'✅ Compliant','atrisk':'⚠️ At Risk','breach':'🚨 Penalty'}[s];
-    var col={'compliant':'#1e8449','atrisk':'#b7770d','breach':'#c0392b'}[s];
-    return '<div style="padding:12px;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><strong>'+z.name+'</strong><span style="font-size:11px;font-weight:700;color:'+col+'">'+lbl+'</span></div><div style="font-size:20px;font-weight:800;color:'+col+'">'+z.sf26.toFixed(2)+'</div><div style="font-size:11px;color:var(--text2)">Base: '+z.sft+' | Penalty: '+z.sfp+'</div></div>';
-  }).join('');
-  html+='</div></div>';
+  function _statusFor(val,tgt,pen){return val<=tgt?'compliant':val<=pen?'atrisk':'breach';}
+  function _statusLbl(s){return s==='compliant'?'✓ Compliant':s==='atrisk'?'⚠ At Risk':'✕ Penalty';}
+  function _gauge(val,tgt,pen){
+    // Scale: penalty threshold sits at 80% of the bar; current value clamped to [0,100]
+    var penAt=80; // % position of penalty line
+    var tgtAt=penAt*(tgt/pen);
+    var fillPct=Math.min(100,(val/pen)*penAt);
+    return '<div class="rgauge"><div class="rgauge-fill" style="width:'+fillPct.toFixed(1)+'%"></div>'+
+      '<div class="rgauge-mark" style="left:'+tgtAt.toFixed(1)+'%" data-label="Target '+tgt+'"></div>'+
+      '<div class="rgauge-mark" style="left:'+penAt+'%" data-label="Penalty '+pen+'"></div>'+
+      '</div>';
+  }
+  function card(z,kind){
+    var val=kind==='SAIDI'?z.s26:z.sf26;
+    var tgt=kind==='SAIDI'?z.st:z.sft;
+    var pen=kind==='SAIDI'?z.sp:z.sfp;
+    var s=_statusFor(val,tgt,pen);
+    var col=ZONE_COLORS[z.name]||'#0c1e35';
+    var fmt=kind==='SAIDI'?val.toFixed(1):val.toFixed(2);
+    return '<div class="reg-card '+s+'">'+
+      '<div>'+
+        '<div class="zlbl"><span class="dot" style="background:'+col+'"></span>'+z.name+'</div>'+
+        '<div style="font-size:11px;color:var(--text2);margin-top:5px">Base '+tgt+' · Penalty '+pen+'</div>'+
+      '</div>'+
+      '<div style="text-align:right">'+
+        '<div class="rval">'+fmt+'</div>'+
+        '<span class="rstatus">'+_statusLbl(s)+'</span>'+
+      '</div>'+
+      _gauge(val,tgt,pen)+
+      '<div style="grid-column:1/-1;height:18px"></div>'+
+    '</div>';
+  }
+  var html='<div class="reg-grid">'+
+    '<div class="reg-col saidi"><h4>SAIDI Targets (min/cust/year)</h4>'+
+      D.zones.map(function(z){return card(z,'SAIDI');}).join('')+
+    '</div>'+
+    '<div class="reg-col saifi"><h4>SAIFI Targets (int/cust/year)</h4>'+
+      D.zones.map(function(z){return card(z,'SAIFI');}).join('')+
+    '</div>'+
+  '</div>';
   document.getElementById('reg-targets-body').innerHTML=html;
 }
 
@@ -3327,35 +3852,136 @@ function setQsiTab(tab){
   document.getElementById('qsi-kpi-btn').classList.toggle('active',tab==='govkpi');
   document.getElementById('qsi-projects').style.display=tab==='projects'?'block':'none';
   document.getElementById('qsi-govkpi').style.display=tab==='govkpi'?'block':'none';
+  // Hero is always visible above the subtabs — render once
+  buildQsiHero();
   if(tab==='projects'){buildQsiTable();buildQsiChart();buildQsiInsights();}
   else renderGovKpi();
 }
+
+// Distinct dot colors for the four QSI projects (used in table + chart)
+var QSI_DOTS={
+  'Transient Outages':'#e67e22',
+  'Cable Damage':'#8e44ad',
+  'Cable Termination':'#27ae60',
+  'OHL (Conductor Fall)':'#c0392b'
+};
+function _qsiDot(name){
+  if(QSI_DOTS[name]) return QSI_DOTS[name];
+  // Fuzzy match for parser variants like "OHL ( Conductor Fall down & PG. Clamp)"
+  var n=String(name).toLowerCase();
+  if(n.indexOf('transient')>=0) return '#e67e22';
+  if(n.indexOf('cable damage')>=0||n.indexOf('damage')>=0) return '#8e44ad';
+  if(n.indexOf('termination')>=0) return '#27ae60';
+  if(n.indexOf('ohl')>=0||n.indexOf('conductor')>=0) return '#c0392b';
+  return '#0c1e35';
+}
+
+function buildQsiHero(){
+  var hero=document.getElementById('qsi-hero');
+  if(!hero) return;
+  var projects=D.qsiProjects||[];
+  hero.innerHTML=projects.map(function(p){
+    var imp=p.imp||0;
+    // imp negative = fewer events = improved. imp positive = more events = worsened.
+    var improved=imp<=0;
+    var cls=imp===0?'flat':(improved?'improved':'worsened');
+    var pillCls=imp===0?'':(improved?'improved':'worsened');
+    var arrow=imp===0?'→':(improved?'▼':'▲');
+    var deltaStr=(imp>0?'+':'')+imp+'%';
+    return '<div class="qhero '+cls+'">'+
+      '<div class="qhero-hdr">'+
+        '<div>'+
+          '<div class="qhero-tag">QSI Project</div>'+
+          '<div class="qhero-name">'+p.ind+'</div>'+
+        '</div>'+
+        '<div class="qhero-pill '+pillCls+'">'+arrow+' '+(improved?'Improved':imp===0?'Flat':'Up')+'</div>'+
+      '</div>'+
+      '<div class="qhero-deltaWrap">'+
+        '<div class="qhero-delta">'+deltaStr+'</div>'+
+        '<div class="qhero-deltaLbl">YoY Δ<br>(events)</div>'+
+      '</div>'+
+      '<div class="qhero-flow">'+
+        '<div><span class="qhero-flow-yr">2025 YTD</span><div class="qhero-flow-val">'+p.y25+'</div></div>'+
+        '<div class="qhero-flow-arr">→</div>'+
+        '<div><span class="qhero-flow-yr">2026 YTD</span><div class="qhero-flow-val">'+p.y26+'</div></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
 function buildQsiTable(){
-  document.getElementById('qsi-tbody').innerHTML=D.qsiProjects.map(function(r){
-    return '<tr><td style="font-weight:600">'+r.ind+'</td><td style="text-align:center">'+r.y25+'</td><td style="text-align:center;font-weight:700">'+r.y26+'</td><td style="text-align:center">'+impBadge(r.imp)+'</td></tr>';
+  document.getElementById('qsi-tbody').innerHTML=(D.qsiProjects||[]).map(function(r){
+    var col=_qsiDot(r.ind);
+    return '<tr>'+
+      '<td><div class="pname"><span class="pdot" style="background:'+col+'"></span>'+r.ind+'</div></td>'+
+      '<td class="num" style="color:var(--text2)">'+r.y25+'</td>'+
+      '<td class="num now">'+r.y26+'</td>'+
+      '<td style="text-align:center">'+impBadge(r.imp)+'</td>'+
+    '</tr>';
   }).join('');
 }
 function buildQsiChart(){
-  mkChart('qsi-chart',{type:'bar',data:{labels:D.qsiProjects.map(function(d){return d.ind;}),datasets:[{label:'2025 YTD',data:D.qsiProjects.map(function(d){return d.y25;}),backgroundColor:'#b0bec5',borderRadius:3},{label:'2026 YTD',data:D.qsiProjects.map(function(d){return d.y26;}),backgroundColor:'#c0392b',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10}}},scales:{y:{beginAtZero:true,title:{display:true,text:'Events'}}}}});
+  var projects=D.qsiProjects||[];
+  mkChart('qsi-chart',{type:'bar',data:{labels:projects.map(function(d){return d.ind;}),datasets:[
+    {label:'2025 YTD',data:projects.map(function(d){return d.y25;}),backgroundColor:'#cbd5e1',borderRadius:5,maxBarThickness:32},
+    {label:'2026 YTD',data:projects.map(function(d){return d.y26;}),backgroundColor:projects.map(function(d){return _qsiDot(d.ind);}),borderRadius:5,maxBarThickness:32}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},usePointStyle:true,boxWidth:8}},datalabels:{anchor:'end',align:'top',formatter:function(v){return v;},font:{weight:'bold',size:10},color:'#0c1e35'}},scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},title:{display:true,text:'Events',font:{size:11,weight:'600'}}},x:{grid:{display:false},ticks:{font:{size:10.5}}}}}});
 }
 function buildQsiInsights(){
-  document.getElementById('qsi-insights').innerHTML=D.qsiProjects.map(function(p){
-    var g=p.imp<0;
-    return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:8px;background:'+(g?'#f0fff4':'#fff5f5')+';border:1px solid '+(g?'#c3e6cb':'#f5c6cb')+';margin-bottom:10px"><div style="font-size:18px">'+(g?'✅':'⚠️')+'</div><div><div style="font-weight:700;color:'+(g?'#1e8449':'#c0392b')+';margin-bottom:3px">'+p.ind+'</div><div style="font-size:13px;color:var(--text2)">'+(g?'Improved by <strong>'+Math.abs(p.imp)+'%</strong> ('+p.y25+' → '+p.y26+' events). Positive outcome from maintenance programs.':'Increased by <strong>'+p.imp+'%</strong> ('+p.y25+' → '+p.y26+' events). Requires immediate review of protection schemes.')+'</div></div></div>';
-  }).join('');
+  var projects=D.qsiProjects||[];
+  document.getElementById('qsi-insights').innerHTML='<div class="qsi-insights-grid">'+projects.map(function(p){
+    var imp=p.imp||0;
+    var good=imp<=0; var pct=Math.abs(imp);
+    var msg=good
+      ? 'Reduced by <strong>'+pct+'%</strong> · '+p.y25+' → '+p.y26+' events. Maintenance programs are delivering results — keep the cadence.'
+      : 'Increased by <strong>'+pct+'%</strong> · '+p.y25+' → '+p.y26+' events. Review protection schemes and root-cause analysis for this driver.';
+    return '<div class="qsi-insight '+(good?'good':'bad')+'">'+
+      '<div class="qsi-insight-icon">'+(good?'✓':'!')+'</div>'+
+      '<div class="qsi-insight-body">'+
+        '<div class="qsi-insight-name">'+p.ind+'</div>'+
+        '<div class="qsi-insight-msg">'+msg+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('')+'</div>';
 }
+
 function renderGovKpi(){
   var gov=document.getElementById('gov-kpi-sel').value;
   var data=D.govKpi[gov]||[];
+  // Header
+  var nameEl=document.getElementById('qsi-gov-name'); if(nameEl)nameEl.textContent=gov;
+  var summaryEl=document.getElementById('qsi-gov-summary');
+  if(summaryEl){
+    var planned=data.filter(function(r){return r.t==='Planned';}).length;
+    var unplanned=data.filter(function(r){return r.t==='Unplanned';}).length;
+    var exceeded=data.filter(function(r){
+      var t=parseFloat(String(r.tgt).replace(/[^\d.-]/g,''));
+      var y=parseFloat(String(r.y26).replace(/[^\d.-]/g,''));
+      return !isNaN(t)&&!isNaN(y)&&y>t;
+    }).length;
+    summaryEl.innerHTML=
+      '<div class="qss"><div class="qss-lbl">Actions</div><div class="qss-val">'+data.length+'</div><div class="qss-sub">'+planned+' planned · '+unplanned+' unplanned</div></div>'+
+      '<div class="qss"><div class="qss-lbl">Exceeded</div><div class="qss-val" style="color:'+(exceeded>0?'#ff9999':'#aaffcd')+'">'+exceeded+'</div><div class="qss-sub">over annual target</div></div>';
+  }
+  // Rows
   document.getElementById('gov-kpi-tbody').innerHTML=data.map(function(item){
     var t26n=parseFloat(String(item.tgt).replace(/[^\d.-]/g,''));
     var y26n=parseFloat(String(item.y26).replace(/[^\d.-]/g,''));
     var y25n=parseFloat(String(item.y25).replace(/[^\d.-]/g,''));
     var exc=!isNaN(y26n)&&!isNaN(t26n)&&y26n>t26n;
     var yi=!isNaN(y25n)&&!isNaN(y26n)&&y25n!==0?((y26n-y25n)/y25n*100):null;
-    var tc=item.t==='Planned'?'#1a5276':'#c0392b';
-    var tbg=item.t==='Planned'?'#eff6ff':'#fff5f5';
-    return '<tr style="'+(exc?'background:#fff5f5':'')+'"><td><span style="background:'+tbg+';color:'+tc+';padding:2px 9px;border-radius:50px;font-size:11px;font-weight:700">'+item.t+'</span></td><td style="font-size:12px;color:var(--text2)">'+item.a+'</td><td style="text-align:center;font-size:12px">'+item.r25+'</td><td style="text-align:center;font-weight:700;color:#27ae60">↓ '+item.imp+'</td><td style="text-align:center;font-size:12px;color:var(--text2)">'+item.w+'</td><td style="text-align:center;font-weight:800;color:#1d4ed8;background:#eff6ff">'+item.tgt+'</td><td style="text-align:center;background:#f8f9fb">'+item.y25+'</td><td style="text-align:center;font-weight:700;'+(exc?'color:#c0392b;background:#fff5f5':'background:#f8f9fb')+'">'+( exc?'★ ':'')+item.y26+'</td><td style="text-align:center">'+( yi!==null?impBadge(yi):'<span class="imp-n">—</span>')+'</td></tr>';
+    var typeCls=item.t==='Planned'?'planned':'unplanned';
+    return '<tr'+(exc?' class="exceeded"':'')+'>'+
+      '<td><span class="type-pill '+typeCls+'"><span class="pdot"></span>'+item.t+'</span></td>'+
+      '<td class="actioncell">'+item.a+'</td>'+
+      '<td style="text-align:center;color:var(--text2)">'+item.r25+'</td>'+
+      '<td class="imp-target">↓ '+item.imp+'</td>'+
+      '<td style="text-align:center;color:var(--text2)">'+item.w+'</td>'+
+      '<td class="tgt">'+item.tgt+'</td>'+
+      '<td style="text-align:center;background:#f8f9fb">'+item.y25+'</td>'+
+      '<td class="y26-cell'+(exc?' exc':'')+'">'+(exc?'★ ':'')+item.y26+'</td>'+
+      '<td style="text-align:center">'+(yi!==null?impBadge(yi):'<span class="imp-n">—</span>')+'</td>'+
+    '</tr>';
   }).join('');
 }
 
