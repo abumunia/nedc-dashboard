@@ -177,6 +177,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
 .zhero-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative;z-index:1}
 .zhero-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,0.55)}
 .zhero-num{font-size:22px;font-weight:900;color:#fff;line-height:1.1;letter-spacing:-0.4px;margin-top:2px;white-space:nowrap}
+.zhero-pills{display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0}
 .zhero-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);padding:5px 10px;border-radius:50px;font-size:10.5px;font-weight:700;border:1px solid rgba(255,255,255,0.22);white-space:nowrap;flex-shrink:0}
 .zhero-pill.compliant{background:rgba(126,255,179,0.22);border-color:rgba(126,255,179,0.45);color:#aaffcd}
 .zhero-pill.atrisk{background:rgba(255,210,120,0.2);border-color:rgba(255,210,120,0.5);color:#ffd886}
@@ -3732,7 +3733,10 @@ function renderZoneHero(){
     return '<div class="zhero '+o.cls+'">'+
       '<div class="zhero-hdr">'+
         '<div><div class="zhero-name">Region</div><div class="zhero-num">'+o.key+'</div></div>'+
-        '<div class="zhero-pill '+overall+'"><span>'+ovIcon+'</span> '+_zoneStatusLbl(overall)+'</div>'+
+        '<div class="zhero-pills">'+
+          '<div class="zhero-pill '+sStat+'" title="SAIDI status"><span style="opacity:0.75;font-weight:800;letter-spacing:0.4px">SAIDI</span> <span>'+({"compliant":"✓","atrisk":"!","breach":"×"}[sStat])+'</span> '+_zoneStatusLbl(sStat)+'</div>'+
+          '<div class="zhero-pill '+sfStat+'" title="SAIFI status"><span style="opacity:0.75;font-weight:800;letter-spacing:0.4px">SAIFI</span> <span>'+({"compliant":"✓","atrisk":"!","breach":"×"}[sfStat])+'</span> '+_zoneStatusLbl(sfStat)+'</div>'+
+        '</div>'+
       '</div>'+
       '<div class="zhero-govs">'+govs.map(function(g){return '<span class="zhero-chip">'+g.name+'</span>';}).join('')+'</div>'+
       '<div class="zhero-metrics">'+
