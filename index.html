@@ -3578,7 +3578,7 @@ function buildOutageComp(){
 }
 function buildPlannedExceed(){
   var d=D.plannedExceed;
-  mkChart('planned-exceed-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'2026 YTD',data:d.y2026,backgroundColor:'#c0392b',borderRadius:3},{label:'2025 YTD',data:d.y2025,backgroundColor:'#2980b9',borderRadius:3},{label:'2024',data:d.y2024,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v>0?v:'';},font:{size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'>5hr Planned'}}}}});
+  mkChart('planned-exceed-chart',{type:'bar',data:{labels:d.labels,datasets:[{label:'2026 YTD',data:d.y2026,backgroundColor:'#c0392b',borderRadius:3},{label:'2025 YTD',data:d.y2025,backgroundColor:'#2980b9',borderRadius:3},{label:'2024 YTD',data:d.y2024,backgroundColor:'#d5d8dc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',formatter:function(v){return v>0?v:'';},font:{size:9}}},scales:{y:{beginAtZero:true,title:{display:true,text:'>5hr Planned'}}}}});
 }
 function buildTransient(){
   var d=D.transient;
