@@ -81,6 +81,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .stoggle{width:100%;height:48px;flex-shrink:0;border:none;background:none;color:rgba(255,255,255,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s}
 #sidebar.open .stoggle{justify-content:flex-start;padding-left:20px;gap:12px}
 .stoggle:hover{color:rgba(255,255,255,0.6)}
+.stoggle.signout:hover{color:#f1948a}
+.stoggle.signout:hover svg{filter:drop-shadow(0 0 8px rgba(231,76,60,0.4))}
 
 /* ── MAIN ── */
 #main{margin-left:64px;transition:margin-left 0.25s ease;min-height:100vh}
@@ -526,7 +528,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
       Enter Dashboard
     </button>
-    <button class="btn btn-ghost" id="admin-welcome-btn">
+    <button class="btn btn-ghost" id="admin-welcome-btn" data-role="nop">
       <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
       Admin · Update Data
     </button>
@@ -570,8 +572,19 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.5);margin-bottom:8px">
         📢 Dashboard Announcement (shown to users on entry)
       </label>
-      <textarea id="admin-msg-input" placeholder="e.g. Data updated to March 2026. Key highlights: SAIDI improved by 12% YoY…" style="width:100%;box-sizing:border-box;height:80px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;font-family:'Inter',sans-serif;padding:10px 12px;resize:vertical;outline:none;line-height:1.5" maxlength="400"></textarea>
-      <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:5px">Leave empty to show no announcement. Max 400 characters.</div>
+      <textarea id="admin-msg-input" placeholder="e.g. Data updated to March 2026.&#10;• SAIDI improved by 12% YoY&#10;• Zone 3 returned to compliance" style="width:100%;box-sizing:border-box;height:96px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:13px;font-family:'Inter',sans-serif;padding:10px 12px;resize:vertical;outline:none;line-height:1.5" maxlength="400"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+        <div style="font-size:11px;color:rgba(255,255,255,0.4)">Line breaks are preserved · Max 400 chars · Leave empty to hide</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button id="announce-preview-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.85);border-radius:7px;padding:6px 13px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">👁 Preview</button>
+          <button id="announce-clear-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);border-radius:7px;padding:6px 13px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Clear</button>
+          <button id="announce-publish-btn" style="background:linear-gradient(135deg,#c0392b,#e74c3c);border:none;color:#fff;border-radius:7px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 2px 8px rgba(192,57,43,0.35);display:flex;align-items:center;gap:6px">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:12px;height:12px"><path d="M3.105 2.288a.75.75 0 00-.826.95l1.414 4.926A.75.75 0 004.41 8.7h6.59a.75.75 0 010 1.5H4.41a.75.75 0 00-.717.537l-1.414 4.925a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.288z"/></svg>
+            Publish Announcement
+          </button>
+        </div>
+      </div>
+      <div id="announce-publish-msg" style="display:none;font-size:11.5px;font-weight:600;margin-top:8px;padding:7px 11px;border-radius:6px"></div>
     </div>
 
     <!-- Connection Test -->
@@ -633,11 +646,19 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>
         <span class="sitem-label">Gov Focus</span>
       </button>
+      <button class="sitem" data-view="npi-summary" data-tooltip="Network Performance Indicators Summary" data-role="nop">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v6H3v-6zm4-4h2v10H7V9zm4-4h2v14h-2V5zm4 7h2v7h-2v-7zm4-3h2v10h-2V9z"/><path d="M2 21h20v2H2z"/></svg>
+        <span class="sitem-label">NPI Summary</span>
+      </button>
     </div>
     <div class="sdivider"></div>
     <button class="stoggle" id="sidebar-toggle">
       <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
       <span class="sitem-label" style="margin-left:12px;font-size:13px;font-weight:500">Collapse</span>
+    </button>
+    <button class="stoggle signout" id="sidebar-signout" data-tooltip="Sign Out" title="Sign Out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+      <span class="sitem-label" style="margin-left:12px;font-size:13px;font-weight:500">Sign Out</span>
     </button>
   </nav>
 
@@ -655,7 +676,7 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
           </select>
         </div>
         <div class="file-info"><span class="file-dot"></span><span id="file-label">Demo Data</span></div>
-        <button class="admin-btn" id="admin-topbar-btn">
+        <button class="admin-btn" id="admin-topbar-btn" data-role="nop">
           <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
           Admin · Update Data
         </button>
@@ -1186,6 +1207,81 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
       </div>
     </div>
 
+    <!-- NETWORK PERFORMANCE INDICATORS SUMMARY VIEW (NOP only) -->
+    <div class="view" id="view-npi-summary" data-role="nop">
+      <!-- Hero -->
+      <div style="background:linear-gradient(135deg,#0a1628 0%,#0c1e35 55%,#15304f 100%);border-radius:16px;padding:28px 32px;color:#fff;position:relative;overflow:hidden;margin-bottom:20px">
+        <div style="position:absolute;top:-100px;right:-80px;width:340px;height:340px;background:radial-gradient(circle,rgba(192,57,43,0.32),transparent 60%);pointer-events:none"></div>
+        <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+          <div>
+            <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(192,57,43,0.2);border:1px solid rgba(192,57,43,0.45);padding:5px 14px;border-radius:50px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#f1948a;margin-bottom:12px">
+              <span style="width:6px;height:6px;border-radius:50%;background:#e74c3c;box-shadow:0 0 8px #e74c3c"></span>NOP · Executive View
+            </div>
+            <div style="font-size:30px;font-weight:900;letter-spacing:-0.8px;line-height:1.1;margin-bottom:6px">Network Performance Indicators<br>Summary</div>
+            <div style="font-size:14px;color:rgba(255,255,255,0.65);line-height:1.5;max-width:720px">Curated snapshot of NEDC's headline reliability indicators across all governorates and zones — for Network Operations Planning oversight.</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.5);margin-bottom:3px">Reporting Period</div>
+            <div id="npis-period" style="font-size:22px;font-weight:800;letter-spacing:-0.4px">YTD APR 2026</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Headline KPI strip -->
+      <div class="kgrid" id="npis-kpis" style="margin-bottom:20px"></div>
+
+      <!-- Two-column: Zonal Compliance + Contribution -->
+      <div class="g2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-hdr">
+            <div><div class="card-title">Zonal Compliance Status</div><div class="card-sub">Live status against regulator thresholds</div></div>
+          </div>
+          <div class="card-body"><div id="npis-zones" style="display:flex;flex-direction:column;gap:10px"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">
+            <div><div class="card-title">SAIDI Contribution by Governorate</div><div class="card-sub">Top contributors to network impact</div></div>
+          </div>
+          <div class="card-body"><div id="npis-contrib" style="display:flex;flex-direction:column;gap:8px"></div></div>
+        </div>
+      </div>
+
+      <!-- Driver mix + Voltage -->
+      <div class="g2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-hdr">
+            <div><div class="card-title">Outage Breakdown · Planned vs Unplanned</div><div class="card-sub">SAIDI minutes by category</div></div>
+          </div>
+          <div class="card-body"><div id="npis-pu" style="display:flex;flex-direction:column;gap:8px"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">
+            <div><div class="card-title">Voltage Level Contribution</div><div class="card-sub">SAIDI · split across HV / MV / LV</div></div>
+          </div>
+          <div class="card-body"><div id="npis-volt" style="display:flex;flex-direction:column;gap:8px"></div></div>
+        </div>
+      </div>
+
+      <!-- Governorate ranking table -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-hdr">
+          <div><div class="card-title">Governorate Performance · SAIDI ranking</div><div class="card-sub">2026 YTD vs Target · sorted worst-to-best</div></div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="dt" id="npis-table">
+            <thead><tr><th>Rank</th><th>Governorate</th><th>2025 YTD</th><th style="color:#c0392b">2026 YTD</th><th>Target 2026</th><th>Δ vs Target</th><th>Status</th></tr></thead>
+            <tbody id="npis-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Footer note -->
+      <div style="background:#fdf6f5;border-left:3px solid #c0392b;border-radius:0 8px 8px 0;padding:12px 16px;font-size:12.5px;color:#0c1e35;line-height:1.5">
+        <strong style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#c0392b;background:#fff;padding:2px 7px;border-radius:4px;border:1px solid #f5b7b1;margin-right:8px">NOP</strong>
+        This view is restricted to the Network Operations Planning role. Detailed breakdowns and historical trend exploration are available in the other modules.
+      </div>
+    </div>
+
     <!-- TREND MODAL -->
     <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:60;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
       <div style="background:#fff;border-radius:16px;max-width:860px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
@@ -1608,7 +1704,10 @@ function showAdmin(){
     if(omanMap){omanMap.remove();omanMap=null;}
     // Pre-fill message textarea
     var mi=document.getElementById('admin-msg-input');
-    if(mi&&D.customMsg)mi.value=D.customMsg;
+    if(mi)mi.value=D.customMsg||'';
+    // Hide any leftover status from a previous publish
+    var amb=document.getElementById('announce-publish-msg');
+    if(amb)amb.style.display='none';
     // Refresh history list
     if(USE_WORKER){loadHistoryIndex().then(renderAdminHistory);}
   });
@@ -1726,7 +1825,7 @@ document.getElementById('pw-input').onkeydown=function(e){
 // ═══════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════
-var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','govfocus':'Governorate Focus','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'QSI Improvement Projects','omap':'Performance Map'};
+var VIEW_NAMES={'summary':'Overview','kpi':'KPI View','outage':'Outage Analysis','govfocus':'Governorate Focus','driver':'Driver Analysis','zones':'NPI & Zones','qsi':'QSI Improvement Projects','omap':'Performance Map','npi-summary':'Network Performance Indicators Summary'};
 
 function updateWelcomeStats(){
   // Period
@@ -2061,9 +2160,37 @@ function renderGovFocus(){
   }).join('');
 
   // ── SAIDI/SAIFI BREAKDOWN (Planned vs Unplanned) ──
+  // Alias-tolerant lookup: live-loaded sheets can spell a governorate
+  // differently than the dropdown (e.g. "Buraimi" vs "Al Buraimi"), which
+  // used to make the Planned/Unplanned block silently disappear.
+  function canonGov(name){
+    if(GOV_ALIASES[name])return name;
+    for(var k in GOV_ALIASES){if(GOV_ALIASES[k].indexOf(name)>=0)return k;}
+    return name;
+  }
+  function getBreakdown(name){
+    if(!D.breakdown)return null;
+    if(D.breakdown[name])return D.breakdown[name];
+    var target=canonGov(name);
+    var keys=Object.keys(D.breakdown);
+    for(var i=0;i<keys.length;i++){if(canonGov(keys[i])===target)return D.breakdown[keys[i]];}
+    function nrm(s){return String(s||'').toLowerCase().replace(/[^a-z]/g,'');}
+    var nt=nrm(name);
+    for(var j=0;j<keys.length;j++){if(nrm(keys[j])===nt)return D.breakdown[keys[j]];}
+    // word-order/spelling-tolerant fallback (e.g. "Sharqiya South" vs "South Sharqyia")
+    function words(s){return String(s||'').toLowerCase().split(/[^a-z]+/).filter(function(w){return w.length>2;});}
+    var wn=words(name);
+    for(var k=0;k<keys.length;k++){
+      var wk=words(keys[k]);if(!wn.length||!wk.length)continue;
+      var shortW=wn.length<=wk.length?wn:wk,longW=wn.length<=wk.length?wk:wn;
+      if(shortW.every(function(w){return longW.some(function(w2){return w.substring(0,4)===w2.substring(0,4);});}))return D.breakdown[keys[k]];
+    }
+    return null;
+  }
   function makeBreakdown(ind,elId){
     var el=document.getElementById(elId);if(!el)return;
-    var bd=D.breakdown&&D.breakdown[gov]?D.breakdown[gov][ind]:null;
+    var bdEntry=getBreakdown(gov);
+    var bd=bdEntry?bdEntry[ind]:null;
     var row=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind===ind&&!g.isGroup;});
     if(!bd&&!row){el.innerHTML='<p style="color:var(--text3);font-size:13px">No data available</p>';return;}
     var rows='';
@@ -3202,6 +3329,7 @@ function goView(v){
     else if(v==='driver')renderDriver();
     else if(v==='zones')renderZones();
     else if(v==='qsi')renderQsi();
+    else if(v==='npi-summary')renderNpiSummary();
   }catch(e){console.error('goView('+v+') error:',e);}
 }
 
@@ -4075,6 +4203,133 @@ function renderGovKpi(){
 }
 
 // ═══════════════════════════════════════════════════
+// NETWORK PERFORMANCE INDICATORS SUMMARY (NOP-only)
+// ═══════════════════════════════════════════════════
+function renderNpiSummary(){
+  // Period
+  var per=document.getElementById('npis-period');
+  if(per)per.textContent=D.period||'YTD';
+
+  // ── Headline KPI strip (re-use the same shape as Overview KPIs) ──
+  var kc=document.getElementById('npis-kpis');
+  if(kc){
+    var sIdx=latestIdx(D.saidi.y2026_ytd);
+    var saidiCur=D.saidi.y2026_ytd[sIdx]||0;
+    var saidiPrev=D.saidi.y2025[sIdx]||0;
+    var sfIdx=latestIdx(D.saifi.y2026_ytd);
+    var saifiCur=D.saifi.y2026_ytd[sfIdx]||0;
+    var saifiPrev=D.saifi.y2025[sfIdx]||0;
+    var oIdx=latestIdx(D.outages.y2026_ytd);
+    var outCur=D.outages.y2026_ytd[oIdx]||0;
+    var outPrev=D.outages.y2025[oIdx]||0;
+    function delta(c,p){if(!p)return '';var d=((c-p)/p)*100;var up=d>0;return '<span style="font-size:11px;font-weight:700;color:'+(up?'#c0392b':'#27ae60')+';margin-left:6px">'+(up?'▲':'▼')+' '+Math.abs(d).toFixed(1)+'% YoY</span>';}
+    kc.innerHTML=
+      '<div class="kpi-card" style="border-top:3px solid #c0392b"><div class="kpi-l">SAIDI YTD</div><div class="kpi-v">'+saidiCur.toFixed(1)+'</div>'+delta(saidiCur,saidiPrev)+'<div class="kpi-sub">Target '+(D.saidi.om_target[0]||0).toFixed(0)+' min</div></div>'+
+      '<div class="kpi-card" style="border-top:3px solid #2980b9"><div class="kpi-l">SAIFI YTD</div><div class="kpi-v">'+saifiCur.toFixed(2)+'</div>'+delta(saifiCur,saifiPrev)+'<div class="kpi-sub">Target '+(D.saifi.om_target[0]||0).toFixed(2)+'</div></div>'+
+      '<div class="kpi-card" style="border-top:3px solid #e67e22"><div class="kpi-l">Outage Events</div><div class="kpi-v">'+outCur.toLocaleString()+'</div>'+delta(outCur,outPrev)+'<div class="kpi-sub">YoY ('+sIdx+1+' mo)</div></div>'+
+      '<div class="kpi-card" style="border-top:3px solid #27ae60"><div class="kpi-l">Compliant Zones</div><div class="kpi-v">'+(D.zones||[]).filter(function(z){return z.s26<=z.st;}).length+' / '+(D.zones||[]).length+'</div><div class="kpi-sub">Against regulator threshold</div></div>';
+  }
+
+  // ── Zonal Compliance cards ──
+  var zc=document.getElementById('npis-zones');
+  if(zc){
+    zc.innerHTML=(D.zones||[]).map(function(z){
+      var pass=z.s26<=z.st;
+      var color=pass?'#27ae60':(z.s26<=z.st*1.1?'#e67e22':'#c0392b');
+      var statusLbl=pass?'✓ COMPLIANT':(z.s26<=z.st*1.1?'⚠ AT RISK':'✕ IN PENALTY');
+      var pct=Math.min(100,(z.s26/z.st)*100);
+      return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:13px 16px;border-left:4px solid '+color+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+          '<div style="font-size:14px;font-weight:800;color:#0c1e35">'+z.name+'</div>'+
+          '<div style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:50px;background:'+color+';color:#fff">'+statusLbl+'</div>'+
+        '</div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:11.5px;color:#6b7280;margin-bottom:7px">'+
+          '<span>SAIDI <strong style="font-family:JetBrains Mono,monospace;color:#0c1e35">'+z.s26.toFixed(1)+'</strong> / '+z.st+' min</span>'+
+          '<span>SAIFI <strong style="font-family:JetBrains Mono,monospace;color:#0c1e35">'+z.sf26.toFixed(2)+'</strong> / '+z.sft+'</span>'+
+        '</div>'+
+        '<div style="height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden">'+
+          '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:3px"></div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  // ── Contribution by Governorate (SAIDI) ──
+  var cc=document.getElementById('npis-contrib');
+  if(cc && D.contrib && D.contrib.SAIDI){
+    var lbls=D.contrib.SAIDI.labels, vals=D.contrib.SAIDI.values;
+    var maxV=Math.max.apply(null,vals);
+    cc.innerHTML=lbls.map(function(l,i){
+      var v=vals[i], w=(v/maxV)*100;
+      return '<div style="display:grid;grid-template-columns:130px 1fr 40px;gap:10px;align-items:center;font-size:12px">'+
+        '<div style="font-weight:600;color:#0c1e35">'+l+'</div>'+
+        '<div style="background:#f3f4f6;border-radius:4px;height:18px;position:relative;overflow:hidden"><div style="position:absolute;inset:0;width:'+w+'%;background:linear-gradient(90deg,#c0392b,#e74c3c);border-radius:4px"></div></div>'+
+        '<div style="font-family:JetBrains Mono,monospace;font-weight:700;color:#c0392b;text-align:right">'+v+'%</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  // ── Planned vs Unplanned ──
+  var pu=document.getElementById('npis-pu');
+  if(pu && D.outageType && D.outageType.SAIDI){
+    var pun=D.outageType.SAIDI;
+    pu.innerHTML=pun.years.map(function(y,i){
+      var p=pun.planned[i], u=pun.unplanned[i], tot=p+u;
+      var pp=tot?(p/tot)*100:0, up=tot?(u/tot)*100:0;
+      return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">'+
+        '<div style="display:flex;justify-content:space-between;font-size:11.5px;color:#6b7280;margin-bottom:6px"><span style="font-weight:700;color:#0c1e35">'+y+'</span><span><strong style="color:#0c1e35">'+tot.toFixed(1)+'</strong> min total</span></div>'+
+        '<div style="height:14px;border-radius:4px;overflow:hidden;display:flex">'+
+          '<div style="width:'+pp+'%;background:#2980b9"></div>'+
+          '<div style="width:'+up+'%;background:#c0392b"></div>'+
+        '</div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:600;margin-top:5px">'+
+          '<span style="color:#2980b9">Planned '+pp.toFixed(0)+'% ('+p.toFixed(1)+')</span>'+
+          '<span style="color:#c0392b">Unplanned '+up.toFixed(0)+'% ('+u.toFixed(1)+')</span>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  // ── Voltage contribution ──
+  var vc=document.getElementById('npis-volt');
+  if(vc && D.voltage && D.voltage.SAIDI){
+    var vl=D.voltage.SAIDI.labels, vv=D.voltage.SAIDI.values;
+    var vtot=vv.reduce(function(a,b){return a+b;},0);
+    var vcolors=['#27ae60','#e67e22','#c0392b'];
+    vc.innerHTML=vl.map(function(l,i){
+      var v=vv[i], pct=vtot?(v/vtot)*100:0;
+      return '<div style="display:grid;grid-template-columns:60px 1fr 80px;gap:10px;align-items:center;font-size:12.5px">'+
+        '<div style="font-weight:700;color:#0c1e35">'+l+'</div>'+
+        '<div style="background:#f3f4f6;border-radius:4px;height:22px;position:relative;overflow:hidden"><div style="position:absolute;inset:0;width:'+pct+'%;background:'+vcolors[i%vcolors.length]+';border-radius:4px"></div></div>'+
+        '<div style="text-align:right"><span style="font-family:JetBrains Mono,monospace;font-weight:700;color:#0c1e35">'+v.toFixed(2)+'</span> <span style="color:#6b7280;font-size:10.5px">('+pct.toFixed(0)+'%)</span></div>'+
+      '</div>';
+    }).join('');
+  }
+
+  // ── Governorate ranking table (SAIDI) ──
+  var tb=document.getElementById('npis-tbody');
+  if(tb){
+    var rows=(D.govData||[]).filter(function(g){return g.ind==='SAIDI' && !g.isGroup;});
+    rows.sort(function(a,b){return (b.r26||0)-(a.r26||0);});
+    tb.innerHTML=rows.map(function(g,i){
+      var delta=g.r26-g.t26;
+      var pass=delta<=0;
+      var bColor=pass?'#27ae60':(delta<=g.t26*0.1?'#e67e22':'#c0392b');
+      var bLbl=pass?'✓ PASS':(delta<=g.t26*0.1?'⚠ AT RISK':'✕ OVER');
+      return '<tr>'+
+        '<td style="font-family:JetBrains Mono,monospace;font-weight:800;color:#6b7280">'+(i+1).toString().padStart(2,'0')+'</td>'+
+        '<td style="font-weight:700;color:#0c1e35">'+g.gov+'</td>'+
+        '<td>'+(g.y25!==undefined?g.y25.toFixed(1):'–')+'</td>'+
+        '<td style="font-weight:800;color:#c0392b">'+(g.r26!==undefined?g.r26.toFixed(1):'–')+'</td>'+
+        '<td>'+(g.t26?g.t26.toFixed(0):'–')+'</td>'+
+        '<td style="font-weight:700;color:'+(delta>0?'#c0392b':'#27ae60')+'">'+(delta>0?'+':'')+delta.toFixed(1)+'</td>'+
+        '<td><span style="display:inline-block;padding:3px 10px;border-radius:50px;background:'+bColor+';color:#fff;font-size:10px;font-weight:800;letter-spacing:0.3px">'+bLbl+'</span></td>'+
+      '</tr>';
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
 var _justPublished=false; // flag to prevent loadLive overwriting fresh data
@@ -4154,8 +4409,10 @@ window.addEventListener('load', function(){
     if(src && dst) dst.src=src;
   })();
 
-  // Show dev banner only on dev environment
-  if(window.location.hostname!=='nedc-qsi-dashboard.pages.dev'&&(window.location.hostname.indexOf('dev')>=0||window.location.hostname.indexOf('localhost')>=0)){
+  // Show dev banner whenever we're not on the production hostname.
+  // Uses the same single source of truth (IS_DEV) as the cloud write logic
+  // so a hostname that triggers the banner *also* writes to the dev bin.
+  if(typeof IS_DEV!=='undefined' ? IS_DEV : window.location.hostname!=='nedc-qsi-dashboard.pages.dev'){
     var devBanner=document.getElementById('dev-banner');
     if(devBanner){
       devBanner.style.display='block';
@@ -4164,7 +4421,33 @@ window.addEventListener('load', function(){
     }
   }
   // ── LOGIN ──
-  var AUTH_USER='DCC', AUTH_PASS='DCC@2026';
+  // Multi-user accounts. Each entry maps username → password.
+  // Add new users here. Roles are derived from the username
+  // (NOP gets admin + the extra NPI Summary tab).
+  var ACCOUNTS={
+    'DCC':'DCC@2026',
+    'NOP':'NOP@2026'
+  };
+
+  // applyUserRole() — show/hide elements tagged with data-role based on the
+  // currently logged-in user. Currently:
+  //   data-role="nop"  → only visible when the logged-in user is "NOP".
+  // Called on page load (to restore role from session) and right after login.
+  window.applyUserRole=function(){
+    var user=sessionStorage.getItem('nedc_user')||'';
+    document.querySelectorAll('[data-role]').forEach(function(el){
+      var role=el.getAttribute('data-role');
+      var allowed=(role==='nop' && user==='NOP');
+      if(allowed){
+        // restore whatever display the element had originally
+        el.style.display=el.dataset._origDisplay||'';
+      }else{
+        if(!el.dataset._origDisplay)el.dataset._origDisplay=el.style.display||'';
+        el.style.display='none';
+      }
+    });
+  };
+
   var loginScreen=document.getElementById('login-screen');
   var loginBtn=document.getElementById('login-btn');
   var loginErr=document.getElementById('login-err');
@@ -4173,12 +4456,17 @@ window.addEventListener('load', function(){
   if(sessionStorage.getItem('nedc_auth')==='1'){
     if(loginScreen)loginScreen.style.display='none';
   }
+  // Apply current user's role on first paint (so the right tabs / admin
+  // buttons are visible immediately after refresh)
+  try{applyUserRole();}catch(_){}
 
   function doLogin(){
     var u=document.getElementById('login-user').value.trim();
     var p=document.getElementById('login-pass').value.trim();
-    if(u===AUTH_USER&&p===AUTH_PASS){
+    if(ACCOUNTS.hasOwnProperty(u) && ACCOUNTS[u]===p){
       sessionStorage.setItem('nedc_auth','1');
+      sessionStorage.setItem('nedc_user',u);
+      try{applyUserRole();}catch(_){}
       loginScreen.style.display='none';
       loginErr.style.display='none';
     }else{
@@ -4250,6 +4538,16 @@ window.addEventListener('load', function(){
     var mn=document.getElementById('main');
     var open=sb.classList.toggle('open');
     if(mn)mn.classList.toggle('shifted',open);
+  });
+  // Sign out — clear auth session and reload to the login screen
+  var sob=document.getElementById('sidebar-signout');
+  if(sob)sob.addEventListener('click',function(){
+    if(!confirm('Sign out of the dashboard?'))return;
+    try{
+      sessionStorage.removeItem('nedc_auth');
+      sessionStorage.removeItem('nedc_user');
+    }catch(_){}
+    location.reload();
   });
   // Drop zone
   var dz=document.getElementById('dropzone');
@@ -4346,6 +4644,72 @@ window.addEventListener('load', function(){
   // Pre-fill announcement textarea with existing message
   var msgInp=document.getElementById('admin-msg-input');
   if(msgInp&&D.customMsg)msgInp.value=D.customMsg;
+
+  // ── Announcement-only publish (independent of data upload) ──
+  // Lets the admin update only the popup message without re-uploading data.
+  var annPubBtn=document.getElementById('announce-publish-btn');
+  var annPrevBtn=document.getElementById('announce-preview-btn');
+  var annClearBtn=document.getElementById('announce-clear-btn');
+  var annMsgBox=document.getElementById('announce-publish-msg');
+  function setAnnStatus(text,kind){
+    if(!annMsgBox)return;
+    var palette={ok:['rgba(39,174,96,0.18)','#34d399','rgba(39,174,96,0.4)'],
+                 err:['rgba(192,57,43,0.18)','#fca5a5','rgba(192,57,43,0.4)'],
+                 info:['rgba(41,128,185,0.18)','#93c5fd','rgba(41,128,185,0.4)']};
+    var p=palette[kind]||palette.info;
+    annMsgBox.style.display='block';
+    annMsgBox.style.background=p[0];
+    annMsgBox.style.color=p[1];
+    annMsgBox.style.border='1px solid '+p[2];
+    annMsgBox.textContent=text;
+  }
+  if(annPrevBtn)annPrevBtn.addEventListener('click',function(){
+    // Show the popup with the current textarea value (without publishing)
+    var v=(document.getElementById('admin-msg-input').value||'').trim();
+    if(!v){setAnnStatus('Nothing to preview — textarea is empty.','info');return;}
+    // Stash current customMsg, swap in textarea value, run showAnnouncement, restore
+    var prev=D.customMsg;
+    D.customMsg=v;
+    try{showAnnouncement();}catch(e){console.error(e);}
+    D.customMsg=prev;
+    setAnnStatus('Preview shown in the bottom-right corner.','info');
+  });
+  if(annClearBtn)annClearBtn.addEventListener('click',function(){
+    var ti=document.getElementById('admin-msg-input');
+    if(ti)ti.value='';
+    setAnnStatus('Cleared locally. Click "Publish Announcement" to remove it for all users.','info');
+  });
+  if(annPubBtn)annPubBtn.addEventListener('click',async function(){
+    var ti=document.getElementById('admin-msg-input');
+    var v=ti?ti.value.trim():'';
+    annPubBtn.disabled=true;
+    var origHTML=annPubBtn.innerHTML;
+    annPubBtn.innerHTML='Publishing…';
+    annPubBtn.style.opacity='0.7';
+    setAnnStatus('Publishing announcement…','info');
+    try{
+      // Update the in-memory dataset
+      D.customMsg=v;
+      D.updatedAt=new Date().toISOString();
+      // Persist locally so a refresh keeps the new message
+      try{
+        localStorage.setItem('nedc_dashboard_data',JSON.stringify(D));
+        localStorage.setItem('nedc_dashboard_saved',D.updatedAt);
+      }catch(e){console.warn('localStorage save failed:',e);}
+      // Push to cloud (Worker / JSONBin) so every visitor sees it
+      if(typeof publishData==='function'){
+        try{await publishData();}catch(e){console.error('publishData:',e);}
+      }
+      setAnnStatus(v?'✓ Announcement published — all users will see it on entry.':'✓ Announcement removed — no popup will be shown.','ok');
+    }catch(e){
+      console.error(e);
+      setAnnStatus('✕ Failed to publish: '+(e.message||e),'err');
+    }finally{
+      annPubBtn.disabled=false;
+      annPubBtn.innerHTML=origHTML;
+      annPubBtn.style.opacity='';
+    }
+  });
 
   // Announcement popup close buttons
 
@@ -5021,7 +5385,16 @@ var USE_WORKER=!!WORKER_URL && WORKER_URL!=='__WORKER_URL__';
 function ensureWorkerSecret(){
   return WORKER_SECRET;
 }
-var IS_DEV=window.location.hostname.indexOf('dev-nedc')>=0||window.location.hostname==='localhost';
+// ─── ENVIRONMENT DETECTION ───
+// Production hostname is the single source of truth. ANYTHING else
+// (Cloudflare preview branches, dev-* hostnames, localhost, custom
+// preview URLs) is treated as DEV so an accidental publish on a preview
+// branch can NEVER overwrite the production data.
+// Previously this used hostname.indexOf('dev-nedc')>=0 which silently
+// fell through to 'prod' on any preview hostname that didn't match
+// that exact substring — causing dev publishes to land in production.
+var PROD_HOSTNAME='nedc-qsi-dashboard.pages.dev';
+var IS_DEV=window.location.hostname!==PROD_HOSTNAME;
 var WORKER_ENV=IS_DEV?'dev':'prod';
 console.log('%c ENV CHECK hostname='+window.location.hostname+' IS_DEV='+IS_DEV+' WORKER_ENV='+WORKER_ENV,'background:navy;color:yellow;font-size:14px;padding:4px');
 
@@ -5102,7 +5475,7 @@ document.addEventListener('DOMContentLoaded',function(){
       <button id="announce-close-x" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.7);width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
     </div>
     <div style="padding:14px 16px">
-      <p id="announce-msg" style="margin:0;font-size:13px;color:#374151;line-height:1.6;font-family:'Inter',sans-serif"></p>
+      <p id="announce-msg" style="margin:0;font-size:13px;color:#374151;line-height:1.6;font-family:'Inter',sans-serif;white-space:pre-wrap;text-wrap:pretty"></p>
     </div>
     <div style="padding:0 16px 14px;display:flex;justify-content:flex-end">
       <button id="announce-close-btn" style="background:#0c1e35;color:#fff;border:none;border-radius:8px;padding:7px 20px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Got it</button>
