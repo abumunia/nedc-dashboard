@@ -2160,9 +2160,37 @@ function renderGovFocus(){
   }).join('');
 
   // ── SAIDI/SAIFI BREAKDOWN (Planned vs Unplanned) ──
+  // Alias-tolerant lookup: live-loaded sheets can spell a governorate
+  // differently than the dropdown (e.g. "Buraimi" vs "Al Buraimi"), which
+  // used to make the Planned/Unplanned block silently disappear.
+  function canonGov(name){
+    if(GOV_ALIASES[name])return name;
+    for(var k in GOV_ALIASES){if(GOV_ALIASES[k].indexOf(name)>=0)return k;}
+    return name;
+  }
+  function getBreakdown(name){
+    if(!D.breakdown)return null;
+    if(D.breakdown[name])return D.breakdown[name];
+    var target=canonGov(name);
+    var keys=Object.keys(D.breakdown);
+    for(var i=0;i<keys.length;i++){if(canonGov(keys[i])===target)return D.breakdown[keys[i]];}
+    function nrm(s){return String(s||'').toLowerCase().replace(/[^a-z]/g,'');}
+    var nt=nrm(name);
+    for(var j=0;j<keys.length;j++){if(nrm(keys[j])===nt)return D.breakdown[keys[j]];}
+    // word-order/spelling-tolerant fallback (e.g. "Sharqiya South" vs "South Sharqyia")
+    function words(s){return String(s||'').toLowerCase().split(/[^a-z]+/).filter(function(w){return w.length>2;});}
+    var wn=words(name);
+    for(var k=0;k<keys.length;k++){
+      var wk=words(keys[k]);if(!wn.length||!wk.length)continue;
+      var shortW=wn.length<=wk.length?wn:wk,longW=wn.length<=wk.length?wk:wn;
+      if(shortW.every(function(w){return longW.some(function(w2){return w.substring(0,4)===w2.substring(0,4);});}))return D.breakdown[keys[k]];
+    }
+    return null;
+  }
   function makeBreakdown(ind,elId){
     var el=document.getElementById(elId);if(!el)return;
-    var bd=D.breakdown&&D.breakdown[gov]?D.breakdown[gov][ind]:null;
+    var bdEntry=getBreakdown(gov);
+    var bd=bdEntry?bdEntry[ind]:null;
     var row=(D.govData||[]).find(function(g){return g.gov===gov&&g.ind===ind&&!g.isGroup;});
     if(!bd&&!row){el.innerHTML='<p style="color:var(--text3);font-size:13px">No data available</p>';return;}
     var rows='';
