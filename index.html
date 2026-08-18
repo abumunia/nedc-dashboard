@@ -4203,9 +4203,10 @@ function renderGovKpi(){
 }
 
 // ═══════════════════════════════════════════════════
-// NETWORK PERFORMANCE INDICATORS SUMMARY (NOP-only)
+// NETWORK PERFORMANCE INDICATORS SUMMARY — legacy renderer, no longer used.
+// The tab is now rendered by npi-tab.js from its own uploaded workbook.
 // ═══════════════════════════════════════════════════
-function renderNpiSummary(){
+function renderNpiSummaryLegacy(){
   // Period
   var per=document.getElementById('npis-period');
   if(per)per.textContent=D.period||'YTD';
@@ -5508,5 +5509,11 @@ document.addEventListener('DOMContentLoaded',function(){
     </div>
   </div>
 </div>
+<!-- NPI Summary tab: self-contained module with its own Excel data source -->
+<script src="npi-report-data.js"></script>
+<script src="npi-export.js"></script>
+<script src="npi-print.js"></script>
+<script src="npi-edit.js"></script>
+<script src="npi-tab.js"></script>
 </body>
 </html>
