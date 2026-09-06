@@ -79,11 +79,11 @@ function summaryPanel(){
     return ['<span>'+esc(m.metric)+'</span>',
       inp('summary.'+i+'.cur',m.cur),inp('summary.'+i+'.prev',m.prev),inp('summary.'+i+'.mtarget',m.mtarget),
       inp('summary.'+i+'.ytd',m.ytd),inp('summary.'+i+'.target',m.target),
-      '<input class="ne-in sm lk" value="'+esc(m.gmax===null||m.gmax===undefined?'':m.gmax)+'" readonly tabindex="-1" title="Fixed dial scale — not edited monthly">'];
+      inp('summary.'+i+'.gmax',m.gmax)];
   });
   return panel('Indicators','title page gauges · month chart · records table',
-    tbl(['Indicator','Current month','Same month last year','Month target','Year to date','Annual target','Dial max (fixed)'],rows),'wide',
-    'The dial colour on the title page comes from year to date against the annual target. Dial max — the top of the dial scale — is frozen and does not need updating each month.');
+    tbl(['Indicator','Current month','Same month last year','Month target','Year to date','Annual target','Dial max'],rows),'wide',
+    'The dial colour on the title page comes from year to date against the annual target. Dial max sets the top of the dial scale — change it only if an indicator outgrows its current scale.');
 }
 function monthlyPanel(){
   var mm=W.months,g=W.monthly;
