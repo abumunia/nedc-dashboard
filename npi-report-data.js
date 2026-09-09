@@ -34,8 +34,8 @@ governorates:[
  {gov:'Musandam',rank:1,mv26:61,mv25:37,saidi:48.5,saifi:0.9,fdr:0}
 ],
 zones:{
- SAIDI:[{zone:'Zone 1',rolling:91,target:72,imp:-6},{zone:'Zone 2',rolling:234,target:238,imp:-3},{zone:'Zone 3',rolling:201,target:133,imp:31}],
- SAIFI:[{zone:'Zone 1',rolling:1.2,target:1.03,imp:10},{zone:'Zone 2',rolling:2.5,target:2.2,imp:0.4},{zone:'Zone 3',rolling:2.6,target:2.2,imp:8.7}]
+ SAIDI:[{zone:'Zone 1',prev:96.8,rolling:91,target:72,imp:-6},{zone:'Zone 2',prev:241.2,rolling:234,target:238,imp:-3},{zone:'Zone 3',prev:153.4,rolling:201,target:133,imp:31}],
+ SAIFI:[{zone:'Zone 1',prev:1.09,rolling:1.2,target:1.03,imp:10},{zone:'Zone 2',prev:2.49,rolling:2.5,target:2.2,imp:0.4},{zone:'Zone 3',prev:2.39,rolling:2.6,target:2.2,imp:8.7}]
 },
 notes:{
  p1:['Unplanned Outages 2026 Target 5 % from 2025 Outturn','SAIFI and SAIDI 2026 Target 7.5 % from 2025 Outturn records','2026 Records without AL Massart Outages (exceed 3 hours interruption) impacts'],

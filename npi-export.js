@@ -147,16 +147,16 @@ window.NPI_PPTX=function(R){
     ['SAIDI','SAIFI'].forEach(function(k,i){
       var s=pptx.addSlide();head(s,'Records Comparisons · Zones — '+k,4+i);
       var z=R.zones[k]||[],dec=k==='SAIDI'?0:2;
-      s.addTable([hdr(['Zone','Rolling','Target '+YR,'Improvement %','APSR compliance status'])].concat(
+      s.addTable([hdr(['Zone',(YR-1)+' year end',YR+' rolling 12 month','Target '+YR,'Improvement %','APSR compliance status'])].concat(
         z.map(function(x){var over=x.rolling>x.target;
-          return [{text:x.zone,options:{bold:true,color:NAVY}},{text:nf(x.rolling,dec),options:{align:'center',bold:true}},
+          return [{text:x.zone,options:{bold:true,color:NAVY}},{text:nf(x.prev,dec),options:{align:'center',color:MUTE}},{text:nf(x.rolling,dec),options:{align:'center',bold:true}},
             {text:nf(x.target,dec),options:{align:'center',color:MUTE}},
-            {text:(x.imp>0?'+':'')+nf(x.imp,1),options:{align:'center',bold:true,color:x.imp<0?GREEN:RED}},
+            {text:(x.imp>0?'+':'')+nf(x.imp,1),options:{align:'center',bold:true,color:x.imp<=0?GREEN:RED}},
             {text:over?'Penalty':'Less than target',options:{align:'center',bold:true,color:'FFFFFF',fill:{color:over?RED:GREEN}}}];})),
-        Object.assign({},TBL,{x:0.45,y:1.12,w:6.4,rowH:0.34,fontSize:10.5,colW:[1.0,1.15,1.15,1.35,1.75]}));
+        Object.assign({},TBL,{x:0.45,y:1.12,w:6.4,rowH:0.34,fontSize:10.5,colW:[0.95,1.1,1.35,1.0,1.2,1.6]}));
       panel(s,0.45,3.0,12.43,3.5,'Rolling vs target '+YR+' · '+k);
       s.addChart(pptx.ChartType.bar,[
-        {name:'Rolling',labels:z.map(function(x){return x.zone;}),values:z.map(function(x){return x.rolling;})},
+        {name:YR+' rolling',labels:z.map(function(x){return x.zone;}),values:z.map(function(x){return x.rolling;})},
         {name:'Target '+YR,labels:z.map(function(x){return x.zone;}),values:z.map(function(x){return x.target;})}
       ],{x:0.53,y:3.34,w:12.27,h:3.06,barDir:'col',chartColors:[RED,NAVY],showLegend:true,legendPos:'t',legendFontSize:9,
         showValue:true,dataLabelFontSize:9,dataLabelPosition:'outEnd',catAxisLabelFontSize:11,valAxisLabelFontSize:8,

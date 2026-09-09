@@ -223,6 +223,61 @@ function tbl(cols,rows,cls){
   }).join('');
   return '<table class="pd-t'+(cls?' '+cls:'')+'"><thead><tr>'+th+'</tr></thead><tbody>'+tb+'</tbody></table>';
 }
+/* ── voltage-level breakdown ───────────────────────────────────────────
+   A true-proportion band for all levels, plus a magnifier panel that
+   rescales the small high-voltage levels against EACH OTHER — at 1.6% of
+   the total a 33KV slice is a hairline on the band, so the detail rows
+   carry it. Inline SVG so the screen card and the print page share one
+   drawing with no canvas timing. */
+window.npiPyramidSVG=function(rows,W,H,cols,fmt){
+  var tot=rows.reduce(function(a,b){return a+(b.v||0);},0);
+  if(!tot)return '';
+  /* biggest level first so the band reads left-to-right by size */
+  var d=rows.map(function(r,i){return {k:r.k,v:r.v||0,c:cols[i%cols.length]};})
+            .sort(function(a,b){return b.v-a.v;});
+  var esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');};
+  var P=14,bw=W-P*2,by=16,bh=W<340?40:46;
+  var svg='@@VB@@'+
+    '<defs><clipPath id="npiBandClip"><rect x="'+P+'" y="'+by+'" width="'+bw+'" height="'+bh+'" rx="5"/></clipPath></defs>'+
+    '<g clip-path="url(#npiBandClip)">';
+  var x=P;
+  d.forEach(function(s){
+    var w=bw*s.v/tot,pc=s.v/tot*100;
+    svg+='<rect x="'+x.toFixed(1)+'" y="'+by+'" width="'+Math.max(w,0.6).toFixed(1)+'" height="'+bh+'" fill="'+s.c+'"/>';
+    if(w>=64){
+      var cx=(x+w/2).toFixed(1);
+      svg+='<text x="'+cx+'" y="'+(by+bh/2-2).toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="12.5" font-weight="700" fill="#fff">'+pc.toFixed(1)+'%</text>'+
+           '<text x="'+cx+'" y="'+(by+bh/2+11).toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" font-weight="500" fill="#fff" opacity=".82">'+fmt(s.v)+'</text>';
+    }
+    x+=w;
+  });
+  svg+='</g><rect x="'+P+'" y="'+by+'" width="'+bw+'" height="'+bh+'" rx="5" fill="none" stroke="#fff" stroke-width="1"/>';
+  /* band axis + the label for the dominant level, named above the band */
+  svg+='<text x="'+P+'" y="10" font-size="10.5" font-weight="800" fill="#0c1e35">'+esc(d[0].k)+'</text>'+
+       '<text x="'+(W-P)+'" y="10" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" font-weight="700" fill="#6b7280">TOTAL '+fmt(tot)+'</text>';
+  var ay=by+bh+6;
+  /* magnifier: every level except the dominant one, scaled to each other */
+  var sub=d.slice(1),rest=sub.reduce(function(a,b){return a+b.v;},0);
+  var vb=function(h){return svg.replace('@@VB@@','<svg viewBox="0 0 '+W+' '+Math.round(h)+'" width="100%" height="auto" preserveAspectRatio="xMidYMid meet" font-family="Inter,sans-serif">')+'</svg>';};
+  if(!sub.length)return vb(ay+8);
+  /* the panel is sized from its rows, not from whatever height is left over,
+     so it never prints as a half-empty grey box */
+  var py=ay+12,mx=Math.max.apply(null,sub.map(function(s){return s.v;}))||1;
+  var rowH=26,ph=28+sub.length*rowH+8;
+  svg+='<rect x="'+P+'" y="'+py+'" width="'+bw+'" height="'+Math.max(ph,0).toFixed(1)+'" rx="6" fill="#f7f9fb" stroke="#e3e7ee"/>'+
+       '<text x="'+(P+11)+'" y="'+(py+17)+'" font-size="9" font-weight="800" letter-spacing=".5" fill="#6b7280">THE REMAINING '+(rest/tot*100).toFixed(1)+'% \u00b7 HIGH VOLTAGE DETAIL</text>';
+  var ry=py+28,lx=P+11,tw=bw-22,kw=44,vw=78,trw=tw-kw-vw-16;
+  sub.forEach(function(s,i){
+    var cy=ry+i*rowH,bY=cy+rowH/2-6.5,w=Math.max(2,trw*s.v/mx);
+    svg+='<text x="'+lx+'" y="'+(cy+rowH/2+3.5).toFixed(1)+'" font-size="10.5" font-weight="800" fill="#0c1e35">'+esc(s.k)+'</text>'+
+         '<rect x="'+(lx+kw)+'" y="'+bY.toFixed(1)+'" width="'+trw.toFixed(1)+'" height="13" rx="3" fill="#e8ecf2"/>'+
+         '<rect x="'+(lx+kw)+'" y="'+bY.toFixed(1)+'" width="'+w.toFixed(1)+'" height="13" rx="3" fill="'+s.c+'"/>'+
+         '<text x="'+(lx+tw-11)+'" y="'+(cy+rowH/2-1).toFixed(1)+'" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="10.5" font-weight="700" fill="#0c1e35">'+fmt(s.v)+'</text>'+
+         '<text x="'+(lx+tw-11)+'" y="'+(cy+rowH/2+9).toFixed(1)+'" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="8.5" font-weight="600" fill="#6b7280">'+(s.v/tot*100).toFixed(1)+'%</text>';
+  });
+  return vb(py+ph+4);
+};
+
 function cv(id,w,h){return '<canvas id="'+id+'" width="'+w+'" height="'+h+'" style="width:'+w+'px;height:'+h+'px"></canvas>';}
 function notes(k){
   var a=(R.notes||{})[k]||[];
@@ -363,7 +418,7 @@ function p2(){
     '<div class="pd-row" style="flex:1;min-height:0">'+
       panel('SAIDI by voltage level','share of minutes',cv('pdc-vsaidi',302,248),'flex:1')+
       panel('SAIFI by voltage level','share of interruptions',cv('pdc-vsaifi',302,248),'flex:1')+
-      panel('Unplanned outages by voltage','total '+nf(tot,0)+' YTD',cv('pdc-volt',302,248),'flex:1')+
+      panel('Unplanned outages by voltage','total '+nf(tot,0)+' YTD','<div style="width:302px">'+window.npiPyramidSVG(R.outageVoltage,302,0,[NAVY,BLUE,RED],function(v){return nf(v,0);})+'</div>','flex:1')+
     '</div>'+notes('p2'));
 }
 
@@ -430,17 +485,18 @@ function zcards(k){
   return z.map(function(x){
     var over=x.rolling>x.target,w=x.target?Math.min(x.rolling/x.target*100,100):0;
     return '<div class="pd-z"><div class="pd-z-h"><b>'+esc(x.zone)+'</b><span>'+k+'</span></div><div class="pd-z-b">'+
-      '<div class="pd-z-r"><span>Rolling 12 months</span><b>'+nf(x.rolling,dec)+'</b></div>'+
+      '<div class="pd-z-r"><span>'+((R.meta.year||2026)-1)+' year end</span><b class="sm">'+nf(x.prev,dec)+'</b></div>'+
+      '<div class="pd-z-r"><span>'+R.meta.year+' rolling 12 month</span><b>'+nf(x.rolling,dec)+'</b></div>'+
       '<div class="pd-z-r"><span>Target '+R.meta.year+'</span><b class="sm">'+nf(x.target,dec)+'</b></div>'+
       '<div class="pd-bar"><i style="width:'+w+'%;background:'+(over?RED:GREEN)+'"></i></div>'+
-      '<div style="margin-top:5px"><span class="pd-chip '+(over?'bad':'ok')+'">'+(over?'APSR penalty':'Within target')+'</span></div>'+
+      '<div style="margin-top:5px;display:flex;flex-direction:column;align-items:flex-start;gap:2px"><span class="pd-chip '+(over?'bad':'ok')+'">'+(over?'APSR penalty':'Within target')+'</span>'+(x.imp===null||x.imp===undefined?'':'<span style="font-size:8px;font-weight:700;color:'+(x.imp<=0?GREEN:RED)+'">'+(x.imp>0?'+':'')+nf(x.imp,1)+'% vs '+((R.meta.year||2026)-1)+'</span>')+'</div>'+
     '</div></div>';
   }).join('');
 }
 function pzones(){
   return page('Zonal Compliance · Rolling 12 Months',7,
-    '<div class="pd-row" style="height:146px;gap:9px">'+zcards('SAIDI')+'</div>'+
-    '<div class="pd-row" style="height:146px;gap:9px">'+zcards('SAIFI')+'</div>'+
+    '<div class="pd-row" style="height:162px;gap:9px">'+zcards('SAIDI')+'</div>'+
+    '<div class="pd-row" style="height:162px;gap:9px">'+zcards('SAIFI')+'</div>'+
     '<div class="pd-row" style="flex:1;min-height:0">'+
       panel('SAIDI · rolling vs target '+R.meta.year,'all zones',cv('pdc-zSAIDI',490,200),'flex:1')+
       panel('SAIFI · rolling vs target '+R.meta.year,'all zones',cv('pdc-zSAIFI',490,200),'flex:1')+
@@ -511,15 +567,6 @@ function drawCharts(){
     ]},options:o});
   });
 
-  var ovv=R.outageVoltage,tot=ovv.reduce(function(a,b){return a+(b.v||0);},0);
-  var od=base();
-  /* count and share on every slice, plus a legend carrying the counts */
-  od.plugins.datalabels={display:function(c){return tot&&c.dataset.data[c.dataIndex]/tot>.03;},color:'#fff',textAlign:'center',font:fnt(10,800),
-    formatter:function(v){return [nf(v,0),(v/tot*100).toFixed(1)+'%'];}};
-  od.plugins.legend=Object.assign(legend(10),{labels:{boxWidth:9,boxHeight:9,font:fnt(10,700),padding:9,usePointStyle:true,pointStyle:'rectRounded',color:MUTE,
-    generateLabels:function(ch){var ds=ch.data.datasets[0];return ch.data.labels.map(function(l,i){
-      return{text:l+'  '+nf(ds.data[i],0),fillStyle:ds.backgroundColor[i],strokeStyle:ds.backgroundColor[i],lineWidth:0,index:i};});}}});
-  add('pdc-volt',{type:'doughnut',data:{labels:ovv.map(function(x){return x.k;}),datasets:[{data:ovv.map(function(x){return x.v;}),backgroundColor:[NAVY,BLUE,RED],borderColor:'#fff',borderWidth:2}]},options:Object.assign(od,{cutout:'50%'})});
 
   [['pdc-tsaidi','SAIDI',1],['pdc-tsaifi','SAIFI',2]].forEach(function(t){
     var d=R.classType[t[1]],o=base();

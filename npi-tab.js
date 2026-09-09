@@ -8,7 +8,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 (function(){
 var STORE='nedc_npi_report_data',ARCH='nedc_npi_report_archive';
-var R=JSON.parse(JSON.stringify(window.NPI_DEFAULT)),CH={},built=false,active=1,dirty={1:1,2:1,3:1,4:1,5:1,6:1},MAP=null,MRK=[];
+var R=null,CH={},built=false,active=1,dirty={1:1,2:1,3:1,4:1,5:1,6:1},MAP=null,MRK=[];
 /* Governorate centroids for the performance map — same geography the main
    Performance Map tab uses. side: which column the callout sits in. */
 var GEO=[
@@ -25,6 +25,37 @@ var C={cur:'#c0392b',prev:'#94a3b8',roll:'#2980b9',navy:'#0c1e35',green:'#27ae60
 var FF='Inter';
 
 /* ── helpers ── */
+/* Zone rows saved before the 2025-baseline column existed carry an improvement
+   figure but no `prev`. Derive the baseline from it (prev = rolling/(1-imp/100))
+   so historical months render a baseline and a correctly-signed figure without
+   needing a manual re-save. Runs on every data assignment. */
+function normZones(d){
+  try{
+    /* a mistyped year would caption every column with nonsense */
+    var y=parseInt((d.meta||{}).year,10);
+    if(!(y>=2000&&y<=2100)){
+      var py=parseInt(String(d.meta.period||'').match(/\b(20\d\d)\b/)&&RegExp.$1,10);
+      d.meta.year=(py>=2000&&py<=2100)?py:2026;
+    }
+    /* prevYear is stored alongside year, so a bad year leaves a bad baseline
+       caption behind even after the year itself is corrected */
+    var pv=parseInt(d.meta.prevYear,10);
+    if(!(pv===d.meta.year-1))d.meta.prevYear=d.meta.year-1;
+    ['SAIDI','SAIFI'].forEach(function(k){
+      ((d.zones||{})[k]||[]).forEach(function(x){
+        if(x.prev!==null&&x.prev!==undefined&&x.prev!=='')return;
+        var r=parseFloat(x.rolling),i=parseFloat(x.imp);
+        if(isNaN(r)||isNaN(i)||i<=-100)return;
+        var p=r/(1+i/100);
+        if(!isFinite(p)||p<=0)return;
+        x.prev=Math.round(p*100)/100;
+      });
+    });
+  }catch(e){}
+  return d;
+}
+window.npiZoneBackfill=normZones;
+R=normZones(JSON.parse(JSON.stringify(window.NPI_DEFAULT)));
 function nf(v,d){if(v===null||v===undefined||isNaN(v))return'—';d=d||0;return Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
 function auto(v){if(v===null||v===undefined)return'—';var a=Math.abs(v);return nf(v,a>=10?1:2);}
 function K(v){return Math.abs(v)>=1000?(v/1000).toFixed(Math.abs(v)>=10000?0:1)+'K':nf(v,0);}
@@ -85,7 +116,7 @@ function markup(){return ''+
   '<div class="nr-row" style="grid-template-columns:minmax(0,1.1fr) minmax(0,1.05fr) minmax(0,.85fr)">'+
     '<div class="nr-p"><div class="nr-ph"><h2>Monthly Indicators vs Target</h2><span id="nr-dccsub"></span></div><div class="nr-pb"><div class="nr-cw" style="height:190px"><canvas id="nr-c-dcc"></canvas></div></div></div>'+
     '<div class="nr-p"><div class="nr-ph"><h2>Monthly Indicators vs Target · Records</h2></div><div class="nr-pb nr-scroll"><table class="nr-dt" id="nr-dcctab" style="min-width:290px"></table></div></div>'+
-    '<div class="nr-p"><div class="nr-ph"><h2>Unplanned Outages · YTD</h2><span id="nr-ovsub">Split by voltage level</span></div><div class="nr-pb"><div class="nr-cw" style="height:190px"><canvas id="nr-c-outvolt"></canvas></div></div></div>'+
+    '<div class="nr-p"><div class="nr-ph"><h2>Unplanned Outages · YTD</h2><span id="nr-ovsub">Split by voltage level</span></div><div class="nr-pb"><div class="nr-cw" style="height:190px"><div id="nr-c-outvolt" style="width:100%"></div></div></div></div>'+
   '</div>'+
   '<div class="nr-notes" id="nr-n1"></div>'+
 '</section>'+
@@ -171,7 +202,10 @@ var CSS=''+
 '#view-npi-summary .nr-title{font-size:16px;font-weight:800;letter-spacing:-.3px;line-height:1.15}'+
 '#view-npi-summary .nr-src{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px}'+
 '#view-npi-summary .nr-bar-r{display:flex;align-items:center;gap:8px}'+
-'#view-npi-summary .nr-pill{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);padding:6px 12px;border-radius:50px;letter-spacing:.4px}'+
+'#view-npi-summary .nr-pill{display:inline-flex;align-items:center;gap:7px;font-family:"JetBrains Mono",monospace;font-size:11.5px;font-weight:700;color:#0c1e35;background:#fff;border:1px solid #fff;padding:7px 13px;border-radius:50px;letter-spacing:.4px;cursor:pointer;transition:.18s}'+
+'#view-npi-summary .nr-pill:hover{background:#f1f3f6}'+
+'#view-npi-summary .nr-pill b{opacity:.55}'+
+'#view-npi-summary .nr-pill::before{content:"PERIOD";font-family:Inter,sans-serif;font-size:9px;font-weight:800;letter-spacing:.8px;color:#475569}'+
 '#view-npi-summary .nr-btn{display:inline-flex;align-items:center;gap:7px;font-family:Inter,sans-serif;font-size:12px;font-weight:700;padding:8px 15px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);transition:.18s}'+
 '#view-npi-summary .nr-btn:hover{background:rgba(255,255,255,.14);color:#fff}'+
 '#view-npi-summary .nr-btn svg{width:14px;height:14px;fill:currentColor}'+
@@ -184,7 +218,12 @@ var CSS=''+
 '#view-npi-summary .nr-menu button:last-child{border-bottom:none}'+
 '#view-npi-summary .nr-menu button:hover{background:#fdf1ef}'+
 '#view-npi-summary .nr-menu button span{display:block;font-size:13px;font-weight:800;color:#0c1e35;margin-bottom:1px}'+
-'#view-npi-summary .nr-mper{min-width:224px;max-height:330px;overflow:auto}'+
+'#view-npi-summary .nr-mper{min-width:290px;max-height:340px;overflow:auto}'+
+'#view-npi-summary .nr-mrow{display:flex;align-items:stretch;border-bottom:1px solid #f1f3f6}'+
+'#view-npi-summary .nr-mrow:last-child{border-bottom:none}'+
+'#view-npi-summary .nr-mrow button{border-bottom:none!important}'+
+'#view-npi-summary .nr-mrow .nr-mdel{flex:0 0 38px;width:38px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-left:1px solid #f1f3f6;color:#6b7280;font-size:16px;line-height:1;cursor:pointer;transition:.15s}'+
+'#view-npi-summary .nr-mrow .nr-mdel:hover{background:#fdecea;color:#c0392b}'+
 '#view-npi-summary .nr-cloud{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:5px 9px;border-radius:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.6);white-space:nowrap;cursor:default}'+
 '#view-npi-summary .nr-cloud.on{background:rgba(39,174,96,.18);border-color:rgba(39,174,96,.45);color:#8ce0b0}'+
 '#view-npi-summary .nr-cloud.bad{background:rgba(230,126,34,.18);border-color:rgba(230,126,34,.45);color:#f6c58c}'+
@@ -372,14 +411,28 @@ function renderDcc(){
         '<td class="'+(dv>0?'nr-up':'nr-down')+'">'+(dv===null?'—':(dv>0?'+':'')+dv.toFixed(1)+'%')+'</td></tr>';}).join('')+'</tbody>';
 }
 function renderOutVolt(){
-  var d=R.outageVoltage,tot=d.reduce(function(a,b){return a+(b.v||0);},0),cols=[C.navy,C.roll,C.cur];
-  mk('nr-c-outvolt',{type:'doughnut',data:{labels:d.map(function(x){return x.k;}),datasets:[{data:d.map(function(x){return x.v;}),backgroundColor:d.map(function(x,i){return cols[i%3];}),borderWidth:2,borderColor:'#fff',cutout:'52%'}]},
-    options:{plugins:{legend:{display:true,position:'right',labels:{boxWidth:9,boxHeight:9,font:{size:10.5,family:FF},padding:9,usePointStyle:true,pointStyle:'rectRounded',
-        generateLabels:function(){return d.map(function(x,i){return{text:x.k+'  '+nf(x.v,0),fillStyle:cols[i%3],strokeStyle:'transparent',pointStyle:'rectRounded',index:i};});}}},
-      datalabels:{display:function(c){return tot&&c.dataset.data[c.dataIndex]/tot>0.03;},color:'#fff',font:{weight:800,size:10,family:FF},formatter:function(v){return (v/tot*100).toFixed(1)+'%';}},
-      tooltip:{callbacks:{label:function(c){return c.label+': '+nf(c.raw,0)+' ('+(c.raw/tot*100).toFixed(1)+'%)';}}}}}});
+  var d=R.outageVoltage,tot=d.reduce(function(a,b){return a+(b.v||0);},0);
+  if(CH['nr-c-outvolt']){CH['nr-c-outvolt'].destroy();delete CH['nr-c-outvolt'];}
+  var h=el('nr-c-outvolt');
+  if(h){
+    /* the card is fluid, so the drawing is authored at the host's real width
+       instead of a fixed 420 that would letterbox with white margins */
+    var w=Math.max(300,Math.round(h.clientWidth||420));
+    h.innerHTML=window.npiPyramidSVG(d,w,0,[C.navy,C.roll,C.cur],function(v){return nf(v,0);});
+    if(!h.__ro&&window.ResizeObserver){
+      var lastW=w;
+      h.__ro=new ResizeObserver(function(){
+        var nw=Math.round(h.clientWidth||0);
+        if(Math.abs(nw-lastW)>4){lastW=nw;renderOutVolt();}
+      });
+      h.__ro.observe(h);
+    }
+  }
   if(el('nr-ovsub'))el('nr-ovsub').textContent='YTD '+R.meta.year+' · total '+nf(tot,0)+' outages by voltage level';
 }
+
+/* The voltage-level pyramid renderer lives in npi-print.js so the print
+   window — which loads only that module — can draw it too. */
 
 /* ── page 2 ── */
 function typeChart(id,k,dec){
@@ -489,9 +542,10 @@ function renderZones(k,hostId,chartId){
   if(el(hostId))el(hostId).innerHTML=z.map(function(x){
     var over=x.rolling>x.target,pct=x.target?Math.min(x.rolling/x.target*100,100):0;
     return '<div class="nr-zc"><div class="nr-zch"><b>'+x.zone+'</b><span>'+k+'</span></div><div class="nr-zcb">'+
-      '<div class="nr-zr"><div class="nr-zrk">Rolling</div><div class="nr-zrv">'+nf(x.rolling,dec)+'</div></div>'+
+      '<div class="nr-zr"><div class="nr-zrk">'+((R.meta.year||2026)-1)+' year end</div><div class="nr-zrv" style="color:#6b7280">'+nf(x.prev,dec)+'</div></div>'+
+      '<div class="nr-zr"><div class="nr-zrk">'+R.meta.year+' rolling 12 month</div><div class="nr-zrv">'+nf(x.rolling,dec)+'</div></div>'+
       '<div class="nr-zr"><div class="nr-zrk">Target '+R.meta.year+'</div><div class="nr-zrv" style="color:#6b7280">'+nf(x.target,dec)+'</div></div>'+
-      '<div class="nr-zr"><div class="nr-zrk">Improvement %</div><div class="nr-zrv" style="color:'+(x.imp<0?'#27ae60':'#c0392b')+'">'+(x.imp>0?'+':'')+nf(x.imp,1)+'</div></div>'+
+      '<div class="nr-zr"><div class="nr-zrk">Improvement %</div><div class="nr-zrv" style="color:'+(x.imp<=0?'#27ae60':'#c0392b')+'">'+(x.imp>0?'+':'')+nf(x.imp,1)+'</div></div>'+
       '<div class="nr-zbar"><i style="width:'+pct+'%;background:'+(over?'linear-gradient(90deg,#c0392b,#e74c3c)':'linear-gradient(90deg,#1e8449,#27ae60)')+'"></i></div>'+
       '<div class="nr-zbl"><span>0</span><span>Target '+nf(x.target,dec)+'</span></div>'+
       '<div class="nr-badge '+(over?'pen':'ok')+'"><div><span>APSR target compliance status</span>'+(over?'Penalty':'Less than target')+'</div></div>'+
@@ -527,13 +581,52 @@ function renderAll(){
    its own /npi routes, so a month entered on one device shows on every
    other. localStorage stays as an offline cache and as the fallback when
    the Worker is unreachable (or the /npi routes are not deployed yet). */
-function loadArch(){try{return JSON.parse(localStorage.getItem(ARCH))||{};}catch(e){return{};}}
+/* An out-of-range year (a typo while entering a month) produced a bogus archive
+   key such as 4620:08 that then sat in the month picker for good. Repair the
+   store on read: re-key the entry from its own valid meta where possible, drop
+   it when the correct key already holds a month. */
+function repairArch(a){
+  var fixed=false;
+  /* stale prevYear survives in stored months whose key is fine */
+  Object.keys(a).forEach(function(k){
+    var m=(a[k]||{}).meta;if(!m||!okKey(k))return;
+    var y=parseInt(k.split(':')[0],10);
+    if(parseInt(m.year,10)!==y){m.year=y;fixed=true;}
+    if(parseInt(m.prevYear,10)!==y-1){m.prevYear=y-1;fixed=true;}
+  });
+  Object.keys(a).forEach(function(k){
+    if(okKey(k))return;
+    var e=a[k],m=(e&&e.meta)||{},my=parseInt(m.year,10);
+    if(!(my>=2000&&my<=2100)){
+      my=parseInt(String(m.period||'').match(/\b(20\d\d)\b/)&&RegExp.$1,10);
+    }
+    delete a[k];fixed=true;cloudPurge(k);
+    if(!(my>=2000&&my<=2100))return;
+    m.year=my;m.prevYear=my-1;
+    var i=(m.monthIndex===undefined||m.monthIndex===null)?0:+m.monthIndex;
+    var nk=my+':'+(i+1<10?'0'+(i+1):''+(i+1));
+    if(!a[nk])a[nk]=e;
+  });
+  if(fixed)putArch(a);
+  return a;
+}
+function loadArch(){try{return repairArch(JSON.parse(localStorage.getItem(ARCH))||{});}catch(e){return{};}}
 function putArch(a){try{localStorage.setItem(ARCH,JSON.stringify(a));}catch(e){}}
 function pkey(meta){
   var y=+(meta&&meta.year)||0,i=(meta&&meta.monthIndex!==undefined&&meta.monthIndex!==null)?+meta.monthIndex+1:1;
   return y+':'+(i<10?'0'+i:''+i);
 }
+/* A month typed with a bad year produced keys like 4620:08. They must never
+   reach the picker (or be chosen as "Latest") from ANY source, so validation
+   lives with the key helpers rather than in one loader. */
+function okKey(k){var y=parseInt(String(k).split(':')[0],10);return y>=2000&&y<=2100;}
 var CLOUD={on:false,idx:[],ok:null};
+function cloudPurge(k){
+  if(!CLOUD.on)return;
+  var p=String(k).split(':');
+  fetch(wurl()+'/npi/archive/'+p[0]+'/'+p[1]+'?env='+wenv(),{method:'DELETE',
+    headers:{'X-Admin-Secret':wsec(),'X-Dashboard-Env':wenv()}}).catch(function(){});
+}
 function wurl(){return window.WORKER_URL||'';}
 function wenv(){return window.WORKER_ENV||'prod';}
 function wsec(){
@@ -547,7 +640,10 @@ function cloudGet(path){
 }
 function cloudIndex(){
   return cloudGet('/npi/index').then(function(a){
-    CLOUD.idx=Array.isArray(a)?a:[];CLOUD.ok=true;cloudChip();return CLOUD.idx;
+    var raw=Array.isArray(a)?a:[];
+    raw.forEach(function(e){if(e&&e.key&&!okKey(e.key))cloudPurge(e.key);});
+    CLOUD.idx=raw.filter(function(e){return e&&e.key&&okKey(e.key);});
+    CLOUD.ok=true;cloudChip();return CLOUD.idx;
   },function(e){CLOUD.ok=false;cloudChip(e);throw e;});
 }
 function cloudMonth(k){
@@ -589,11 +685,11 @@ function archive(data){
 function monthList(){
   var a=loadArch(),seen={},out=[];
   CLOUD.idx.forEach(function(e){
-    if(!e||!e.key||seen[e.key])return;seen[e.key]=1;
+    if(!e||!e.key||seen[e.key]||!okKey(e.key))return;seen[e.key]=1;
     out.push({k:e.key,period:e.period||(a[e.key]&&a[e.key].meta.period)||e.key,when:e.updatedAt,cloud:true});
   });
   Object.keys(a).forEach(function(k){
-    if(seen[k])return;seen[k]=1;
+    if(seen[k]||!okKey(k))return;seen[k]=1;
     out.push({k:k,period:a[k].meta.period,when:a[k].meta.savedAt,cloud:false});
   });
   return out.sort(function(x,y){return x.k<y.k?1:x.k>y.k?-1:0;});
@@ -604,17 +700,33 @@ function periodMenu(){
   if(!list.length){m.innerHTML='<div class="nr-mhd">Reporting period</div><button data-k="" class="on"><span>'+String(R.meta.period).toUpperCase()+'</span>Not yet saved — save in Data Update to keep it</button>';return;}
   m.innerHTML='<div class="nr-mhd">Reporting period · '+list.length+' saved</div>'+list.map(function(x,i){
     var when=x.when?new Date(x.when).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'';
-    return '<button data-k="'+x.k+'"'+(x.k===cur?' class="on"':'')+'><span>'+String(x.period).toUpperCase()+'</span>'+
-      (i===0?'Latest':'Archived')+(when?' · '+when:'')+' · '+(x.cloud?'cloud':'this device')+'</button>';
+    return '<div class="nr-mrow"><button data-k="'+x.k+'"'+(x.k===cur?' class="on"':'')+'><span>'+String(x.period).toUpperCase()+'</span>'+
+      (i===0?'Latest':'Archived')+(when?' · '+when:'')+' · '+(x.cloud?'cloud':'this device')+'</button>'+
+      '<button class="nr-mdel" data-del="'+x.k+'" title="Delete this saved month">&times;</button></div>';
   }).join('');
 }
-function showMonth(k){
+function deleteMonth(k){
   var a=loadArch();
-  if(a[k]){R=JSON.parse(JSON.stringify(a[k]));renderAll();}
+  if(!confirm('Delete the saved month '+(((a[k]||{}).meta||{}).period||k)+'?\n\nThis removes it from this device and from the cloud archive. It cannot be undone.'))return;
+  delete a[k];putArch(a);
+  cloudPurge(k);
+  CLOUD.idx=CLOUD.idx.filter(function(e){return e.key!==k;});
+  /* if the open month was the one deleted, fall back to the newest remaining */
+  if(pkey(R.meta)===k){
+    var rest=monthList();
+    if(rest.length)showMonth(rest[0].k);
+    else{R=normZones(JSON.parse(JSON.stringify(window.NPI_DEFAULT)));try{localStorage.removeItem(STORE);}catch(e){}renderAll();}
+  }
+  periodMenu();
+}
+function showMonth(k){
+  if(!okKey(k))return;
+  var a=loadArch();
+  if(a[k]){R=normZones(JSON.parse(JSON.stringify(a[k])));renderAll();}
   cloudMonth(k).then(function(d){
     if(!d||!d.summary||!d.meta)return;
     var b=loadArch();b[k]=d;putArch(b);
-    if(pkey(R.meta)===k||!a[k]){R=JSON.parse(JSON.stringify(d));renderAll();}
+    if(pkey(R.meta)===k||!a[k]){R=normZones(JSON.parse(JSON.stringify(d)));renderAll();}
   },function(){});
 }
 /* first open: whichever month is newest wins, cloud or local */
@@ -633,10 +745,10 @@ function cloudBoot(){
    through this bridge, so the report pages rebuild from the saved figures. */
 var EDIT_API={
   get:function(){return R;},
-  save:function(d){R=d;archive(R);refresh();},
+  save:function(d){R=normZones(d);archive(R);refresh();},
   reset:function(){
     /* sample figures are not filed as a month — the archive keeps real months only */
-    R=JSON.parse(JSON.stringify(window.NPI_DEFAULT));
+    R=normZones(JSON.parse(JSON.stringify(window.NPI_DEFAULT)));
     try{localStorage.removeItem(STORE);}catch(e){}
     refresh();
   },
@@ -687,7 +799,7 @@ function num(v){if(v===null||v===undefined||v==='')return null;var n=parseFloat(
 function txt(v){return v===null||v===undefined?'':String(v).replace(/\s+/g,' ').trim();}
 function sheetOf(wb,hint){var n=wb.SheetNames.find(function(s){return norm(s).indexOf(norm(hint))>=0;});return n?XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null}):null;}
 function headerRow(rows,key){for(var i=0;i<Math.min(rows.length,12);i++){var r=rows[i];if(!r)continue;for(var j=0;j<r.length;j++)if(norm(r[j])===norm(key))return{i:i,r:r,c:j};}return null;}
-function colMap(hdr,dict){var m={};hdr.forEach(function(h,i){var n=norm(h);Object.keys(dict).forEach(function(k){if(dict[k].indexOf(n)>=0&&m[k]===undefined)m[k]=i;});});return m;}
+function colMap(hdr,dict){var m={};hdr.forEach(function(h,i){var n=norm(h);Object.keys(dict).forEach(function(k){var d=dict[k];var hit=(d instanceof RegExp)?d.test(n):d.indexOf(n)>=0;if(hit&&m[k]===undefined)m[k]=i;});});return m;}
 
 function parseWb(wb){
   var found=[],skipped=[];
@@ -776,11 +888,11 @@ function parseWb(wb){
   if(zs){
     var zh=headerRow(zs,'Zone');
     if(zh){
-      var zc=colMap(zh.r,{ind:['indicator'],rolling:['rolling'],target:['target','target2026'],imp:['improvement','improvementpct']});
+      var zc=colMap(zh.r,{ind:['indicator'],prev:/yearend|^prev$/,rolling:['rolling','rolling12month','2026rolling12month'],target:['target','target2026'],imp:['improvement','improvementpct']});
       var zd={SAIDI:[],SAIFI:[]};
       for(var r5=zh.i+1;r5<zs.length;r5++){
         var row5=zs[r5];if(!row5||!txt(row5[zh.c]))continue;
-        zd[norm(row5[zc.ind]).indexOf('saifi')>=0?'SAIFI':'SAIDI'].push({zone:txt(row5[zh.c]),rolling:num(row5[zc.rolling]),target:num(row5[zc.target]),imp:num(row5[zc.imp])||0});
+        zd[norm(row5[zc.ind]).indexOf('saifi')>=0?'SAIFI':'SAIDI'].push({zone:txt(row5[zh.c]),prev:num(row5[zc.prev]),rolling:num(row5[zc.rolling]),target:num(row5[zc.target]),imp:num(row5[zc.imp])});
       }
       if(zd.SAIDI.length||zd.SAIFI.length){
         if(zd.SAIDI.length)R.zones.SAIDI=zd.SAIDI;
@@ -852,9 +964,9 @@ function buildTemplate(){
   var gv=[['Governorate','Rank','MV Unplanned Current','MV Unplanned Prior','SAIDI YTD','SAIFI YTD','Worst FDRs']];
   D.governorates.forEach(function(x){gv.push([x.gov,x.rank,x.mv26,x.mv25,x.saidi,x.saifi,x.fdr]);});
   sh(gv,'Governorates',[24,7,22,20,11,11,12]);
-  var zn=[['Zone','Indicator','Rolling','Target','Improvement %']];
-  ['SAIDI','SAIFI'].forEach(function(k){D.zones[k].forEach(function(x){zn.push([x.zone,k,x.rolling,x.target,x.imp]);});});
-  sh(zn,'Zones',[12,12,11,11,15]);
+  var zn=[['Zone','Indicator',((D.meta.year||2026)-1)+' Year End',(D.meta.year||2026)+' Rolling 12 Month','Target','Improvement %']];
+  ['SAIDI','SAIFI'].forEach(function(k){D.zones[k].forEach(function(x){zn.push([x.zone,k,x.prev,x.rolling,x.target,x.imp]);});});
+  sh(zn,'Zones',[12,12,14,15,11,15]);
   var nt=[['Section','Note']];
   [['Current Month & Trends','p1'],['Classification','p2'],['Governorates Map','p3'],['Zones','p4']].forEach(function(p){
     ((D.notes||{})[p[1]]||[]).forEach(function(t){nt.push([p[0],t]);});});
@@ -880,7 +992,9 @@ function build(){
   var pb=el('nr-period'),pm=el('nr-pmenu');
   pb.addEventListener('click',function(e){e.stopPropagation();periodMenu();pm.classList.toggle('on');xm.classList.remove('on');});
   pm.addEventListener('click',function(e){
-    var b=e.target.closest('button');if(!b)return;pm.classList.remove('on');
+    var b=e.target.closest('button');if(!b)return;
+    if(b.dataset.del){e.stopPropagation();deleteMonth(b.dataset.del);return;}
+    pm.classList.remove('on');
     if(b.dataset.k)showMonth(b.dataset.k);
   });
   xb.addEventListener('click',function(e){e.stopPropagation();xm.classList.toggle('on');});
@@ -892,7 +1006,7 @@ function build(){
   });
   el('nr-tpl').addEventListener('click',template);
   el('nr-reset').addEventListener('click',function(){
-    R=JSON.parse(JSON.stringify(window.NPI_DEFAULT));
+    R=normZones(JSON.parse(JSON.stringify(window.NPI_DEFAULT)));
     try{localStorage.removeItem(STORE);}catch(e){}
     renderAll();say('Reset to the July 2026 sample figures.',true);
   });
@@ -907,7 +1021,7 @@ function build(){
     new ResizeObserver(function(en){var w=Math.round(en[0].contentRect.width);
       if(!w||w===lastW)return;lastW=w;clearTimeout(rzT);
       rzT=setTimeout(function(){dirty[active]=1;renderPage(active);},180);}).observe(host);}
-  try{var saved=localStorage.getItem(STORE);if(saved){var p=JSON.parse(saved);if(p&&p.summary&&p.meta)R=p;}}catch(e){}
+  try{var saved=localStorage.getItem(STORE);if(saved){var p=JSON.parse(saved);if(p&&p.summary&&p.meta)R=normZones(p);}}catch(e){}
   /* a workbook loaded before the archive existed still deserves a slot */
   try{var ar=loadArch();if(!Object.keys(ar).length&&localStorage.getItem(STORE))archive(R);}catch(e){}
   CLOUD.on=!!wurl()&&(window.USE_WORKER!==false);

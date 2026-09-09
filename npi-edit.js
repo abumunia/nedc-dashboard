@@ -17,6 +17,7 @@ var CSS=''+
 '#view-npi-summary .ne-per label{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:'+GREY+'}'+
 '#view-npi-summary .ne-per input{width:150px;font:700 13px Inter,sans-serif;color:'+NAVY+';padding:7px 10px;border:1px solid #d7dce3;border-radius:7px;background:#fff}'+
 '#view-npi-summary .ne-b{font:700 12px Inter,sans-serif;padding:8px 14px;border-radius:7px;border:1px solid #d7dce3;background:#fff;color:'+NAVY+';cursor:pointer;white-space:nowrap}'+
+'#view-npi-summary .ne-rl{display:inline-block;font-size:11.5px;font-weight:600;color:#111827;line-height:1.3}'+
 '#view-npi-summary .ne-b:hover{border-color:'+NAVY+'}'+
 '#view-npi-summary .ne-b.go{background:'+RED+';border-color:'+RED+';color:#fff}'+
 '#view-npi-summary .ne-b.go:disabled{background:#e5e7eb;border-color:#e5e7eb;color:#9ca3af;cursor:default}'+
@@ -54,6 +55,11 @@ function esc(s){return String(s===null||s===undefined?'':s).replace(/[&<>"]/g,fu
 function num(v){if(v===null||v===undefined||String(v).trim()==='')return null;var n=parseFloat(String(v).replace(/,/g,''));return isNaN(n)?null:n;}
 function clone(o){return JSON.parse(JSON.stringify(o));}
 /* path-addressed input: data-k is a dotted path into the working copy */
+/* Row labels are structural — the report's charts, donuts and rankings are keyed
+   to them — so they are shown frozen rather than as editable text. */
+function lbl(v){
+  return '<span class="ne-rl">'+esc(v===null||v===undefined?'':v)+'</span>';
+}
 function inp(path,v,cls){
   return '<input class="ne-in'+(cls?' '+cls:'')+'" data-k="'+path+'" value="'+esc(v===null||v===undefined?'':v)+'"'+(cls&&cls.indexOf('txt')>=0?'':' inputmode="decimal"')+'>';
 }
@@ -112,11 +118,11 @@ function voltPanel(){
   var rows=[];
   ['SAIDI','SAIFI'].forEach(function(k){
     W.classVoltage[k].forEach(function(x,i){
-      rows.push([inp('classVoltage.'+k+'.'+i+'.k',x.k,'txt sm'),'<span style="font-size:11px;font-weight:700;color:'+GREY+'">'+k+' share %</span>',inp('classVoltage.'+k+'.'+i+'.v',x.v)]);
+      rows.push([lbl(x.k),'<span style="font-size:11px;font-weight:700;color:'+GREY+'">'+k+' share %</span>',inp('classVoltage.'+k+'.'+i+'.v',x.v)]);
     });
   });
   W.outageVoltage.forEach(function(x,i){
-    rows.push([inp('outageVoltage.'+i+'.k',x.k,'txt sm'),'<span style="font-size:11px;font-weight:700;color:'+GREY+'">Unplanned outages</span>',inp('outageVoltage.'+i+'.v',x.v)]);
+    rows.push([lbl(x.k),'<span style="font-size:11px;font-weight:700;color:'+GREY+'">Unplanned outages</span>',inp('outageVoltage.'+i+'.v',x.v)]);
   });
   return panel('Voltage level','page 4 donuts',tbl(['Level','Measure','Value'],rows),null,
     'SAIDI and SAIFI rows are percentage shares. Unplanned outage rows are counts year to date.');
@@ -126,7 +132,25 @@ function voltPanel(){
    average place), and the three places are averaged with equal weight. Rank 1
    is the best combined position; a missing figure sorts last for that metric,
    and SAIDI breaks a tie on the average. */
+function zoneBackfill(){if(window.npiZoneBackfill&&W)window.npiZoneBackfill(W);}
+function paintZoneImp(){
+  if(!HOST)return;
+  [].slice.call(HOST.querySelectorAll('[data-imp]')).forEach(function(e){
+    var p=e.dataset.imp.split('.'),x=((W.zones||{})[p[0]]||[])[+p[1]];
+    if(x)e.value=(x.imp===null||x.imp===undefined?'':x.imp);
+  });
+}
+function zoneImp(){
+  ['SAIDI','SAIFI'].forEach(function(k){
+    (((W||{}).zones||{})[k]||[]).forEach(function(x){
+      var p=parseFloat(x.prev),r=parseFloat(x.rolling);
+      if(isNaN(p)||isNaN(r)||p===0)return; /* keep whatever figure is there */
+      x.imp=Math.round((r-p)/p*1000)/10;
+    });
+  });
+}
 function reRank(){
+  zoneImp();
   var g=W.governorates||[],n=g.length;if(!n)return;
   function places(key){
     var arr=g.map(function(x,i){var v=x[key];return{i:i,v:(v===null||v===undefined||isNaN(v))?Infinity:+v};})
@@ -154,7 +178,7 @@ function paintRanks(){
 
 function govPanel(){
   var rows=W.governorates.map(function(x,i){
-    return [inp('governorates.'+i+'.gov',x.gov,'txt'),'<span class="ne-rk" data-rank="'+i+'">'+x.rank+'</span>',
+    return [lbl(x.gov),'<span class="ne-rk" data-rank="'+i+'">'+x.rank+'</span>',
       inp('governorates.'+i+'.mv26',x.mv26,'sm'),inp('governorates.'+i+'.mv25',x.mv25,'sm'),
       inp('governorates.'+i+'.saidi',x.saidi,'sm'),inp('governorates.'+i+'.saifi',x.saifi,'sm'),
       inp('governorates.'+i+'.fdr',x.fdr,'sm'),'<button class="ne-x" data-del="governorates.'+i+'" title="Remove row">&times;</button>'];
@@ -168,13 +192,13 @@ function zonePanel(){
   var rows=[];
   ['SAIDI','SAIFI'].forEach(function(k){
     (W.zones[k]||[]).forEach(function(x,i){
-      rows.push([inp('zones.'+k+'.'+i+'.zone',x.zone,'txt sm'),'<span style="font-size:11px;font-weight:700;color:'+GREY+'">'+k+'</span>',
-        inp('zones.'+k+'.'+i+'.rolling',x.rolling,'sm'),inp('zones.'+k+'.'+i+'.target',x.target,'sm'),inp('zones.'+k+'.'+i+'.imp',x.imp,'sm'),
+      rows.push([lbl(x.zone),'<span style="font-size:11px;font-weight:700;color:'+GREY+'">'+k+'</span>',
+        inp('zones.'+k+'.'+i+'.prev',x.prev,'sm'),inp('zones.'+k+'.'+i+'.rolling',x.rolling,'sm'),inp('zones.'+k+'.'+i+'.target',x.target,'sm'),'<input class="ne-in sm lk" data-imp="'+k+'.'+i+'" value="'+esc(x.imp===null||x.imp===undefined?'':x.imp)+'" readonly tabindex="-1" title="Computed from the year-end baseline against the rolling 12 month figure">',
         '<button class="ne-x" data-del="zones.'+k+'.'+i+'" title="Remove row">&times;</button>']);
     });
   });
-  return panel('Zones','page 7 compliance',tbl(['Zone','Indicator','Rolling 12m','Target','Improvement %',''],rows),null,
-    'A zone whose rolling value is above its target is flagged as an APSR penalty.',
+  return panel('Zones','page 7 compliance',tbl(['Zone','Indicator',((W.meta.year||2026)-1)+' year end',(W.meta.year||2026)+' rolling 12 month','Target','Improvement %',''],rows),null,
+    'Improvement % is computed automatically as ('+(W.meta.year||2026)+' rolling 12 month \u2212 '+((W.meta.year||2026)-1)+' year end) \u00f7 '+((W.meta.year||2026)-1)+' year end \u2014 a reduction against the baseline shows as a negative figure. A zone whose rolling value is above its target is flagged as an APSR penalty.',
     '<div class="ne-row-b"><button class="ne-b" data-add="zSAIDI">Add SAIDI zone</button><button class="ne-b" data-add="zSAIFI">Add SAIFI zone</button></div>');
 }
 function notesPanel(){
@@ -222,23 +246,24 @@ function wire(){
       var path=t.dataset.k,isTxt=t.classList.contains('txt');
       setPath(W,path,isTxt?t.value:num(t.value));
       if(path.indexOf('governorates.')===0&&/\.(saidi|saifi|mv26)$/.test(path)){reRank();paintRanks();}
+      if(path.indexOf('zones.')===0&&/\.(prev|rolling)$/.test(path)){zoneImp();paintZoneImp();}
       mark();
     }
   });
   HOST.addEventListener('click',function(e){
     var b=e.target.closest('button');if(!b)return;
     if(b.id==='ne-save'){commit();return;}
-    if(b.id==='ne-undo'){W=clone(API.get());DIRTY=false;paint();status('ok','Changes discarded');return;}
+    if(b.id==='ne-undo'){W=clone(API.get());zoneBackfill();DIRTY=false;paint();status('ok','Changes discarded');return;}
     if(b.id==='ne-xls'){API.excel();return;}
     if(b.id==='ne-tpl'){API.template();return;}
     if(b.id==='ne-rst'){
       if(!window.confirm('Reset every figure to the built-in July 2026 sample?'))return;
-      API.reset();W=clone(API.get());DIRTY=false;paint();status('ok','Reset to the sample figures');return;
+      API.reset();W=clone(API.get());zoneBackfill();DIRTY=false;paint();status('ok','Reset to the sample figures');return;
     }
     if(b.dataset.add){
       var a=b.dataset.add;
       if(a==='gov')W.governorates.push({gov:'New governorate',rank:W.governorates.length+1,mv26:0,mv25:0,saidi:0,saifi:0,fdr:0});
-      else W.zones[a.slice(1)].push({zone:'New zone',rolling:null,target:null,imp:0});
+      else W.zones[a.slice(1)].push({zone:'New zone',prev:null,rolling:null,target:null,imp:null});
       reRank();mark();paint();return;
     }
     if(b.dataset.del){
@@ -272,6 +297,7 @@ window.NPI_EDIT={
     HOST=host;API=api;
     if(!host.dataset.neWired){host.dataset.neWired='1';wire();}
     if(remount||!W||!DIRTY)W=clone(api.get());
+    zoneBackfill();
     reRank();
     paint();
   }
