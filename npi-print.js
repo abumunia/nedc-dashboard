@@ -103,7 +103,7 @@ var CSS=''+
 '#'+ID+' .pd-z{flex:1;border:1px solid #e5e7eb;border-radius:7px;overflow:hidden;display:flex;flex-direction:column;min-width:0}'+
 '#'+ID+' .pd-z-h{background:'+NAVY+';color:#fff;padding:7px 12px;display:flex;align-items:center;justify-content:space-between}'+
 '#'+ID+' .pd-z-h b{font-size:13px;font-weight:800}#'+ID+' .pd-z-h span{font-size:9.5px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.8px}'+
-'#'+ID+' .pd-z-b{flex:1;padding:9px 12px;display:flex;flex-direction:column;justify-content:center;gap:4px}'+
+'#'+ID+' .pd-z-b{flex:1;padding:9px 12px;display:flex;flex-direction:column;justify-content:flex-start;gap:4px}'+
 '#'+ID+' .pd-z-r{display:flex;align-items:baseline;justify-content:space-between;gap:8px}'+
 '#'+ID+' .pd-z-r span{font-size:11px;font-weight:600;color:'+MUTE+'}'+
 '#'+ID+' .pd-z-r b{font-size:19px;font-weight:900;letter-spacing:-.6px;color:'+NAVY+'}'+
@@ -489,14 +489,14 @@ function zcards(k){
       '<div class="pd-z-r"><span>'+R.meta.year+' rolling 12 month</span><b>'+nf(x.rolling,dec)+'</b></div>'+
       '<div class="pd-z-r"><span>Target '+R.meta.year+'</span><b class="sm">'+nf(x.target,dec)+'</b></div>'+
       '<div class="pd-bar"><i style="width:'+w+'%;background:'+(over?RED:GREEN)+'"></i></div>'+
-      '<div style="margin-top:5px;display:flex;flex-direction:column;align-items:flex-start;gap:2px"><span class="pd-chip '+(over?'bad':'ok')+'">'+(over?'APSR penalty':'Within target')+'</span>'+(x.imp===null||x.imp===undefined?'':'<span style="font-size:8px;font-weight:700;color:'+(x.imp<=0?GREEN:RED)+'">'+(x.imp>0?'+':'')+nf(x.imp,1)+'% vs '+((R.meta.year||2026)-1)+'</span>')+'</div>'+
+      '<div style="margin-top:4px;display:flex;align-items:center;flex-wrap:wrap;gap:7px"><span class="pd-chip '+(over?'bad':'ok')+'">'+(over?'APSR penalty':'Within target')+'</span>'+(x.imp===null||x.imp===undefined?'':'<span style="font-size:8px;font-weight:700;color:'+(x.imp<=0?GREEN:RED)+'">'+(x.imp>0?'+':'')+nf(x.imp,1)+'% vs '+((R.meta.year||2026)-1)+'</span>')+'</div>'+
     '</div></div>';
   }).join('');
 }
 function pzones(){
   return page('Zonal Compliance · Rolling 12 Months',7,
-    '<div class="pd-row" style="height:162px;gap:9px">'+zcards('SAIDI')+'</div>'+
-    '<div class="pd-row" style="height:162px;gap:9px">'+zcards('SAIFI')+'</div>'+
+    '<div class="pd-row" style="gap:9px;flex:0 0 auto">'+zcards('SAIDI')+'</div>'+
+    '<div class="pd-row" style="gap:9px;flex:0 0 auto">'+zcards('SAIFI')+'</div>'+
     '<div class="pd-row" style="flex:1;min-height:0">'+
       panel('SAIDI · rolling vs target '+R.meta.year,'all zones',cv('pdc-zSAIDI',490,200),'flex:1')+
       panel('SAIFI · rolling vs target '+R.meta.year,'all zones',cv('pdc-zSAIFI',490,200),'flex:1')+
