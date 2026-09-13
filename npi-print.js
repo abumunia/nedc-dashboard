@@ -197,7 +197,7 @@ var CSS=''+
 '}';
 /* @page cannot be scoped to a body class, so the landscape rule is injected only
    for the duration of the export and removed in cleanup(). */
-var PAGE_RULE='@media print{@page{size:A4 landscape;margin:9mm}}';
+var PAGE_RULE='@media print{@page{size:297mm 210mm;margin:9mm}}';
 
 /* ── builders ── */
 function page(sub,n,body){
@@ -693,26 +693,48 @@ function hrefOf(name,fallback){
   var l=document.querySelector('link[href*="'+name+'"]');
   return l?l.href:fallback;
 }
+function fallbackPrint(data,title){
+  /* Same-origin host frame: borrow its title and page box so the in-page
+     print path still names the file and stays landscape. */
+  try{
+    var td=window.top&&window.top!==window?window.top.document:null;
+    if(td){
+      td.title=title;
+      if(!td.getElementById('nr-pdoc-page-top')){
+        var s=td.createElement('style');s.id='nr-pdoc-page-top';s.textContent=PAGE_RULE;td.head.appendChild(s);
+      }
+    }
+  }catch(e){}
+  window.NPI_PRINT_DOC(data);
+}
 window.NPI_PRINT_REPORT=function(data){
   var period=String((data.meta||{}).period||'').replace(/[\\/:*?"<>|]/g,' ').trim();
   var title='NPI Summary Report - '+period;
   var logo=((document.querySelector('#sidebar .slogo img')||document.querySelector('#welcome img')||document.querySelector('.topbar-left img')||{}).src)||'';
   var w;
   try{w=window.open('','_blank');}catch(e){w=null;}
-  if(!w){window.NPI_PRINT_DOC(data);return;}
+  /* A blocked pop-up can still hand back a window object, so probe its document
+     before trusting it — otherwise the export silently falls back to printing
+     inside the host frame, where neither our title nor our landscape @page apply. */
+  var ok=false;try{ok=!!(w&&!w.closed&&w.document);}catch(e){ok=false;}
+  if(!ok){
+    try{if(w)w.close();}catch(e){}
+    alert('Pop-ups are blocked for this site, so the report will print from this page.\n\nThe file name and the landscape layout may not be applied. To get a correctly named landscape PDF, allow pop-ups for this site and export again.');
+    fallbackPrint(data,title);return;
+  }
   var d=w.document;
   d.open();
   d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+title.replace(/[<>&]/g,'')+'</title>'+
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">'+
     '<link rel="stylesheet" href="'+hrefOf('leaflet.css','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css')+'">'+
-    '<style>html,body{margin:0}</style></head><body>'+
+    '<style>html,body{margin:0}'+PAGE_RULE+'</style></head><body>'+
     '<div class="nr-live-bar">Report ready — use your browser\u2019s Save as PDF. File name: <b>'+title+'.pdf</b>'+
     '<button onclick="window.print()">Print again</button><button onclick="window.close()" style="background:rgba(255,255,255,.14)">Close</button></div>'+
     '<scr'+'ipt src="'+srcOf('leaflet.js','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js')+'"><\/scr'+'ipt>'+
     '<scr'+'ipt src="'+srcOf('chart.umd','https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js')+'"><\/scr'+'ipt>'+
     '<scr'+'ipt src="'+srcOf('chartjs-plugin-datalabels','https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js')+'"><\/scr'+'ipt>'+
     '<scr'+'ipt src="'+srcOf('npi-print.js','npi-print.js')+'"><\/scr'+'ipt>'+
-    '<scr'+'ipt>window.__NPI_LOGO='+JSON.stringify(logo)+';window.__NPI_DATA='+JSON.stringify(data)+';window.__NPI_WIN=1;'+
+    '<scr'+'ipt>window.__NPI_LOGO='+JSON.stringify(logo)+';window.__NPI_DATA='+JSON.stringify(data)+';window.__NPI_WIN=1;document.title='+JSON.stringify(title)+';'+
     'document.body.classList.add("nr-live");'+
     '(function go(n){if(window.Chart&&window.L&&window.NPI_PRINT_DOC){try{Chart.register(ChartDataLabels);}catch(e){}'+
     'window.NPI_PRINT_DOC(window.__NPI_DATA);return;}if(n>150)return;setTimeout(function(){go(n+1);},80);})(0);<\/scr'+'ipt>'+
