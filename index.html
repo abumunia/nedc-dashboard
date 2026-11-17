@@ -5149,8 +5149,12 @@ function parseWorkbook(wb,fileName){
         for(var i=hi+1;i<dRows.length;i++){
           var row=dRows[i];if(!row)continue;
           // Reason is at hrReasonCol (or scan for text at that position)
+          // Stop at the next table on the sheet (the "Outage Driver | No of interruption | SAIDI | SAIFI"
+          // impact table sits under this one; reading on would add its rows as duplicate drivers)
+          if(row.some(function(c){var t=cl(c).toLowerCase();return t.indexOf('outage driver')===0||/^no\.? of interruption/.test(t);}))break;
           var reason=row[hrReasonCol]?cl(row[hrReasonCol]):'';
           if(!reason)continue;
+          if(/^(grand )?total$/i.test(reason))continue;
           // Use NEDC total column if found, else sum govs
           var tot2=0;
           if(totalCol>0&&row[totalCol]!==null&&row[totalCol]!==undefined){
