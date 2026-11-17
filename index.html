@@ -865,13 +865,18 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <div class="card-body hm-wrap" id="heatmap-wrap"></div>
       </div>
       <div class="card">
-        <div class="card-hdr">
-          <div class="card-title">Outage Count by Driver</div>
+        <div class="card-hdr" style="flex-wrap:wrap;gap:10px">
+          <div><div class="card-title" id="drv-title">Outage Count by Driver</div><div class="card-sub" id="drv-sub" style="display:none"></div></div>
+          <div class="subtabs">
+            <button class="stab active" id="drv-tab-count" onclick="setDriverTab('count')">Outage Count</button>
+            <button class="stab" id="drv-tab-saidi" onclick="setDriverTab('saidi')">Top 6 · SAIDI</button>
+            <button class="stab" id="drv-tab-saifi" onclick="setDriverTab('saifi')">Top 6 · SAIFI</button>
+          </div>
           <select id="driver-filter" onchange="buildDriverBar(this.value)" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:'Inter',sans-serif;background:#fff">
             <option value="All">All</option><option value="High">High Impact</option><option value="Medium">Medium</option><option value="Low">Low</option>
           </select>
         </div>
-        <div class="card-body"><div style="height:auto;min-height:200px"><canvas id="driver-bar"></canvas></div></div>
+        <div class="card-body"><div style="height:auto;min-height:200px"><canvas id="driver-bar"></canvas><div id="drv-empty" style="display:none;padding:48px 16px;text-align:center;color:#516276;font-size:13px;line-height:1.6"></div></div></div>
       </div>
     </div>
 
@@ -3761,7 +3766,81 @@ function buildHeatmap(n){
   });
   document.getElementById('heatmap-wrap').innerHTML=html+'</tbody></table>';
 }
+var DRV_TAB='count';
+function drvImpactSrc(){return (D.driverImpact&&D.driverImpact.length)?D.driverImpact:D.drivers;}
+function drvHas(key){return drvImpactSrc().some(function(d){return typeof d[key]==='number'&&d[key]>0;});}
+function syncDriverTabs(){
+  var hs=drvHas('saidi'),hf=drvHas('saifi');
+  var bs=document.getElementById('drv-tab-saidi'),bf=document.getElementById('drv-tab-saifi'),bc=document.getElementById('drv-tab-count');
+  if(bs)bs.style.display=hs?'':'none';
+  if(bf)bf.style.display=hf?'':'none';
+  var wrap=bc&&bc.parentNode;if(wrap)wrap.style.display=(hs||hf)?'':'none';
+  if((DRV_TAB==='saidi'&&!hs)||(DRV_TAB==='saifi'&&!hf)){
+    DRV_TAB='count';
+    if(bc)bc.classList.add('active');if(bs)bs.classList.remove('active');if(bf)bf.classList.remove('active');
+    var f=document.getElementById('driver-filter');if(f)f.style.display='';
+    var t=document.getElementById('drv-title');if(t)t.textContent='Outage Count by Driver';
+    var s=document.getElementById('drv-sub');if(s)s.style.display='none';
+  }
+}
+function setDriverTab(t){
+  DRV_TAB=t;
+  ['count','saidi','saifi'].forEach(function(k){var b=document.getElementById('drv-tab-'+k);if(b)b.classList.toggle('active',k===t);});
+  var f=document.getElementById('driver-filter');if(f)f.style.display=t==='count'?'':'none';
+  var sub=document.getElementById('drv-sub');
+  if(t==='count'){
+    document.getElementById('drv-title').textContent='Outage Count by Driver';sub.style.display='none';
+    buildDriverBar(f?f.value:'All');
+  } else buildDriverImpact(t);
+}
+function buildDriverImpact(t){
+  var K=t==='saidi'?'SAIDI':'SAIFI',key=t,unitL=t==='saidi'?'min':'int/cust';
+  var SEV=[{min:10,c:'#b91c1c',bg:'#fde8e8',l:'Critical ≥10%'},{min:7,c:'#ea580c',bg:'#ffedd5',l:'High 7–10%'},{min:4,c:'#d97706',bg:'#fef3c7',l:'Moderate 4–7%'},{min:0,c:'#64748b',bg:'#eef2f6',l:'Low <4%'}];
+  function sev(p){for(var i=0;i<SEV.length;i++)if(p>=SEV[i].min)return SEV[i];return SEV[SEV.length-1];}
+  document.getElementById('drv-title').textContent='Top 6 Drivers Impacting '+K;
+  var sub=document.getElementById('drv-sub');
+  var all=drvImpactSrc().filter(function(d){return typeof d[key]==='number'&&d[key]>0;});
+  var cv=document.getElementById('driver-bar'),em=document.getElementById('drv-empty');
+  dc('driver-bar');cv.style.display='none';em.style.display='block';
+  if(!all.length){syncDriverTabs();buildDriverBar('All');return;}
+  em.style.padding='4px 0 0';em.style.textAlign='left';
+  var tot=all.reduce(function(s,d){return s+d[key];},0);
+  var data=all.slice().sort(function(a,b){return b[key]-a[key];}).slice(0,6);
+  var pk=key+'Pct';
+  function pct(d){return typeof d[pk]==='number'?d[pk]:(d[key]/tot*100);}
+  var max=data[0][key];
+  var topPct=data.reduce(function(s,d){return s+pct(d);},0);
+  var topVal=data.reduce(function(s,d){return s+d[key];},0);
+  function fmt(v){return t==='saidi'?(Math.round(v*10)/10).toString():v.toFixed(2);}
+  sub.style.display='';sub.textContent='2026 YTD · ranked by '+K+' contribution';
+  var g='display:grid;grid-template-columns:28px minmax(120px,1.1fr) minmax(0,2fr) 64px;align-items:center;column-gap:14px';
+  var h='<div style="'+g+';padding:0 4px 8px;border-bottom:1px solid #e5e9f0;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b">'+
+    '<div>#</div><div>Driver</div><div>'+K+' ('+unitL+')</div><div style="text-align:right">Share</div></div>';
+  data.forEach(function(d,i){
+    var w=Math.max(4,d[key]/max*100),lead=i===0,sv=sev(pct(d)),col=sv.c,tint=sv.bg;
+    h+='<div style="'+g+';padding:9px 4px;border-bottom:1px solid #f0f3f7">'+
+      '<div style="font:700 12px \'JetBrains Mono\',monospace;color:'+(lead?col:'#94a3b8')+'">'+String(i+1).padStart(2,'0')+'</div>'+
+      '<div style="min-width:0"><div style="font-size:13px;font-weight:'+(lead?800:600)+';color:#0c1e35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+d.r+'">'+d.r+'</div>'+
+        (d.n?'<div style="font-size:11px;color:#64748b;margin-top:1px">'+d.n.toLocaleString()+' interruptions</div>':'')+'</div>'+
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0">'+
+        '<div style="flex:1;height:14px;background:#f1f4f8;border-radius:3px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:'+col+';border-radius:3px"></div></div>'+
+        '<div style="font:700 13px \'JetBrains Mono\',monospace;color:#0c1e35;min-width:38px;text-align:right">'+fmt(d[key])+'</div></div>'+
+      '<div style="justify-self:end;font:800 13px \'JetBrains Mono\',monospace;color:'+col+';background:'+tint+';padding:4px 8px;border-radius:6px;min-width:46px;text-align:center">'+Math.round(pct(d))+'%</div>'+
+    '</div>';
+  });
+  h+='<div style="'+g+';padding:12px 4px 2px">'+
+    '<div></div><div style="font-size:12px;font-weight:800;color:#0c1e35;text-transform:uppercase;letter-spacing:.04em">Top 6 total</div>'+
+    '<div style="font:800 14px \'JetBrains Mono\',monospace;color:#0c1e35;text-align:right">'+fmt(topVal)+' <span style="font:600 11px Inter,sans-serif;color:#64748b">'+unitL+'</span></div>'+
+    '<div style="justify-self:end;font:800 14px \'JetBrains Mono\',monospace;color:#fff;background:#0c1e35;padding:5px 8px;border-radius:6px;min-width:46px;text-align:center">'+Math.round(topPct)+'%</div></div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-end;padding:12px 4px 0;font-size:11px;color:#516276">'+
+    SEV.map(function(s){return '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:'+s.c+'"></span>'+s.l+'</span>';}).join('')+'</div>';
+  em.innerHTML=h;
+}
 function buildDriverBar(cat){
+  syncDriverTabs();
+  if(DRV_TAB!=='count'){buildDriverImpact(DRV_TAB);return;}
+  var cv0=document.getElementById('driver-bar');if(cv0)cv0.style.display='';
+  var em0=document.getElementById('drv-empty');if(em0){em0.style.display='none';em0.innerHTML='';}
   var data=cat==='All'?D.drivers.slice():D.drivers.filter(function(d){return d.c===cat;});
   data=data.slice().sort(function(a,b){return b.n-a.n;});
   var cc={'High':'#c0392b','Medium':'#e67e22','Low':'#2980b9'};
@@ -4575,7 +4654,7 @@ window.addEventListener('load', function(){
     if(lsData){
       var lsParsed=JSON.parse(lsData);
       if(lsParsed&&lsParsed.saidi&&lsParsed.period){
-        D=lsParsed;
+        D=ensureDefaults(lsParsed);
         console.log('Loaded from localStorage:',D.period);
       }
     }
@@ -5057,11 +5136,13 @@ function parseWorkbook(wb,fileName){
       });
       if(hi>=0){
         // Find gov columns and total column (columns AFTER 'Outage Reason' column)
-        var govs=[];var totalCol=-1;
+        var govs=[];var totalCol=-1,saidiCol=-1,saifiCol=-1;
         for(var j=hrReasonCol+1;j<hr.length;j++){
           if(hr[j]===null||hr[j]===undefined)continue;
           var hv=cl(hr[j]);
           if(hv.toUpperCase()==='NEDC'||hv.toUpperCase()==='TOTAL'){totalCol=j;}
+          else if(/^SAIDI/i.test(hv)){saidiCol=j;}
+          else if(/^SAIFI/i.test(hv)){saifiCol=j;}
           else if(hv.length>0){govs.push({name:hv,col:j});}
         }
         var dList=[],dRows2=[];
@@ -5080,7 +5161,10 @@ function parseWorkbook(wb,fileName){
           var counts=[];
           for(var j=0;j<govs.length;j++){counts.push(parseInt(row[govs[j].col])||0);}
           if(tot2===0&&counts.every(function(c){return c===0;}))continue;
-          dList.push({r:reason,n:tot2,c:tot2>=30?'High':tot2>=5?'Medium':'Low'});
+          var drvO={r:reason,n:tot2,c:tot2>=30?'High':tot2>=5?'Medium':'Low'};
+          if(saidiCol>=0){var sv=parseFloat(row[saidiCol]);if(!isNaN(sv))drvO.saidi=sv;}
+          if(saifiCol>=0){var fv=parseFloat(row[saifiCol]);if(!isNaN(fv))drvO.saifi=fv;}
+          dList.push(drvO);
           dRows2.push({d:reason,v:counts});
         }
         console.log('Driver parse:',dList.length,'drivers, top=',dList.length>0?dList.sort(function(a,b){return b.n-a.n;})[0]:'none');if(dList.length>0){
@@ -5088,6 +5172,41 @@ function parseWorkbook(wb,fileName){
           pDrvM={govs:govs.map(function(g){return g.name;}),rows:dRows2};
         }
       }}
+
+    // ── DRIVER IMPACT TABLE (Outage Driver | No of interruption | SAIDI | % | SAIFI | %) ──
+    var pDrvImp=[];
+    (function(){
+      var rows=gs('The Driver Frequency');if(!rows)return;
+      for(var i=0;i<rows.length;i++){
+        var h=rows[i];if(!h)continue;
+        var rc=-1,nc=-1,sc=-1,spc=-1,fc=-1,fpc=-1;
+        for(var j=0;j<h.length;j++){
+          var v=cl(h[j]).toLowerCase();if(!v)continue;
+          if(v.indexOf('outage driver')===0)rc=j;
+          else if(v.indexOf('no of interruption')===0||v.indexOf('no. of interruption')===0)nc=j;
+          else if(v.indexOf('saidi')===0)sc=j;
+          else if(v.indexOf('saifi')===0)fc=j;
+          else if(v.indexOf('%')===0||v.indexOf('contribution')>=0){if(fc>=0&&fpc<0)fpc=j;else if(sc>=0&&spc<0)spc=j;}
+        }
+        if(rc<0||(sc<0&&fc<0))continue;
+        function pp(x){if(x===null||x===undefined||x==='')return undefined;var s=String(x).trim(),n=parseFloat(s.replace('%',''));if(isNaN(n))return undefined;return (s.indexOf('%')<0&&n<=1)?n*100:n;}
+        var list=[];
+        for(var k=i+1;k<rows.length;k++){
+          var r=rows[k];if(!r)break;
+          var name=cl(r[rc]);if(!name)break;
+          if(/^total/i.test(name))continue;
+          var o={r:name.replace(/\s+,/g,',').replace(/\s+/g,' ')};
+          if(nc>=0)o.n=parseInt(r[nc])||0;
+          if(sc>=0){var sv=parseFloat(r[sc]);if(!isNaN(sv))o.saidi=sv;}
+          if(fc>=0){var fv=parseFloat(r[fc]);if(!isNaN(fv))o.saifi=fv;}
+          if(spc>=0){var a=pp(r[spc]);if(a!==undefined)o.saidiPct=a;}
+          if(fpc>=0){var b=pp(r[fpc]);if(b!==undefined)o.saifiPct=b;}
+          list.push(o);
+        }
+        if(list.length){pDrvImp=list;console.log('Driver impact parse:',list.length);}
+        return;
+      }
+    })();
 
     // ── QSI PROJECTS ── (XLSX.js strips leading nulls, so scan all cells)
     // Indicator row: exactly ONE non-null cell = text (col0 after stripping)
@@ -5292,7 +5411,7 @@ function parseWorkbook(wb,fileName){
       govData:pGovData,contrib:pContrib,voltage:pVoltage,zones:pZones,
       breakdown:pBreakdown,outageType:pOutType,mvUnplanned:pMvU,
       outageComp:pOutComp,plannedExceed:pPlanEx,transient:pTrans,
-      drivers:pDrv,driverMatrix:pDrvM,qsiProjects:pQsi,
+      drivers:pDrv,driverMatrix:pDrvM,driverImpact:pDrvImp,qsiProjects:pQsi,
       customMsg:D.customMsg,govKpi:pGovKpi,govCoords:D.govCoords,govGroups:D.govGroups,customers:pCustomers
     };
   }catch(e){console.error('parseWorkbook error:',e);return null;}
