@@ -865,14 +865,14 @@ table.dt tr.grp td{background:#fef8f8;font-weight:700;border-top:2px solid #feca
         <div class="card-body hm-wrap" id="heatmap-wrap"></div>
       </div>
       <div class="card">
-        <div class="card-hdr" style="flex-wrap:wrap;gap:10px">
+        <div class="card-hdr" style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px">
           <div><div class="card-title" id="drv-title">Outage Count by Driver</div><div class="card-sub" id="drv-sub" style="display:none"></div></div>
           <div class="subtabs">
             <button class="stab active" id="drv-tab-count" onclick="setDriverTab('count')">Outage Count</button>
             <button class="stab" id="drv-tab-saidi" onclick="setDriverTab('saidi')">Top 6 · SAIDI</button>
             <button class="stab" id="drv-tab-saifi" onclick="setDriverTab('saifi')">Top 6 · SAIFI</button>
           </div>
-          <select id="driver-filter" onchange="buildDriverBar(this.value)" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:'Inter',sans-serif;background:#fff">
+          <select id="driver-filter" onchange="buildDriverBar(this.value)" style="justify-self:end;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:'Inter',sans-serif;background:#fff">
             <option value="All">All</option><option value="High">High Impact</option><option value="Medium">Medium</option><option value="Low">Low</option>
           </select>
         </div>
@@ -3778,7 +3778,7 @@ function syncDriverTabs(){
   if((DRV_TAB==='saidi'&&!hs)||(DRV_TAB==='saifi'&&!hf)){
     DRV_TAB='count';
     if(bc)bc.classList.add('active');if(bs)bs.classList.remove('active');if(bf)bf.classList.remove('active');
-    var f=document.getElementById('driver-filter');if(f)f.style.display='';
+    var f=document.getElementById('driver-filter');if(f)f.style.visibility='';
     var t=document.getElementById('drv-title');if(t)t.textContent='Outage Count by Driver';
     var s=document.getElementById('drv-sub');if(s)s.style.display='none';
   }
@@ -3786,7 +3786,7 @@ function syncDriverTabs(){
 function setDriverTab(t){
   DRV_TAB=t;
   ['count','saidi','saifi'].forEach(function(k){var b=document.getElementById('drv-tab-'+k);if(b)b.classList.toggle('active',k===t);});
-  var f=document.getElementById('driver-filter');if(f)f.style.display=t==='count'?'':'none';
+  var f=document.getElementById('driver-filter');if(f)f.style.visibility=t==='count'?'':'hidden';
   var sub=document.getElementById('drv-sub');
   if(t==='count'){
     document.getElementById('drv-title').textContent='Outage Count by Driver';sub.style.display='none';
