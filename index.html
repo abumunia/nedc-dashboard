@@ -1409,14 +1409,6 @@ var D = {
     labels:['WUSTA','Muscat','Dhahira','SHARQIYA-NORTH','NEDC','SHARQIYA-SOUTH','SOUTH-BATINAH','DAKHLYA','Musandam','North Batinah','Buraimi'],
     times:['2:29','1:10','0:49','0:57','1:07','1:09','1:15','0:56','3:20','0:50','0:12']
   },
-  driverImpact:[
-    {r:"Transient",n:501,saidi:14,saidiPct:12,saifi:0.28,saifiPct:17},
-    {r:"Conductors, PG & Jumper",n:479,saidi:12,saidiPct:10,saifi:0.19,saifiPct:12},
-    {r:"Cable Damage",n:269,saidi:10,saidiPct:9,saifi:0.15,saifiPct:9},
-    {r:"Cable Termination",n:262,saidi:10,saidiPct:9,saifi:0.15,saifiPct:9},
-    {r:"Pole Broken",n:136,saidi:4,saidiPct:4,saifi:0.05,saifiPct:3},
-    {r:"Distribution Transformers",n:113,saidi:2,saidiPct:2,saifi:0.04,saifiPct:3}
-  ],
   drivers:[
     {r:"TERMINATION",n:75,c:"High"},{r:"CONDUCTOR & PG & Jumper",n:64,c:"High"},
     {r:"Transient",n:59,c:"High"},{r:"Cable damaged",n:39,c:"High"},
@@ -1592,7 +1584,7 @@ var D_DEFAULTS=JSON.parse(JSON.stringify(D));
 function ensureDefaults(target){
   if(!target||typeof target!=='object')return target;
   // Top-level keys that must always be present
-  ['customers','govKpi','govCoords','govGroups','contrib','driverMatrix','drivers','driverImpact','transient','breakdown','outageType','mvUnplanned','outageComp','plannedExceed','voltage','zones'].forEach(function(k){
+  ['customers','govKpi','govCoords','govGroups','contrib','driverMatrix','drivers','transient','breakdown','outageType','mvUnplanned','outageComp','plannedExceed','voltage','zones'].forEach(function(k){
     if(target[k]==null && D_DEFAULTS[k]!=null) target[k]=JSON.parse(JSON.stringify(D_DEFAULTS[k]));
   });
   // Customers: merge missing gov rows so partial uploads don't blank the banner
@@ -3775,6 +3767,22 @@ function buildHeatmap(n){
   document.getElementById('heatmap-wrap').innerHTML=html+'</tbody></table>';
 }
 var DRV_TAB='count';
+function drvImpactSrc(){return (D.driverImpact&&D.driverImpact.length)?D.driverImpact:D.drivers;}
+function drvHas(key){return drvImpactSrc().some(function(d){return typeof d[key]==='number'&&d[key]>0;});}
+function syncDriverTabs(){
+  var hs=drvHas('saidi'),hf=drvHas('saifi');
+  var bs=document.getElementById('drv-tab-saidi'),bf=document.getElementById('drv-tab-saifi'),bc=document.getElementById('drv-tab-count');
+  if(bs)bs.style.display=hs?'':'none';
+  if(bf)bf.style.display=hf?'':'none';
+  var wrap=bc&&bc.parentNode;if(wrap)wrap.style.display=(hs||hf)?'':'none';
+  if((DRV_TAB==='saidi'&&!hs)||(DRV_TAB==='saifi'&&!hf)){
+    DRV_TAB='count';
+    if(bc)bc.classList.add('active');if(bs)bs.classList.remove('active');if(bf)bf.classList.remove('active');
+    var f=document.getElementById('driver-filter');if(f)f.style.display='';
+    var t=document.getElementById('drv-title');if(t)t.textContent='Outage Count by Driver';
+    var s=document.getElementById('drv-sub');if(s)s.style.display='none';
+  }
+}
 function setDriverTab(t){
   DRV_TAB=t;
   ['count','saidi','saifi'].forEach(function(k){var b=document.getElementById('drv-tab-'+k);if(b)b.classList.toggle('active',k===t);});
@@ -3791,15 +3799,10 @@ function buildDriverImpact(t){
   function sev(p){for(var i=0;i<SEV.length;i++)if(p>=SEV[i].min)return SEV[i];return SEV[SEV.length-1];}
   document.getElementById('drv-title').textContent='Top 6 Drivers Impacting '+K;
   var sub=document.getElementById('drv-sub');
-  var src=(D.driverImpact&&D.driverImpact.length)?D.driverImpact:D.drivers;
-  var all=src.filter(function(d){return typeof d[key]==='number'&&d[key]>0;});
+  var all=drvImpactSrc().filter(function(d){return typeof d[key]==='number'&&d[key]>0;});
   var cv=document.getElementById('driver-bar'),em=document.getElementById('drv-empty');
   dc('driver-bar');cv.style.display='none';em.style.display='block';
-  if(!all.length){
-    sub.style.display='none';em.style.padding='48px 16px';em.style.textAlign='center';
-    em.innerHTML='No '+K+' values per driver yet.<br>Add a table with <strong>Outage Driver</strong>, <strong>'+K+'</strong> and <strong>% Contribution</strong> columns to the <strong>The Driver Frequency</strong> sheet and re-import.';
-    return;
-  }
+  if(!all.length){syncDriverTabs();buildDriverBar('All');return;}
   em.style.padding='4px 0 0';em.style.textAlign='left';
   var tot=all.reduce(function(s,d){return s+d[key];},0);
   var data=all.slice().sort(function(a,b){return b[key]-a[key];}).slice(0,6);
@@ -3834,6 +3837,7 @@ function buildDriverImpact(t){
   em.innerHTML=h;
 }
 function buildDriverBar(cat){
+  syncDriverTabs();
   if(DRV_TAB!=='count'){buildDriverImpact(DRV_TAB);return;}
   var cv0=document.getElementById('driver-bar');if(cv0)cv0.style.display='';
   var em0=document.getElementById('drv-empty');if(em0){em0.style.display='none';em0.innerHTML='';}
@@ -5170,7 +5174,7 @@ function parseWorkbook(wb,fileName){
       }}
 
     // ── DRIVER IMPACT TABLE (Outage Driver | No of interruption | SAIDI | % | SAIFI | %) ──
-    var pDrvImp=D.driverImpact||[];
+    var pDrvImp=[];
     (function(){
       var rows=gs('The Driver Frequency');if(!rows)return;
       for(var i=0;i<rows.length;i++){
